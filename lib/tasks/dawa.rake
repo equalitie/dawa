@@ -10,7 +10,7 @@ namespace :dawa do
     }
     # Re-execute the task with the new environment
     env_str = envs.map { |k, v| [ k, "=", '"', v, '"' ].join }.join(" ")
-    exec(env_str + " rake assets:precompile")
+    exec(env_str + " rake dartsass:build assets:precompile")
   end
 
   desc "Generates a sample of required ENV variables"
