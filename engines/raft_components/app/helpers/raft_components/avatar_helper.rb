@@ -39,24 +39,11 @@ module RaftComponents
       end
 
       avatar["variant"] = variant
-
-      if record.respond_to?(:hue) && record.hue
-        avatar["hue"] = record.hue.to_i
-      end
-
-      if record.respond_to?(:name)
-        avatar["name"] ||= record.name
-      end
-
-      if record.respond_to?(:display_name)
-        avatar["name"] ||= record.display_name
-      end
-
-      if record.respond_to?(:username)
-        avatar["name"] ||= record.username
-      end
-
-      avatar["name"] ||= "unknown"
+      avatar["hue"] = record&.hue.presence.to_i
+      avatar["name"] = record.respond_to?(:name) && record.name.presence ||
+                       record.respond_to?(:display_name) && record.display_name.presence ||
+                       record.respond_to?(:username) && record.username.presence ||
+                       "unknown"
 
       return avatar
     end
