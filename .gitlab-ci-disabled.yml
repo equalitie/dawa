@@ -1,0 +1,171 @@
+## GitLab CI pipeline for building the Dawa container.
+##
+## Pipeline: test --> build --> scan
+##   * test-all   runs `rake test:all` (main app + all engines/gems).
+##   * build-only builds the image and tags it locally WITHOUT pushing (MRs/branches).
+##   * build-image builds and pushes the image to the GitLab Container Registry
+##                (default branch + tags only).
+##   * security-scan runs Trivy on the pushed image (non-blocking).
+##
+## `gem.coop` (the Gemfile source) is public, so `bundle install` needs no credentials.
+##
+## Optional CI/CD variables:
+##   * DAWA_EXTRA_TAGS - space-separated extra image tags to push (e.g. "v1.2.3 staging").
+
+stages:
+  - test
+  - build
+  - scan
+
+variables:
+  DOCKER_BUILDKIT: "1"
+  DOCKER_BUILDKIT_CACHE: "${CI_PROJECT_DIR}/.docker-cache"
+  BUNDLE_CACHE: "${CI_PROJECT_DIR}/vendor/bundle"
+  IMAGE_TAG: "${CI_REGISTRY_IMAGE}:${CI_COMMIT_SHORT_SHA}"
+  LATEST_TAG: "${CI_REGISTRY_IMAGE}:latest"
+
+# ---------------------------------------------------------------------------
+# Gate: run the full test suite. Everything downstream depends on this job.
+# ---------------------------------------------------------------------------
+test-all:
+  stage: test
+  image: ruby:3.4.4
+  timeout: 30m
+  variables:
+    RAILS_ENV: "test"
+    SKIP_CONF: "true"
+  cache:
+    key:
+      files:
+        - Gemfile.lock
+        - gems/*/*.gemspec
+        - engines/*/*.gemspec
+    paths:
+      - "${BUNDLE_CACHE}"
+  before_script:
+    - |
+      # Native build deps for the gems in this project (sqlite3, rbnacl/libsodium, vips...).
+      apt-get update -qq && apt-get install --no-install-recommends -y \
+        build-essential pkg-config libssl-dev libyaml-dev libsqlite3-dev \
+        libvips libsodium-dev curl && \
+        rm -rf /var/lib/apt/lists /var/cache/apt/archives
+    - bundle config path "$BUNDLE_CACHE"
+    - bundle install --jobs 4 --retry 3
+  script:
+    - |
+      # Ensure the main and engine test databases are ready, then run every test.
+      bin/rails db:prepare
+      if [ -f "lib/tasks/test.rake" ]; then
+        bundle exec rake test:all
+      else
+        echo "lib/tasks/test.rake not found; cannot run the aggregated task" >&2
+        exit 1
+      fi
+  artifacts:
+    when: on_failure
+    paths:
+      - log/
+      - tmp/
+    exclude:
+      - tmp/cache/*
+    expire_in: 1 week
+
+# ---------------------------------------------------------------------------
+# Build the image WITHOUT pushing. Run on MRs and any branch to verify it builds.
+# Gate on test-all the same as the push job.
+# ---------------------------------------------------------------------------
+build-only:
+  stage: build
+  image: docker:dind
+  services:
+    - name: docker:dind
+  timeout: 30m
+  variables:
+    DOCKER_HOST: "tcp://docker:2375"
+    DOCKER_TLS_CERTDIR: ""
+  cache:
+    key: docker-buildx
+    paths:
+      - "${DOCKER_BUILDKIT_CACHE}"
+  needs:
+    - test-all
+  script:
+    - docker buildx build \
+        --file Dockerfile \
+        --build-arg RUBY_VERSION=$([ -f .ruby-version ] && cat .ruby-version || echo 3.4.4) \
+        --cache-to "type=local,dest=${DOCKER_BUILDKIT_CACHE}" \
+        --cache-from "type=local,src=${DOCKER_BUILDKIT_CACHE}" \
+        --tag "${CI_REGISTRY_IMAGE}:ci-verify" \
+        .
+    # Never push in this job; just confirm the image assembles.
+    - echo "Build succeeded (no push). Image available for inspection."
+  rules:
+    # Build-only on merge requests and non-default branches; the default branch is handled
+    # by build-image (which pushes).
+    - if: '$CI_MERGE_REQUEST_IID'
+    - if: '$CI_COMMIT_BRANCH && $CI_COMMIT_BRANCH != $CI_DEFAULT_BRANCH'
+
+# ---------------------------------------------------------------------------
+# Build AND push the image. Runs only on the default branch and tags, gated on tests.
+# ---------------------------------------------------------------------------
+build-image:
+  stage: build
+  image: docker:dind
+  services:
+    - name: docker:dind
+  timeout: 30m
+  variables:
+    DOCKER_HOST: "tcp://docker:2375"
+    DOCKER_TLS_CERTDIR: ""
+  cache:
+    key: docker-buildx
+    paths:
+      - "${DOCKER_BUILDKIT_CACHE}"
+  needs:
+    - test-all
+  before_script:
+    - docker info
+    - docker login -u "$CI_REGISTRY_USER" -p "$CI_REGISTRY_PASSWORD" "$CI_REGISTRY"
+  script:
+    - |
+      docker buildx build \
+        --file Dockerfile \
+        --build-arg RUBY_VERSION=$([ -f .ruby-version ] && cat .ruby-version || echo 3.4.4) \
+        --cache-to "type=local,dest=${DOCKER_BUILDKIT_CACHE}" \
+        --cache-from "type=local,src=${DOCKER_BUILDKIT_CACHE}" \
+        --tag "$IMAGE_TAG" \
+        --tag "$LATEST_TAG" \
+        --push \
+        .
+  after_script:
+    - |
+      # Push any extra tags (e.g. semantic version tags) configured via DAWA_EXTRA_TAGS.
+      if [ -n "${DAWA_EXTRA_TAGS:-}" ]; then
+        for tag in $DAWA_EXTRA_TAGS; do
+          docker tag "$IMAGE_TAG" "${CI_REGISTRY_IMAGE}:${tag}"
+          docker push "${CI_REGISTRY_IMAGE}:${tag}"
+        done
+      fi
+  rules:
+    - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
+    - if: '$CI_COMMIT_TAG'
+
+# ---------------------------------------------------------------------------
+# Scan the pushed image (optional, non-blocking).
+# ---------------------------------------------------------------------------
+security-scan:
+  stage: scan
+  image:
+    name: aquasec/trivy:latest
+    entrypoint: [ "" ]
+  variables:
+    TRIVY_DB_REPOSITORY: "public.ecr.aws/aquasecurity/trivy-db:2"
+    TRIVY_JAVA_DB_REPOSITORY: "public.ecr.aws/aquasecurity/trivy-java-db:1"
+  script:
+    - trivy image --exit-code 0 --no-progress --format table --severity HIGH,CRITICAL "$IMAGE_TAG"
+  needs:
+    - build-image
+  allow_failure: true
+  rules:
+    - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
+    - if: '$CI_COMMIT_TAG'
