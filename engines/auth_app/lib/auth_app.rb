@@ -4,6 +4,8 @@ require "browser/browser"
 require_relative "auth/engine"
 
 module Auth
+  mattr_accessor :skip_configuration_checks, default: false
+
   # required: these must be defined in config/initializers
   mattr_accessor :origin # domain name. this CANNOT be changed.
   mattr_accessor :relaying_party # string presented to the user (defaults to origin)

@@ -4,8 +4,10 @@
 #
 module Auth
   class SessionSecure < Session
-    include Raft::Encryptable
-    raft_encrypts :data, key: :session_key
+    if defined?(Raft::Encryption)
+      include Raft::Encryptable
+      raft_encrypts :data, key: :session_key
+    end
 
     around_save :load_key
 
