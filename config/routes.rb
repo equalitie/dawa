@@ -1,5 +1,6 @@
 Rails.application.routes.draw do
   mount Auth::Engine, at: "/auth"
+  mount RaftComponents::Engine, at: "/"
 
   resource :home, only: [ :show ], controller: "home"
 
@@ -13,4 +14,6 @@ Rails.application.routes.draw do
   get "up" => "rails/health#show", as: :rails_health_check
 
   root "root#show"
+
+  get "initials/:name", to: "initials#show", as: :initials
 end
