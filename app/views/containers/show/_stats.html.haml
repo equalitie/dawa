@@ -4,8 +4,7 @@
   %div{data: {
       controller: "container-stats",
       "container-stats-url-value": stats_container_path(params[:id], format: :json),
-      "container-stats-interval-value": 1500,
-      "container-stats-max-points-value": 60
+      "container-stats-interval-value": 1500
     }}
     - container_stats_charts(points).each do |(key, spec)|
       .chart.mb-3{data: {"container-stats-target": "chart", "chart-key": key, "chart-spec": spec.to_json}}

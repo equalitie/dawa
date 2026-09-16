@@ -25,7 +25,6 @@ export default class extends Controller {
   static values = {
     url: String,
     interval: { type: Number, default: 1500 },
-    maxPoints: { type: Number, default: 60 },
   };
 
   connect() {
@@ -88,7 +87,8 @@ export default class extends Controller {
       if (!res.ok) return;
       const data = await res.json();
       if (this.polling === false) return; // disconnected while awaiting
-      this.points = (data.points || this.points).slice(-this.maxPointsValue);
+      // The server trims the series to POINTS_WINDOW (15 min), so use it as-is.
+      this.points = data.points || this.points;
       this.streamToCharts();
     } catch (_e) {
       // transient error or aborted; keep last known points

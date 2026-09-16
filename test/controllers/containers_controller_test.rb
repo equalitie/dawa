@@ -199,10 +199,39 @@ class ContainersControllerTest < ActionDispatch::IntegrationTest
     end
   end
 
+  def test_stats_prunes_points_older_than_window
+    container_id = "stats-prune-1"
+    Rails.cache.delete("container_stats_points:#{container_id}")
+
+    now_ms = Time.current.to_f * 1000
+    old_ms = (Time.current - 20.minutes).to_f * 1000
+    stats_obj = build_stats_stub
+
+    # Seed the cache with one stale point and one current point.
+    Rails.cache.write("container_stats_points:#{container_id}", [
+      { time: old_ms, cpu_pct: 10.0 },
+      { time: now_ms, cpu_pct: 20.0 }
+    ])
+
+    travel_to(Time.zone.now) do
+      stub_docker_stats(container_id, stats_obj) do
+        login_as(@user)
+        get stats_container_path(container_id, format: :json)
+      end
+    end
+
+    assert_response :success
+    json = JSON.parse(response.body)
+    # the stale (20 min old) point is pruned; the current seed + this sample remain
+    timestamps = json["points"].map { |p| p["time"] }
+    assert_not_includes timestamps, old_ms
+    assert_includes timestamps, now_ms
+  end
+
   def test_stats_handles_unavailable
     container_id = "stats-unavail"
 
-    ContainersController.define_method(:docker_client) do
+    ContainerStatsController.define_method(:docker_client) do
       Object.new.tap do |c|
         c.define_singleton_method(:containers) do
           Object.new.tap do |cc|
@@ -293,10 +322,10 @@ class ContainersControllerTest < ActionDispatch::IntegrationTest
       end
     end
 
-    ContainersController.define_method(:docker_client) { client }
+    ContainerStatsController.define_method(:docker_client) { client }
     block.call
   ensure
-    ContainersController.send(:remove_method, :docker_client)
+    ContainerStatsController.send(:remove_method, :docker_client)
   end
 
   def build_container_stub(id, status: :running, running: true, exit_code: 0, finished_at: nil)

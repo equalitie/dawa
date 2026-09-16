@@ -27,7 +27,7 @@ module ContainerStatsHelper
       .title("CPU")
       .encoding(
         x: { field: "time", type: "temporal", axis: { title: nil } },
-        y: { field: "cpu_pct", type: "quantitative", title: "%", scale: { domain: [ 0, 100 ] } }
+        y: { field: "cpu_pct", type: "quantitative", title: "%" }
       )
       .layer(area_marks(interpolate: "monotone", color: "#0d6efd", opacity: 0.6).push(
         hover_tooltip_layer([
