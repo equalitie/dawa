@@ -1,5 +1,7 @@
-- container = local_assigns[:container] || @container
-
+-# locals: (container: @container)
+-# disable all buttons when pending actions
+-# (note: starting and stopping are not real docker states, we just added those)
+- disabled = ["starting", "stopping", "restarting"].include?(container.state.status)
 = v.box(icon: "box", size: "md", id: "container-box-#{container.id}") do |box|
   .d
     %span.fw-bold= d(container).display_name
@@ -7,5 +9,32 @@
   %div{id: "container-status-#{container.id}"}
     = d(container).state_badge
   = box.with_buttons do
-    - restart_icon = container.state.restarting ? "spinner" : "arrow-repeat"
-    = v.post_button label: t("containers.action.restart"), icon: restart_icon, url: restart_container_path(container.id)
+    -# START BUTTON
+    - if :starting == container.state.status
+      = v.button label: t("containers.action.start"),
+        icon: "spinner", disabled: true
+    - elsif [:exited, :created, :paused].include?(container.state.status)
+      = v.update_button label: t("containers.action.start"),
+        icon: "play-fill", url: container_path(container.id),
+        params: {command: "start"}, disabled: disabled
+
+    -# STOP BUTTON
+    - if :stopping == container.state.status
+      = v.button label: t("containers.action.stop"),
+        icon: "spinner", disabled: true
+    - elsif :running == container.state.status
+      = v.update_button label: t("containers.action.stop"),
+        icon: "stop-fill", url: container_path(container.id),
+        params: {command: "stop"}, disabled: disabled
+
+    -# RESTART BUTTON
+    - if :restarting == container.state.status
+      = v.button label: t("containers.action.restart"),
+        icon: "spinner", disabled: true
+    - elsif :running == container.state.status
+      = v.update_button label: t("containers.action.restart"),
+        icon: "arrow-clockwise", url: container_path(container.id),
+        params: {command: "restart"}, disabled: disabled
+    - else
+      = v.button label: t("containers.action.restart"),
+        icon: "arrow-clockwise", disabled: true

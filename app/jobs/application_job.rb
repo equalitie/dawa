@@ -7,7 +7,7 @@ class ApplicationJob < ActiveJob::Base
 
   protected
 
-  def broadcast_message(stream_name, message, color = "danger")
+  def broadcast_message_to(stream_name, message, color = "danger")
     turbo_stream_html = renderer.render(
       inline: %[<%= turbo_stream.append('alerts') { tag.div(message, class: "alert alert-#{color}") } %>],
       locals: { message: message, color: "color" }

@@ -20,9 +20,8 @@ Rails.application.routes.draw do
   resources :users
   resources :apps, only: :index
   resources :backups, only: :index
-  resources :containers, only: [ :index, :show ] do
+  resources :containers, only: [ :index, :show, :update ] do
     member do
-      post :restart
       get :stats
     end
   end

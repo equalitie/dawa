@@ -7,17 +7,30 @@ class ContainerDecorator
     @container.id.slice(0, 12)
   end
 
+  # possible states:
+  # ["running", "exited", "restarting", "paused", "removing", "dead", "created"]
+  # - "created" container has been created but not started
+  # - "running" container is currently running
+  # - "paused" container has been paused
+  # - "restarting" container is in the process of restarting
+  # - "removing" container is being removed
+  # - "exited" container has run and completed/stoped
+  # - "dead" container is dead (non-recoverable error)
   def state_badge
     state = @container.state
-    if state.running
+    if state.status == :running
       badge("success", "running")
-    elsif state.paused
+    elsif state.status == :paused
       badge("warning", "paused")
-    elsif state.restarting
+    elsif state.status == :restarting
       badge("info", "restarting")
-    elsif state.dead
+    elsif state.status == :dead
       badge("dark", "dead")
-    elsif state.exit_code
+    elsif state.status == :created
+      badge("info", "created")
+    elsif state.status == :removing
+      badge("warning", "removing")
+    elsif state.status = :exited
       if state.exit_code == 0
         badge("secondary", "exited_ok")
       else

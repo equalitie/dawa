@@ -1,12 +1,27 @@
-class Containers::RestartJob < ApplicationJob
+class ContainerJob < ApplicationJob
   queue_as :default
 
-  def perform(container_id)
+  def perform(container_id, action)
     @container_id = container_id
+    container = docker_client.containers.inspect_(@container_id)
 
-    broadcast_restarting
-
-    docker_client.containers.restart(container_id)
+    if action == "start"
+      if [:exited, :created].include? container.state.status
+        broadcast_refresh(mock_container(status: :starting))
+        docker_client.containers.start(@container_id)
+      elsif :paused == container.state.status
+        broadcast_refresh(mock_container(status: :starting))
+        docker_client.containers.unpause(@container_id)
+      else
+        broadcast_error("container is not in a state that can be started")
+      end
+    elsif action == "stop"
+      broadcast_refresh(mock_container(status: :stopping))
+      docker_client.containers.stop(container_id)
+    elsif action == "restart"
+      broadcast_refresh(mock_container(status: :restarting))
+      docker_client.containers.restart(container_id)
+    end
 
     container = docker_client.containers.inspect_(container_id)
     broadcast_refresh(container)
@@ -18,14 +33,12 @@ class Containers::RestartJob < ApplicationJob
 
   private
 
-  def restarting_container
-    @restarting_container ||= OpenStruct.new(
+  def mock_container(**state_options)
+    OpenStruct.new(
       id: @container_id,
       name: "/",
       decorator_name: "container",
-      state: OpenStruct.new(
-        running: false, paused: false, restarting: true, dead: false, exit_code: nil
-      )
+      state: OpenStruct.new(**state_options)
     )
   end
 
@@ -35,11 +48,6 @@ class Containers::RestartJob < ApplicationJob
 
   def status_badge_html(container)
     renderer.render(inline: "<%= d(container).state_badge %>", locals: { container: container })
-  end
-
-  def broadcast_restarting
-    broadcast_status_badge(status_badge_html(restarting_container))
-    Turbo::StreamsChannel.broadcast_replace_to(@container_id, target: "container-box-#{@container_id}", content: container_box_html(restarting_container))
   end
 
   def broadcast_refresh(container)

@@ -18,8 +18,10 @@ class ContainersController < BaseAdminController
   def show
   end
 
-  def restart
-    Containers::RestartJob.perform_later(params[:id])
+  def update
+    if params[:command]
+      ContainerJob.perform_later(params[:id], params[:command])
+    end
     head :ok
   end
 
