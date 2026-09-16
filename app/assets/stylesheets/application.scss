@@ -1,0 +1,28 @@
+$content-padding: 1rem;
+$color-gray-dark: #495057; // dark button outline, lighter than bs default
+$color-gray-mid: #adb5bd; // default border (form controls, boxes), darker than bs default
+$color-gray-light: #e9ecef;
+$font-family: "Roboto", sans-serif;
+
+@use "bootstrap" with (
+  // https://github.com/twbs/bootstrap-rubygem/blob/master/assets/stylesheets/bootstrap/_variables.scss
+  $enable-negative-margins: true,
+  $font-family-sans-serif: $font-family,
+  $grid-gutter-width: $content-padding,
+  $dark: $color-gray-dark,
+  $light: $color-gray-light,
+  $border-color: $color-gray-mid,
+  $card-border-color: $color-gray-mid
+);
+@use "fonts/roboto";
+
+@use "theme_colors";
+@use "layout/variables" with (
+  $content-padding: $content_padding
+);
+@use "layout/structure";
+@use "layout/header";
+@use "layout/sidebar";
+@use "layout/breadcrumbs";
+@use "layout/elements";
+@use "layout/responsive";

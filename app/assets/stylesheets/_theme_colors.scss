@@ -1,0 +1,10 @@
+:root {
+  --header-bg: #b587f6;
+  --header-icon-bg: #6d5195;
+  --header-icon-url: url(/dcomms-logo.svg);
+}
+
+.header-icon .icon {
+  border-radius: 0 !important;
+  border: none !important;
+}
