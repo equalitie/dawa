@@ -4,9 +4,11 @@ services:
   dawa:
     image: dawa
     container_name: dawa
+    ports:
+      - "127.0.0.1:3000:3000"
     labels:
       - "dc_app=internal"
-    export:
+    expose:
       - 3000
     environment:
       - RAILS_ENV=production
