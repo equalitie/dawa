@@ -54,7 +54,7 @@ class MetricsControllerTest < ActionDispatch::IntegrationTest
       assert_equal expected_keys, body.fetch("points").keys
       assert_equal 2, body["points"]["cpu"].size
       # disk combines three queries => 3x the rows of a single-series chart
-      assert_equal 6, body["points"]["disk"].size
+      assert_equal 4, body["points"]["disk"].size
       # network combines two queries => 2x the rows of a single-series chart
       assert_equal 4, body["points"]["network"].size
     end

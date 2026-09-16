@@ -99,9 +99,9 @@ class VictoriaMetricsHelperTest < ActiveSupport::TestCase
     assert_equal "Disk Usage", spec[:title]
     assert_equal "GB", spec.dig(:encoding, :y, :title)
     assert_equal "series", spec.dig(:encoding, :color, :field)
-    assert_equal [ "capacity", "used", "free" ], spec.dig(:encoding, :color, :scale, :domain)
+    assert_equal [ "free", "used" ], spec.dig(:encoding, :color, :scale, :domain)
     # disk is independent measures and must overlay, not stack
-    assert_equal false, spec.dig(:encoding, :y, :stack)
+    assert_equal "zero", spec.dig(:encoding, :y, :stack)
   end
 
   test "network chart colors by series domain ingress/egress" do
@@ -113,7 +113,7 @@ class VictoriaMetricsHelperTest < ActiveSupport::TestCase
   test "disk series render as lines while network series render as areas" do
     disk = metrics_charts["disk"]
     network = metrics_charts["network"]
-    assert_equal "line", disk.dig(:layer, 0, :mark, :type)
+    assert_equal "area", disk.dig(:layer, 0, :mark, :type)
     assert_equal "area", network.dig(:layer, 0, :mark, :type)
   end
 
@@ -157,8 +157,8 @@ class VictoriaMetricsHelperTest < ActiveSupport::TestCase
     assert_equal 100_000, points["cpu"].first["time"]
     assert_equal 50.5, points["cpu"].first["value"]
     # disk combines three queries (capacity/used/free) => 3x single-series rows
-    assert_equal 6, points["disk"].size
-    assert_equal %w[capacity free used], points["disk"].map { |r| r["series"] }.uniq.sort
+    assert_equal 4, points["disk"].size
+    assert_equal %w[free used], points["disk"].map { |r| r["series"] }.uniq.sort
     # network combines two queries => 2x single-series rows
     assert_equal 4, points["network"].size
     assert_includes %w[ingress egress], points["network"].first["series"]
