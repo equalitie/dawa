@@ -4,7 +4,6 @@ class EnrollController < ApplicationController
   helper "auth/credentials"
 
   skip_before_action :ensure_active
-  skip_before_action :permit_admin!
   before_action :fetch_records, only: [ :update, :show, :destroy ]
   before_action { @title = "Enroll" }
   before_action :allow_inactive_user
