@@ -10,7 +10,28 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2) do
+ActiveRecord::Schema[8.1].define(version: 3) do
+  create_table "link_keys", force: :cascade do |t|
+    t.date "expires_on"
+    t.binary "key", limit: 32
+  end
+
+  create_table "links", force: :cascade do |t|
+    t.datetime "created_at", null: false
+    t.integer "created_by_id"
+    t.datetime "expires_at"
+    t.string "label"
+    t.integer "linkable_id"
+    t.string "linkable_type"
+    t.integer "max_uses"
+    t.integer "membership_id"
+    t.integer "role"
+    t.string "type"
+    t.datetime "updated_at", null: false
+    t.integer "used_count"
+    t.integer "workspace_id"
+  end
+
   create_table "sessions", force: :cascade do |t|
     t.integer "attempt_id"
     t.datetime "created_at", null: false
@@ -18,6 +39,7 @@ ActiveRecord::Schema[8.1].define(version: 2) do
     t.string "session_id", null: false
     t.datetime "updated_at", null: false
     t.integer "user_id"
+    t.integer "link_id"
     t.index ["session_id"], name: "index_sessions_on_session_id", unique: true
   end
 
