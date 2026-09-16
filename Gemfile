@@ -61,6 +61,7 @@ gem "config_magic",    path: "gems/config_magic"
 gem "layout",          path: "engines/layout"
 gem "auth_app",        path: "engines/auth_app"
 gem "raft_components", path: "engines/raft_components"
+gem "secrets_helper",  path: "gems/secrets_helper"
 
 # APIs
 gem "docker-engine-ruby"                # docker engine API
