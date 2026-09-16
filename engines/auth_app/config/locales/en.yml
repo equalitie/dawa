@@ -12,14 +12,17 @@ en:
       Please specify an encryption PIN for your account. This PIN is not a password:
       it is used only for encryption, not for logging in.
     encryption_phrase: Encryption PIN
+
     #
     # Credentials
     #
     credentials:
+      add_passkey: "Add Passkey"
+      passkey_added: "Passkey Added"
+      add_recovery: "Add Recovery Code"
+      authentication: "Authentication"
       index:
         log_in: "Log In Credentials"
-        add_passkey: "Add Passkey"
-        add_recovery: "Add Recovery Code"
         active_sessions: "Active Sessions"
         auth_history: "Authentication History"
         created: "Created"
@@ -33,9 +36,6 @@ en:
         name: "Name"
         registered: "Registered"
         encryption: "Encryption"
-      edit:
-        title: "Add Passkey"
-        authentication: "Authentication"
 
       # all i18n keys for navigation moved to nav.*
       recovery_intro: |-

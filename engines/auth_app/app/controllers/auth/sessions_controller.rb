@@ -19,7 +19,9 @@ module Auth
     # TURBO /auth/sessions/initiate
     #
     def initiate
-      user = User.find_by_login!(params[:login])
+      user = User.find_by_login(params[:login])
+      raise ErrorMessage, "No such user" unless user
+
       permit! { current_user.nil? || current_user == user }
 
       options = options_for_get_pubkey(
@@ -63,7 +65,7 @@ module Auth
         vault = unlock_vault(credential_record)
         cleanup_vaults(user, vault)
         set_current_user!(user, preserve: :redirect, vault: vault)
-        if credential_record.encryption?
+        if !Auth.encryption || credential_record.encryption?
           login_attempt(:success, user, credential_record)
           location = url_from(session[:redirect]) || helpers.evaluate_route(Auth.home_url)
         else
@@ -156,6 +158,7 @@ module Auth
     end
 
     def unlock_vault(credential)
+      return nil unless Auth.encryption
       prf_result = Base64.urlsafe_decode64(params["client_extension_results"]&.dig("prf", "results", "first")) rescue nil
       if prf_result
         if !credential.encryption?
@@ -179,6 +182,7 @@ module Auth
     # in their vault, and remove the vault items that need to be removed.
     #
     def cleanup_vaults(user, vault)
+      return unless Auth.encryption
       return unless vault
       update = false
       # FYI: vault is a hash of {"workspace/n" => "hex key material} so

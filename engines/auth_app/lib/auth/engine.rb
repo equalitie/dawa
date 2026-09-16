@@ -36,7 +36,7 @@ module Auth
       raise ArgumentError, "Auth.relaying_party must be configured" unless Auth.relaying_party
 
       WebAuthn.configure do |config|
-        config.allowed_origins = [Auth.origin]
+        config.allowed_origins = [Auth.origin].flatten
         config.rp_name = Auth.relaying_party
       end
     end

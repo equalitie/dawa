@@ -55,7 +55,7 @@ module Auth
     end
 
     def destroy
-      if !@credential.encryption? && current_user.credentials.without_encryption.count == 1
+      if Auth.encryption && !@credential.encryption? && current_user.credentials.without_encryption.count == 1
         # if this is the last credential that requires a phrase credential,
         # then destroy the phrase credential
         current_user.credentials.phrase.destroy_all

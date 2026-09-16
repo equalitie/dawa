@@ -14,7 +14,7 @@ module Auth
       seed = Base64.urlsafe_encode64(SecureRandom.random_bytes(32), padding: false)
       # https://developer.mozilla.org/en-US/docs/Web/API/PublicKeyCredentialCreationOptions
       options = WebAuthn::Credential.options_for_create(
-        user: { id: current_user.webauthn_id, name: current_user.profiles.first.username },
+        user: { id: current_user.webauthn_id, name: current_user.username },
         exclude: current_user.credentials.webauthn.map { |c| c.webauthn_id },
         attestation: "direct", # required to get AAGUID from authenticator
         timeout: 60_000, # 1 minute

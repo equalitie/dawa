@@ -15,9 +15,10 @@ module Auth
     end
 
     def encryption_is_setup?
-      if encryption?
-        # great! vault created already
-        true
+      if !Auth.encryption
+        true # encryption not enabled, so treat is as if it was set up correctly
+      elsif encryption?
+        true # great! vault created already
       elsif @credential.is_a?(Auth::Credential::Webauthn)
         if prf_enabled
           # prf is enabled but encryption not set up
@@ -48,6 +49,7 @@ module Auth
     # must return nil if this is a cred that supports prf.
     #
     def phrase_credential
+      return nil unless Auth.encryption
       if !supports_prf?
         @phrase_credential ||= begin
           if @credential.is_a?(Auth::Credential::Phrase) || @credential.is_a?(Auth::Credential::Recovery)
@@ -61,7 +63,7 @@ module Auth
 
     validate :encryption_phrase_presence
     def encryption_phrase_presence
-      if encryption_phrase == ""
+      if Auth.encryption && encryption_phrase == ""
         self.errors.add(:encryption_phrase, :required)
       end
     end
@@ -70,17 +72,17 @@ module Auth
     # true if the credential is completely setup
     #
     def complete?
-      registered? && (encryption? || phrase_credential)
+      registered? && (!Auth.encryption || encryption? || phrase_credential)
     end
 
-    def update(attrs, vault)
+    def update(attrs, vault = nil)
       self.assign_attributes(attrs)
       save(vault)
     end
 
-    def save(vault)
+    def save(vault = nil)
       if valid? && @credential.valid? && @credential.save
-        if encryption_phrase
+        if encryption_phrase && vault
           update_phrase_credential!(vault)
         end
         if complete?

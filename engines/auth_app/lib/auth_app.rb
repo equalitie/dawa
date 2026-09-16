@@ -9,6 +9,7 @@ module Auth
   mattr_accessor :relaying_party # string presented to the user (defaults to origin)
 
   # encryption
+  mattr_accessor :encryption, default: false
   mattr_accessor :key_provider
   mattr_accessor :app_public_key
   mattr_accessor :app_private_key

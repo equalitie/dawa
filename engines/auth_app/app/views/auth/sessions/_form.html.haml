@@ -7,11 +7,8 @@
 
 %div{"data-controller": "session"}
   = form_with(data: {action: "submit->session#login", **form_data}) do
-    -# I really want to force the password manager to not suggest values for the username
-    -# field. this seems to do that, but is weird.
-    = text_field_tag("", "", tabindex: "-1", disabled: true, class: "hide-input")
     .input-group.focus-ring
-      = text_field_tag("please-dont-save-this-value", "",
+      = text_field_tag("username", "",
         class: "form-control border-dark",
         autofocus: true,
         autocomplete: "off",

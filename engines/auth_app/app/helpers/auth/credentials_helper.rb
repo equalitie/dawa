@@ -6,7 +6,7 @@ module Auth
     #
     def add_passkey_button(credential, controller)
       v.button(
-        label: "Add Passkey", icon: "key",
+        label: t("auth.credentials.add_passkey"), icon: "key",
         size: "lg", class: "btn-white",
         hide: credential&.registered?,
         data: controller.data(
@@ -23,7 +23,7 @@ module Auth
     #
     def passkey_added_button(credential, controller)
       v.button(
-        label: "Passkey Added", icon: "check-lg",
+        label: t("auth.credentials.passkey_added"), icon: "check-lg",
         size: "lg", color: "success", fill: true,
         hide: !credential&.registered?,
         data: controller.target(:show_on_success)
