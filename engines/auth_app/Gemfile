@@ -3,9 +3,15 @@ source "https://gem.coop"
 # Specify your gem's dependencies in blah.gemspec.
 gemspec
 
+# for updating webauthn aaguid definitions
+gem "fido_metadata"
+
+# for running tests
 gem "puma"
 gem "sqlite3"
-gem "fido_metadata"
+gem "rails"
+gem "importmap-rails"
+gem "propshaft"
 
 # Omakase Ruby styling [https://github.com/rails/rubocop-rails-omakase/]
 # gem "rubocop-rails-omakase", require: false

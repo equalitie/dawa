@@ -8,7 +8,7 @@ class CreateUsers < ActiveRecord::Migration[8.0]
       t.datetime "created_on"
       t.datetime "updated_on"
       t.boolean  "is_active",      default: true
-      t.jsonb    "data",           default: {}
+      t.json     "data",           default: {}
       t.index ["username"], name: "index_users_on_username", unique: true
     end
 
@@ -24,7 +24,7 @@ class CreateUsers < ActiveRecord::Migration[8.0]
       t.binary   "vault_public_key", limit: 32
       t.binary   "vault_seed",       limit: 32
       t.datetime "expires_at"
-      t.jsonb    "data",             default: {}
+      t.json     "data",             default: {}
     end
 
     create_table "user_attempts" do |t|
@@ -32,8 +32,8 @@ class CreateUsers < ActiveRecord::Migration[8.0]
       t.integer  "credential_id"
       t.datetime "created_at"
       t.boolean  "is_success",     default: false
-      t.jsonb    "encrypted_data", default: {}
-      t.jsonb    "cleartext_data", default: {}
+      t.json     "encrypted_data", default: {}
+      t.json     "cleartext_data", default: {}
     end
 
   end
