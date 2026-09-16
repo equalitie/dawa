@@ -21,7 +21,12 @@ class TableComponent < TableBaseComponent
   eager_content
 
   haml_template <<~HAML
-    %table{class: table_classes}
+    -#
+      @data carries `data:` attributes (Stimulus targets/actions); @html carries raw
+      attributes (id, style, data-*). `class` is excluded from the splat because
+      table_classes already merges it, and duplicating the key would override the computed
+      table classes.
+    %table{class: table_classes, data: @data, **@html.except("class")}
       - if column_labels?
         %tr
           - columns_definition.each do |column|

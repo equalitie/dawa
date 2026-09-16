@@ -5,7 +5,10 @@ class TableRowComponent < TableBaseComponent
   attr_accessor :parent
 
   haml_template <<~HAML
-    %tr{**@html}
+    -#
+      @html gives raw attributes; @data renders `data:` as data-* attributes (Stimulus
+      targets/actions, and the log explorer's row dedupe key).
+    %tr{**@html, data: @data}
       - cells.each_with_index do |cell, index|
         - cell_classes(cell, index)
         = cell
