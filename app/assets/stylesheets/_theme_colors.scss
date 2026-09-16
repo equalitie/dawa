@@ -4,7 +4,7 @@
   --header-icon-bg: color-mix(in srgb, var(--base-color) 40%, black);
   --breadcrumb-bg: color-mix(in srgb, var(--base-color) 70%, white);
   --sidebar-active-highlight: var(--base-color);
-  --header-icon-url: url(/dcomms-logo.svg);
+  --header-icon-url: url(asset_url("dcomms-logo.svg"));
 }
 
 .header-icon .icon {
