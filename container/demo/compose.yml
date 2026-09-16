@@ -11,6 +11,7 @@ services:
       - RAILS_LOG_LEVEL=debug
       - DEMO=true
       - DOCKER_URL=http://docker-proxy:2375
+      - METRICS_URL=http://victoriametrics:8428
       - PUBLIC_PROTOCOL=http
       - SITE_TITLE
       - SITE_DOMAIN
@@ -44,5 +45,56 @@ services:
     group_add:
       - "${DOCKER_GID}"
 
+  #
+  # node-exporter is used to gather metrics on the host.
+  # it needs the host's filesystem mounted to /host,
+  # and it needs access to the host's network.
+  #
+  node-exporter:
+    image: prom/node-exporter:latest
+    container_name: node-exporter
+    restart: unless-stopped
+    command:
+      - '--path.rootfs=/host'
+      - '--collector.filesystem.mount-points-exclude=^/(dev|proc|sys|run|var/lib/docker|host)($$|/)'
+    network_mode: host
+    pid: host
+    volumes:
+      - '/:/host:ro,rslave'
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:9100/"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+
+  victoriametrics:
+    image: victoriametrics/victoria-metrics:latest
+    container_name: victoriametrics
+    restart: unless-stopped
+    extra_hosts:
+      # allow access to host's ip for host's node exporter
+      host.docker.internal: host-gateway
+    volumes:
+      - victoriametrics_storage:/victoria-metrics-data
+      - ./promscrape.yml:/etc/vm/promscrape.yml:ro
+    command:
+      - '-storageDataPath=/victoria-metrics-data'
+      - '-retentionPeriod=3M'
+      - '-promscrape.config=/etc/vm/promscrape.yml'
+      - '-httpListenAddr=:8428'
+      - '-memory.allowedPercent=60'
+      - '-search.maxQueryDuration=30s'
+    depends_on:
+      node-exporter:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://127.0.0.1:8428/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
+
 volumes:
   dawa_storage:
+  victoriametrics_storage:

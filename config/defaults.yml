@@ -94,3 +94,4 @@ production:
   site_private_url: "${private_protocol}://dawa:${app_port}"
   websocket_url: "wss://${site_domain}"
   app_port: 3000
+  metrics_url: "http://victoriametrics:8428"

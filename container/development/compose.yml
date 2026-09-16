@@ -33,7 +33,7 @@ services:
     ports:
       - "8428:8428"
     volumes:
-      - victoriametrics-data:/victoria-metrics-data
+      - victoriametrics_storage:/victoria-metrics-data
       - ./promscrape.yml:/etc/vm/promscrape.yml:ro
     command:
       - '-storageDataPath=/victoria-metrics-data'
@@ -53,5 +53,4 @@ services:
       start_period: 30s
 
 volumes:
-  victoriametrics-data:
-    name: victoriametrics_data
+  victoriametrics_storage:
