@@ -14,6 +14,7 @@ class UserForm < ApplicationForm
     User.transaction do
       @user = User.new(@params)
       @user.is_active = false
+      @user.is_finalized = false
       @user.save!
       @user.credentials.webauthn.create!
     end
@@ -31,7 +32,7 @@ class UserForm < ApplicationForm
   end
 
   def finalize_enrollment!
-    @user.update(is_active: true)
+    @user.update(is_active: true, is_finalized: true)
   end
 
   def persisted?

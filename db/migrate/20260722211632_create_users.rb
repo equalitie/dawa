@@ -7,9 +7,9 @@ class CreateUsers < ActiveRecord::Migration[8.1]
       t.string   "email"
       t.datetime "created_on"
       t.datetime "updated_on"
-      t.boolean  "is_active",     default: false
+      t.boolean  "is_active",     default: true
       t.boolean  "is_admin",      default: false
-      t.boolean  "is_finalized",  default: false
+      t.boolean  "is_finalized",  default: true
       t.json    "data",           default: {}
       t.index ["username"], name: "index_users_on_username", unique: true
     end

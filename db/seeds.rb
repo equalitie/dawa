@@ -34,5 +34,6 @@ end
     user.email = "#{username}@example.com"
     user.is_active = rand(0..3) != 0
     user.is_admin = rand(0..3) != 0
+    user.is_finalized = true
   end
 end
