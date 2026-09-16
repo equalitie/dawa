@@ -285,6 +285,9 @@ en:
       scopes_help: "Select the scopes this client may request. Default scopes are always applied."
       title: "OAuth Applications"
       app_name: "App Name"
+      server_config: "Server Configuration (IdP)"
+      client_config: "Client Configuration (RP)"
+      op_uri: "OpenID Provider URI"
       redirect_uri: "Redirect URI"
       uri_help: |-
         This is the OIDC callback URI for the app. It must match exactly what the

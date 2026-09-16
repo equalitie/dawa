@@ -1,0 +1,19 @@
+.mb-3
+  .form-label= tt(".op_uri")
+  = v.copy text: Conf.site_public_url
+.mb-3
+  .form-label= tt(".client_id")
+  = v.copy text: @application.uid
+.mb-3
+  .form-label= tt(".client_secret")
+  - if flash[:oauth_application_secret].present?
+    - client_secret = flash[:oauth_application_secret]
+    - flash.delete(:oauth_application_secret)
+    = v.copy text: client_secret
+    .form-text= tt(".secret_once")
+  - else
+    = v.update_button(icon: "arrow-clockwise",
+      label: tt(".new_client_secret"),
+      size: "sm",
+      params: {rotate: true},
+      url: oauth_application_path(@application))

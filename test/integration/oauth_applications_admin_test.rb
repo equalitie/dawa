@@ -75,7 +75,7 @@ class OauthApplicationsAdminTest < ActionDispatch::IntegrationTest
     assert_equal "New Client", app.name
     # Only the selected optional scopes are stored; default scopes (e.g. `openid`) are
     # applied by doorkeeper itself and intentionally not persisted on the record.
-    assert_equal %w[username email], app.scopes.to_a
+    assert_equal %w[openid username email], app.scopes.to_a
     assert app.confidential?
   end
 
@@ -87,7 +87,7 @@ class OauthApplicationsAdminTest < ActionDispatch::IntegrationTest
     login
     # Rotation is now folded into the `update` action, triggered by a `rotate` param.
     patch "/oauth/applications/#{app.id}", params: { rotate: true }
-    assert_redirected_to "/oauth/applications/#{app.id}/edit"
+    assert_redirected_to "/oauth/applications/#{app.id}/edit?tab=client"
     assert_not_equal old_stored_secret, app.reload.secret
   end
 

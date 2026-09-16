@@ -58,7 +58,7 @@ class Oauth::ApplicationsController < BaseAdminController
     @application.renew_secret
     @application.save!
     raw_secret = @application.plaintext_secret
-    redirect_to edit_oauth_application_path(@application),
+    redirect_to edit_oauth_application_path(@application, tab: "client"),
                 flash: { oauth_application_secret: raw_secret }
   end
 
@@ -72,7 +72,7 @@ class Oauth::ApplicationsController < BaseAdminController
     # space-separated string; join and remove blanks. Default scopes are always applied by
     # doorkeeper, so they are intentionally not stored here.
     if permitted.key?(:scopes)
-      permitted[:scopes] = Array(permitted[:scopes]).reject(&:blank?).join(" ")
+      permitted[:scopes] = Array(["openid"] + permitted[:scopes]).reject(&:blank?).join(" ")
     end
     permitted
   end
