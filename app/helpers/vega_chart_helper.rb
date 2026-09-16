@@ -75,7 +75,10 @@ module VegaChartHelper
   #
   def vega_series_area_spec(points, title:, y_field:, y_title:, color_field:, domain:, range:, tooltip:, data_name: "chartdata", opacity: 0.5, stack: true, time_domain: nil, mark: :area)
     y_encoding = { field: y_field, type: "quantitative", title: y_title }
-    y_encoding[:stack] = false unless stack
+    # Make stacking explicit so the stacked y scale is shared by the series mark AND
+    # the separate hover-circle layer. Relying on inference (no stack key) left the
+    # hover circle at the unstacked position on the stacked charts.
+    y_encoding[:stack] = stack ? "zero" : false
     Vega.lite
       .data(name: data_name, values: points)
       .width("container")
@@ -89,7 +92,7 @@ module VegaChartHelper
                  scale: { domain: domain, range: range },
                  legend: { orient: "top" } }
       )
-      .layer([ series_mark(mark, opacity), hover_tooltip_layer(tooltip) ])
+      .layer([ series_mark(mark, opacity), hover_tooltip_layer(tooltip, y: y_encoding) ])
       .spec
   end
 
@@ -164,7 +167,7 @@ module VegaChartHelper
   # to whitelist which fields show in the tooltip, hiding derived fields like
   # the fold's direction/index and intermediate values.
   #
-  def hover_tooltip_layer(tooltip = true)
+  def hover_tooltip_layer(tooltip = true, y: nil)
     layer = {
       params: [
         {
@@ -186,6 +189,11 @@ module VegaChartHelper
         }
       }
     }
+    # Tie the hover circle to the same y encoding as the series marks. For stacked
+    # charts the series layer sets stack on its y channel; without the same y here
+    # the circle resolves at the unstacked position and the tooltip no longer hugs
+    # the (stacked) line/area it belongs to.
+    layer[:encoding][:y] = y if y
     layer[:encoding][:tooltip] = tooltip if tooltip.is_a?(Array)
     layer
   end

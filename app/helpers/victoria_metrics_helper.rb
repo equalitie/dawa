@@ -42,23 +42,20 @@ module VictoriaMetricsHelper
     },
     {
       key: "disk", title: "Disk Usage", kind: :series, color_field: "series",
-      y_title: "GB", stack: false, mark: :line,
-      series: [ [ "capacity", "#0dcaf0" ], [ "used", "#fd7e14" ], [ "free", "#198754" ] ],
+      y_title: "GB", stack: true,
+      series: [ [ "free", "#198754" ], [ "used", "#fd7e14" ] ],
       queries: [
         <<~PROM,
-          node_filesystem_size_bytes{instance="%{instance}", mountpoint="/"} / 1024 / 1024 / 1024
-        PROM
-        <<~PROM,
-          (node_filesystem_size_bytes{instance="%{instance}", mountpoint="/"} - node_filesystem_avail_bytes{instance="%{instance}", mountpoint="/"}) / 1024 / 1024 / 1024
+          node_filesystem_avail_bytes{instance="%{instance}", mountpoint="/"} / 1024 / 1024 / 1024
         PROM
         <<~PROM
-          node_filesystem_avail_bytes{instance="%{instance}", mountpoint="/"} / 1024 / 1024 / 1024
+          (node_filesystem_size_bytes{instance="%{instance}", mountpoint="/"} - node_filesystem_avail_bytes{instance="%{instance}", mountpoint="/"}) / 1024 / 1024 / 1024
         PROM
       ]
     },
     {
       key: "network", title: "Network", kind: :series, color_field: "series",
-      y_title: "Mbit/s",
+      y_title: "Mbit/s", stack: true,
       series: [ [ "ingress", "#0d6efd" ], [ "egress", "#198754" ] ],
       queries: [
         <<~PROM,

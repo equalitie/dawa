@@ -67,4 +67,43 @@ class VegaChartHelperTest < ActiveSupport::TestCase
     assert_equal "mbps", spec.dig(:encoding, :y, :field)
     assert_equal [ "#111111", "#222222" ], spec.dig(:encoding, :color, :scale, :range)
   end
+
+  test "stacked series hover circle rides the stacked y position" do
+    spec = vega_series_area_spec(
+      @points,
+      title: "Network",
+      y_field: "usage_mb",
+      y_title: "Mbit/s",
+      color_field: "series",
+      domain: [ "ingress", "egress" ],
+      range: [ "#0d6efd", "#198754" ],
+      tooltip: [ { field: "value", type: "quantitative" } ],
+      stack: true
+    )
+
+    hover = spec[:layer].find { |l| l[:mark][:type] == "circle" }
+    refute_nil hover, "expected a hover tooltip layer"
+    assert_equal "usage_mb", hover.dig(:encoding, :y, :field)
+    # Explicitly stacked so the hover circle sits on the stacked series.
+    assert_equal "zero", hover.dig(:encoding, :y, :stack)
+    refute_nil hover.dig(:encoding, :tooltip), "expected the tooltip on the hover circle"
+  end
+
+  test "unstacked series hover circle stays unstacked" do
+    spec = vega_series_area_spec(
+      @points,
+      title: "Disk",
+      y_field: "usage_mb",
+      y_title: "GB",
+      color_field: "series",
+      domain: [ "free", "used" ],
+      range: [ "#198754", "#fd7e14" ],
+      tooltip: [ { field: "value", type: "quantitative" } ],
+      stack: false
+    )
+
+    hover = spec[:layer].find { |l| l[:mark][:type] == "circle" }
+    refute_nil hover, "expected a hover tooltip layer"
+    assert_equal false, hover.dig(:encoding, :y, :stack)
+  end
 end
