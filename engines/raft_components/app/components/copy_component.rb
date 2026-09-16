@@ -9,7 +9,7 @@ class CopyComponent < ApplicationComponent
     - else
       = v.controller("clipboard", success_content: icon("check-circle")) do |c|
         .input-group
-          %input.form-control.border-secondary.shrink-1{type: "text", value: @text, data: c.target("source")}
+          %input.form-control.border-secondary.shrink-1{type: "text", value: @text, readonly: true, data: c.target("source")}
           %button.btn.btn-outline-secondary{type: "button", "data-action": "clipboard#copy", data: c.target("button")}
             = icon("copy")
   HAML
