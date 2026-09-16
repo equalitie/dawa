@@ -1,6 +1,7 @@
 class ApplicationController < ActionController::Base
   include Auth::SessionAuthentication
   include Auth::Authorization
+  include DecoratorConcern
 
   require_authentication
   require_authorization
