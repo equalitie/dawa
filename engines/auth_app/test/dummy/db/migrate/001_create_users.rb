@@ -4,7 +4,6 @@ class CreateUsers < ActiveRecord::Migration[8.0]
     create_table "users" do |t|
       t.string   "username",       limit: 40
       t.string   "email"
-      t.string   "alt_email"
       t.datetime "created_on"
       t.datetime "updated_on"
       t.boolean  "is_active",      default: true

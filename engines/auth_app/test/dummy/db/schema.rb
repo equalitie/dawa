@@ -70,7 +70,6 @@ ActiveRecord::Schema[8.1].define(version: 3) do
   end
 
   create_table "users", force: :cascade do |t|
-    t.string "alt_email"
     t.datetime "created_on"
     t.json "data", default: {}
     t.string "email"

@@ -121,9 +121,9 @@ module Auth
       permit! { current_user.may_edit?(linkable) }
     end
 
-    def permit_admin!(linkable = @workspace)
-      permit! { current_user.may_admin?(linkable) }
-    end
+    #def permit_admin!(linkable = @workspace)
+    #  permit! { current_user.may_admin?(linkable) }
+    #end
 
     ##
     ## PERFORM AUTHORIZATION CHECK
