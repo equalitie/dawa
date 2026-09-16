@@ -14,7 +14,7 @@
     .mt-4.btn-toolbar
       = v.post_button(label: t("login.create_account"), icon: "person-add", url: start_enroll_path, class: "flex-fill")
       = v.link_button(label: t("login.restore_account"), icon: "person-up", url: auth.recover_path, class: "flex-fill")
-    -# if Conf.demo
+    - if Conf.demo
       .mt-2.d-flex
         = v.post_button(icon: "box-arrow-in-right",
           label: t("login.login_demo"),

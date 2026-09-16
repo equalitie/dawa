@@ -1,6 +1,7 @@
 class RootController < ApplicationController
   optional_authentication
   optional_authorization
+  skip_before_action :permit_admin!
 
   layout "inset"
 

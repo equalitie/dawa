@@ -13,11 +13,17 @@ return unless Rails.env.local?
 require "faker"
 
 User.destroy_all
+
+User.create!(username: "demo", display_name: "Demo Admin") do |user|
+  user.is_active = true
+  user.is_admin = true
+end
+
 20.times do
   first_name = Faker::Name.first_name
   display_name = [first_name, Faker::Name.last_name].join(" ")
   username = first_name.downcase + rand(100..999).to_s
-  User.find_or_create_by!(username: username, display_name: display_name) do |user|
+  User.create!(username: username, display_name: display_name) do |user|
     user.email = "#{username}@example.com"
     user.is_active = rand(0..3) != 0
     user.is_admin = rand(0..3) != 0

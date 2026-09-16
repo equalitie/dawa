@@ -3,7 +3,9 @@ class ApplicationController < ActionController::Base
   include Auth::Authorization
 
   require_authentication
-  #require_authorization
+  require_authorization
+
+  before_action :permit_admin!
 
   allow_browser versions: :modern
 
@@ -11,7 +13,6 @@ class ApplicationController < ActionController::Base
   stale_when_importmap_changes
 
   def permit_admin!
-    permit! { true }
-    # permit! { current_user.is_admin? }
+    permit! { current_user.is_admin? }
   end
 end

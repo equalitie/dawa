@@ -24,5 +24,11 @@ Rails.application.routes.draw do
   resource :troubleshoot, only: :show, controller: "troubleshoot"
   resource :settings, only: :show
 
+  if Conf.demo
+    namespace :demo do
+      resource :session, only: [ :create, :update ]
+    end
+  end
+
   get "initials/:name", to: "initials#show", as: :initials
 end
