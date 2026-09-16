@@ -15,5 +15,9 @@ module Auth
     def evaluate_route(route_helper_str)
       route_helper_str.split(".").inject(self) { |obj, str| obj.send(str) }
     end
+
+    def auth_breadcrumbs(*args, &block)
+      defined?(breadcrumbs) ? breadcrumbs(*args, &block) : nil
+    end
   end
 end
