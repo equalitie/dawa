@@ -1,221 +1,216 @@
-# vector host metrics
+# VictoriaMetrics
 
-metrics exported by the `host_metrics` source in vector.
+The compose file exposes victoria metrics at http://localhost:8428. There is no access control.
 
-These are the actual names of the metrics:
+To load the UI, open http://localhost:8428/vmui. There is not much there. VictoriaMetrics is just the metrics, dashboards are typically handled by Graphana or in our case Dawa.
 
-```
-curl -s 'http://localhost:8428/api/v1/label/__name__/values'   --data-urlencode 'match[]={__name__=~"host_.*"}' | jq
-```
+The VictoriaMetrics endpoint lets you perform queries and get back data. The /vmui is just useful for writing queries but would be disabled in production. Also, eventually, victoria metrics endpoint should only be available to Dawa and no other container, although the victoria metrics container still needs to poll all the other containers.
 
-```
-host_boot_time
-host_cpu_seconds_total
-host_disk_read_bytes_total
-host_disk_reads_completed_total
-host_disk_writes_completed_total
-host_disk_written_bytes_total
-host_filesystem_free_bytes
-host_filesystem_inodes_free
-host_filesystem_inodes_total
-host_filesystem_inodes_used
-host_filesystem_inodes_used_ratio
-host_filesystem_total_bytes
-host_filesystem_used_bytes
-host_filesystem_used_ratio
-host_load1
-host_load15
-host_load5
-host_logical_cpus
-host_memory_active_bytes
-host_memory_available_bytes
-host_memory_buffers_bytes
-host_memory_cached_bytes
-host_memory_free_bytes
-host_memory_shared_bytes
-host_memory_swap_free_bytes
-host_memory_swap_total_bytes
-host_memory_swap_used_bytes
-host_memory_swapped_in_bytes_total
-host_memory_swapped_out_bytes_total
-host_memory_total_bytes
-host_memory_used_bytes
-host_network_receive_bytes_total
-host_network_receive_errs_total
-host_network_receive_packets_total
-host_network_transmit_bytes_total
-host_network_transmit_errs_total
-host_network_transmit_packets_drop_total
-host_network_transmit_packets_total
-host_physical_cpus
-host_uptime
-```
+## Example API Usage
 
-These are the names in the documentation. In practice, some of these appear missing and most have host_ prefixed.
-
-**Boot Time**
-- `boot_time` (gauge): The UNIX timestamp of the last boot.
-  - Labels: `collector`, `host`
-
-**Disk**
-- `disk_read_bytes_total` (counter): Accumulated number of bytes read.
-- `disk_reads_completed_total` (counter): Accumulated number of read operations completed.
-- `disk_writes_completed_total` (counter): Accumulated number of write operations completed.
-- `disk_written_bytes_total` (counter): Accumulated number of bytes written.
-  - Labels: `collector`, `device`, `host`
-
-**Filesystem**
-- `filesystem_free_bytes` (gauge): Number of bytes free on the filesystem.
-- `filesystem_total_bytes` (gauge): Total number of bytes in the filesystem.
-- `filesystem_used_bytes` (gauge): Number of bytes used on the filesystem.
-- `filesystem_used_ratio` (gauge): Ratio between used and total bytes.
-  - Labels: `collector`, `device`, `filesystem`, `host`
-
-**Host CPU**
-- `host_cpu_seconds_total` (counter): CPU seconds accumulated in different operating modes.
-  - Labels: `collector`, `cpu`, `host`, `mode`
-- `host_logical_cpus` (gauge): The number of logical CPUs.
-- `host_physical_cpus` (gauge): The number of physical CPUs.
-
-**Load**
-- `load1` (gauge): System load averaged over the last 1 minute.
-- `load5` (gauge): System load averaged over the last 5 minutes.
-- `load15` (gauge): System load averaged over the last 15 minutes.
-  - Labels: `collector`, `host`
-
-**Memory**
-- `memory_active_bytes` (gauge): Number of bytes of active main memory.
-- `memory_available_bytes` (gauge): Number of bytes of main memory available.
-- `memory_buffers_bytes` (gauge): Number of bytes of main memory used by buffers.
-- `memory_cached_bytes` (gauge): Number of bytes of main memory used by cached blocks.
-- `memory_free_bytes` (gauge): Number of bytes of main memory not used.
-- `memory_inactive_bytes` (gauge): Number of bytes of main memory that is not active.
-- `memory_shared_bytes` (gauge): Number of bytes of main memory shared between processes.
-- `memory_swap_free_bytes` (gauge): Number of free bytes of swap space.
-- `memory_swap_total_bytes` (gauge): Total number of bytes of swap space.
-- `memory_swap_used_bytes` (gauge): Number of used bytes of swap space.
-- `memory_swapped_in_bytes_total` (counter): Number of bytes swapped into main memory.
-- `memory_swapped_out_bytes_total` (counter): Number of bytes swapped out from main memory.
-- `memory_total_bytes` (gauge): Total number of bytes of main memory.
-- `memory_used_bytes` (gauge): Number of bytes of main memory used by programs or caches.
-- `memory_wired_bytes` (gauge): Number of wired bytes of main memory.
-  - Labels: `collector`, `host`
-
-**Network**
-- `network_receive_bytes_total` (counter): Number of bytes received on this interface.
-- `network_receive_errs_total` (counter): Number of receive errors on this interface.
-- `network_receive_packets_total` (counter): Number of packets received on this interface.
-- `network_transmit_bytes_total` (counter): Number of bytes transmitted on this interface.
-- `network_transmit_errs_total` (counter): Number of transmit errors on this interface.
-- `network_transmit_packets_drop_total` (counter): Number of packets dropped during transmits.
-- `network_transmit_packets_total` (counter): Number of packets transmitted on this interface.
-  - Labels: `collector`, `device`, `host`
-
-**Process**
-- `process_cpu_usage` (gauge): Process CPU usage.
-- `process_memory_usage` (gauge): Process memory usage.
-- `process_memory_virtual_usage` (gauge): Process virtual memory usage.
-- `process_runtime` (counter): Process uptime.
-  - Labels: `collector`, `host`
-
-**TCP**
-- `tcp_connections_total` (gauge): Number of TCP connections.
-  - Labels: `collector`, `host`, `state`
-- `tcp_rx_queued_bytes_total` (gauge): Number of bytes in the receive queue across all connections.
-- `tcp_tx_queued_bytes_total` (gauge): Number of bytes in the send queue across all connections.
-  - Labels: `collector`, `host`
-
-**Temperature**
-- `temperature_celsius` (gauge): Current temperature reported by a hardware component, in degrees Celsius.
-- `temperature_critical_celsius` (gauge): Temperature at which a hardware component is considered critical, in degrees Celsius.
-- `temperature_max_celsius` (gauge): Highest temperature recorded for a hardware component, in degrees Celsius.
-  - Labels: `collector`, `component`, `host`
-
-**Uptime**
-- `uptime` (gauge): Number of seconds since the last boot.
-  - Labels: `collector`, `host`
-
-# logporter metrics
+Get a list of all the instance names:
 
 ```
-curl -s 'http://localhost:8428/api/v1/label/__name__/values'   --data-urlencode 'match[]={__name__=~"docker_.*"}' | jq
+curl -s --get 'http://localhost:8428/api/v1/label/instance/values'
 ```
 
+Get a list of all the metrics that are available for a specific instance:
+
 ```
-docker_bind_mounts
-docker_container_healthy
-docker_container_running_count
-docker_container_status
-docker_container_stopped_count
-docker_cpu_total_number
-docker_cpu_usage_kernel
-docker_cpu_usage_total
-docker_cpu_usage_user
-docker_exit_code
-docker_image_count
-docker_image_size
-docker_image_update
-docker_io_read_bytes
-docker_io_write_bytes
-docker_memory_current_limit
-docker_memory_inspect_limit
-docker_memory_total
-docker_memory_usage
-docker_network_received_bytes
-docker_network_received_packages
-docker_network_transmit_bytes
-docker_network_transmit_packages
-docker_oom_killed
-docker_process_pids_count
-docker_size_root_fs
-docker_size_rw
-docker_started_time
-docker_volume_mounts
+curl -s --get 'http://localhost:8428/api/v1/label/__name__/values' \
+  --data-urlencode 'match[]={__name__=~".+",instance="host.docker.internal:9100"}'
 ```
 
-| Name                                | Data type     | Help description
-| -                                   | -             | -
-| docker_image_count                  | `gauge`       | Number of images
-| docker_image_size                   | `gauge`       | The size of the image minus the layer shared by other images
-| docker_image_update                 | `gauge`       | Image update status based on digests: update required (1) or latest version (0)
-| docker_volume_size                  | `gauge`       | The size of the volumes and the number of containers associated with it in the volumeUsage tag
-| docker_container_running_count      | `gauge`       | Number of running containers
-| docker_container_stopped_count      | `gauge`       | Number of stopped containers
-| docker_container_status             | `gauge`       | Container status: running (1) or stopped (0)
-| docker_container_healthy            | `gauge`       | Health check status
-| docker_started_time                 | `gauge`       | Container started timestamp
-| docker_exit_code                    | `gauge`       | Container exit code
-| docker_oom_killed                   | `gauge`       | Memory limit exceeded
-| docker_size_rw                      | `gauge`       | Size of the container writable layer in bytes
-| docker_size_root_fs                 | `gauge`       | Total size of the container filesystem in bytes (shared image layers and writable layer)
-| docker_bind_mounts                  | `gauge`       | Number of volumes mounted on host file system
-| docker_volume_mounts                | `gauge`       | Number of local volumes mounted
-| docker_cpu_total_number             | `gauge`       | Total available vCPUs
-| docker_cpu_usage_total              | `counter`     | Total CPU usage (user and kernel) in seconds
-| docker_cpu_usage_user               | `counter`     | User CPU usage in seconds
-| docker_cpu_usage_kernel             | `counter`     | Kernel CPU usage in seconds
-| docker_memory_total                 | `gauge`       | Total memory size in bytes 
-| docker_memory_current_limit         | `gauge`       | Current memory limit size in bytes (if no value is specified, the total amount of available memory is displayed)
-| docker_memory_inspect_limit         | `gauge`       | Memory limit size in bytes specified in the launch options (if the value is 0, then no limit is set)
-| docker_memory_usage                 | `gauge`       | Usage memory size in bytes 
-| docker_network_received_bytes       | `counter`     | Number of bytes received on the network
-| docker_network_received_packages    | `counter`     | Number of packages received on the network
-| docker_network_transmit_bytes       | `counter`     | Number of bytes transmitted on the network
-| docker_network_transmit_packages    | `counter`     | Number of packages transmitted on the network
-| docker_io_read_bytes                | `counter`     | Number of bytes read by the block device
-| docker_io_write_bytes               | `counter`     | Number of bytes write by the block device
-| docker_process_pids_count           | `gauge`       | Number of running processes and threads
+List all instances with a specific metric:
 
-# logporter labels
+```
+curl -s --get 'http://localhost:8428/api/v1/label/instance/values' \
+  --data-urlencode 'match[]=node_cpu_seconds_total'
+```
 
-List of available labels for container filtering:
+## Queries
 
-| Label             | Description
-| -                 | - 
-| `hostname`        | Hostname obtained from the Docker API or custom from the `DOCKER_METRICS_HOSTNAME` variable
-| `containerId`     | Unique container identifier
-| `containerName`   | Container name from `container_name` in compose file
-| `containerState`  | The current status of the container (if the state is not running, then only inspect metrics are available)
-| `composeProject`  | Name of the compose project (usually the name of the directory where the compose file is located)
-| `composeService`  | Name of the service in the compose project (may differ from `containerName`)
-| `composeWorkDir`  | Path to the directory with the compose stack on the host
+To run a query, load the UI at http://localhost:8428/vmui or run `curl -s --get 'http://localhost:8428/api/v1/query' --data-urlencode 'query=QUERY_STRING'`
+
+The status of each provider:
+
+```
+up
+```
+
+Get a list of all the variables exported by a particular job defined in promscrape.yml:
+
+switch to table view, then enter:
+
+```
+{job="docker_exporter"}
+```
+
+Or, on the command line:
+
+```
+curl -s --get 'http://localhost:8428/api/v1/query' --data-urlencode 'query={job="docker_exporter"}' | jq
+```
+
+CPU usage by instance:
+
+```
+100 * (1 - avg(rate(node_cpu_seconds_total{job="node", mode="idle"}[5m])) by (instance))
+```
+
+Memory usage by instance in MB:
+
+```
+(node_memory_MemTotal_bytes - node_memory_MemAvailable_bytes) / 1024 / 1024
+```
+
+Memory usage for a single instance:
+
+```
+(node_memory_MemTotal_bytes{instance="host.docker.internal:9100"} - node_memory_MemAvailable_bytes{instance="host.docker.internal:9100"}) / 1024 / 1024
+```
+
+Disk usage (GB):
+
+capacity, used, free:
+
+```
+node_filesystem_size_bytes{mountpoint="/"} / 1024 / 1024 / 1024
+
+(node_filesystem_size_bytes{mountpoint="/"} - node_filesystem_avail_bytes{mountpoint="/"}) / 1024 / 1024 / 1024
+
+node_filesystem_avail_bytes{mountpoint="/"} / 1024 / 1024 / 1024
+```
+
+Network (Mbps):
+
+```
+rate(node_network_receive_bytes_total{device!~"lo|docker.*|veth.*|br-.*|tailscale.*|virbr.*", instance="host.docker.internal:9100"}[5m]) * 8 / 1000000
+
+rate(node_network_transmit_bytes_total{device!~"lo|docker.*|veth.*|br-.*|tailscale.*|virbr.*", instance="host.docker.internal:9100"}[5m]) * 8 / 1000000
+```
+
+network errors:
+
+* node_network_receive_errs_total
+* node_network_transmit_errs_total
+* node_network_receive_drop_total
+* node_network_transmit_drop_total
+
+# Labels
+
+some container exporters put labels in a single metric row and then you have to join to filter other metrics rows based on that label:
+
+```
+docker_container_cpu_usage_percentage
+  * on (id) group_left(container_label_dcomms_app)
+  docker_container_labels{container_label_dcomms_app="myapp"}
+```
+
+logporter, however, adds the custom label directly to each metric row. this takes up a lot more storage, so we want to make sure not to have too many custom labels. but it also make querying easier:
+
+```
+docker_io_write_bytes{dcomms_app="myapp"} 
+```
+
+# Real time metrics
+
+Typically, we want long term historical time series data. In some cases, however, we want direct "live" data on a 1-2 second interval. 
+
+VictoriaMetrics could support this by converting a common source into two metrics, one that is downsampled to 30s and one that includes the raw 1s sample. However, vmagent does not support different retention periods for different metrics (a single global `-retentionPeriod=TIME` flag). To support real time data this would mean we either have a massive database with a lot of samples or we run two `vmagent` processes, one with a normal retention period and one with a short retention period.
+
+Two relevant container images:
+
+* `victoriametrics/victor-metrics`: all in one image with db and vmagent and ui.
+* `victoriametrics/vmagent`: just the agent.
+
+`vmagent` handles metrics collection and forwarding to the database.
+
+# Host metrics
+
+currently not used in favor of vector.
+
+```yml
+  # node-exporter is used to gather metrics on the host.
+  # it needs the host's filesystem mounted to /host,
+  # and it needs access to the host's network.
+  node-exporter:
+    image: prom/node-exporter:latest
+    container_name: node-exporter
+    labels:
+      - "dc.int=true"
+    restart: unless-stopped
+    expose:
+      - 9100
+    command:
+      - '--web.listen-address=:9100'
+      - '--path.rootfs=/host'
+      - '--collector.filesystem.mount-points-exclude=^/(dev|proc|sys|run|var/lib/docker|host)($$|/)'
+    network_mode: host
+    pid: host
+    volumes:
+      - '/:/host:ro,rslave'
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://127.0.0.1:9100/"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+```
+
+the corresponding promscrape.yml config:
+
+```yml
+global:
+  scrape_interval: 30s
+  scrape_timeout: 2s
+
+scrape_configs:
+  - job_name: node_exporter
+    static_configs:
+      - targets: ["host.docker.internal:9100"]
+    honor_labels: true
+    # If node-exporter has many metrics, use metric_relabel_configs:
+    # metric_relabel_configs:
+    #   - source_labels: [__name__]
+    #     regex: 'node_(cpu|memory|filesystem)_.*'
+    #     action: keep  # Only keep CPU, memory, and filesystem metrics
+
+  - job_name: docker_exporter
+    static_configs:
+      - targets: ["logporter:9333"]
+```
+
+# Container metrics collection
+
+There are a lot of options:
+
+* cAdvisor -- most commonly used, but heavyweight. from google.
+* https://github.com/dlepaux/docker-exporter -- very very lightweight, written in rust. super small distroless container. unfortunately, it does not support exporting custom container labels.
+* https://github.com/davidborzek/docker-exporter -- nice lightweight, written in go. support custom labels, but doesn't export container id. to filter on a label, you are forced to join on the container name, which is not great. 
+* https://github.com/Lifailon/logporter -- lightweight container metrics exporter written in go. from graphana. unlike the other lightweight options, it exports container id. but also, it adds labels directly to each metric row (which makes for a bigger database but much easier to filter on multiple labels). as a bonus, can also export logs using Loki API (which victorialogs speaks)
+
+# logporter
+
+If logporter has access to docker images api via the proxy, it will include metrics of when an image is out of date. Currently, we have image access turned off.
+
+an alternative would be Docker Image Update Notifier https://crazymax.dev/diun/
+
+# Vector
+
+Vector is a cool rust-based all-in-one log/metric/trace pipeline processor.
+
+It takes input from a variety of sources, filters them, and then pushes to variety of destinations (or makes data available as an export endpoint).
+
+We have set Vector to push to victoriametrics and victorialogs instead of the normal pull approach.
+
+Vector handles host metrics, host logs, and container logs. It does not handle container metrics natively, so we use logporter for that. We could set it so that logporter metrics are passed through vector, but right now they are directly scraped by victoriametrics.
+
+Test a config:
+
+```sh
+docker run --rm \
+  -v "$(pwd)/vector.yml:/etc/vector/vector.yaml:ro" \
+  timberio/vector:latest-distroless-static \
+  validate --no-environment /etc/vector/vector.yaml
+``
