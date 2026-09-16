@@ -26,6 +26,9 @@ class TableBaseComponent < ApplicationComponent
         label = arg
       elsif arg.is_a? Hash
         label = arg[:label]
+        # Extra classes for the header cell, so a column can be styled (e.g. a fixed width
+        # stripe with no label) without special-casing it in the template.
+        classes << arg[:class] if arg[:class].present?
       end
     end
     @columns_definition << { class: classes.join(" "), label: label }

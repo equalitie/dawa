@@ -37,6 +37,91 @@ class TableComponentTest < ActionView::TestCase
     assert_includes html, 'data-row-key="abc123"'
   end
 
+  ##
+  ## structure (row insertion point)
+  ##
+
+  def test_table_wraps_rows_in_a_tbody
+    # A real <tbody> gives script a valid insertion point. Browsers synthesize one anyway,
+    # but that synthesized element is not addressable: `table.prepend(row)` puts a row
+    # before the header and the parser hoists it out of the table, which is how live-inserted
+    # log rows ended up rendering above the table.
+    html = v.table("Logs") do |t|
+      t.column :shrink, label: "Time"
+      t.with_row do |r|
+        r.with_cell { "row" }
+      end
+    end
+
+    assert_includes html, "<tbody"
+  end
+
+  def test_table_labels_live_in_a_thead
+    html = v.table("Logs") do |t|
+      t.column :shrink, label: "Time"
+    end
+
+    assert_includes html, "<thead"
+  end
+
+  def test_a_column_can_carry_extra_header_classes
+    # Used by the log explorer's severity stripe, which is a fixed-width column with no
+    # label. Without this the width could only be set by special-casing the template.
+    #
+    # NOTE: the extra class needs a header row to exist at all -- `column_labels?` is false
+    # when NO column is labelled, so the whole thead (and every th) is skipped. These tests
+    # therefore include a labelled column, as the logs table does.
+    html = v.table("Logs") do |t|
+      t.column :shrink, class: "log-severity-cell"
+      t.column :shrink, label: "Time"
+    end
+
+    assert_match(/<th[^>]*log-severity-cell/, html)
+  end
+
+  def test_a_labelled_column_still_accepts_extra_classes
+    html = v.table("Logs") do |t|
+      t.column :shrink, label: "Time", class: "custom-col"
+    end
+
+    assert_match(/<th[^>]*custom-col/, html)
+    assert_includes html, "Time"
+  end
+
+  def test_body_data_lands_on_the_tbody_not_the_table
+    # The refresh controller targets the row container, so it must be able to mark the
+    # <tbody> specifically rather than the <table>.
+    html = v.table("Logs", body_data: { "logs-explorer-target": "rows" }) do |t|
+      t.column :shrink, label: "Time"
+      t.with_row do |r|
+        r.with_cell { "row" }
+      end
+    end
+
+    assert_match(/<tbody[^>]*data-logs-explorer-target="rows"/, html)
+    refute_match(/<table[^>]*data-logs-explorer-target/, html)
+  end
+
+  def test_table_data_still_lands_on_the_table
+    html = v.table("Logs", data: { "table-target": "x" }) do |t|
+      t.column :shrink, label: "Time"
+    end
+
+    assert_match(/<table[^>]*data-table-target="x"/, html)
+  end
+
+  def test_rows_render_inside_the_tbody
+    html = v.table("Logs") do |t|
+      t.column :shrink, label: "Time"
+      t.with_row do |r|
+        r.with_cell { "first" }
+      end
+    end
+
+    tbody = html[/<tbody.*?<\/tbody>/m]
+    assert_includes tbody, "first", "rows must sit inside the tbody"
+  end
+
   def test_table_rows_do_not_inherit_a_stale_key
     # Guards the exact shape the log explorer relies on for client-side dedupe.
     first = v.table_row(data: { "row-key": "one" }) { |r| r.with_cell { "a" } }

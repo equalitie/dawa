@@ -26,30 +26,38 @@ class TableComponent < TableBaseComponent
       attributes (id, style, data-*). `class` is excluded from the splat because
       table_classes already merges it, and duplicating the key would override the computed
       table classes.
+      Rows live in a real <tbody>. Browsers synthesize one anyway, but being explicit gives
+      a valid insertion point for rows added by script: prepending to <table> would place a
+      row before the header row, and the parser would hoist it out of the table entirely.
+      @body_data lands on that <tbody>, so a script appending rows can target the row
+      container rather than the table.
     %table{class: table_classes, data: @data, **@html.except("class")}
       - if column_labels?
-        %tr
-          - columns_definition.each do |column|
-            %th{class: column[:class]}
-              = column[:label]
-      - if rows?
-        - rows.each do |row|
-          = row
-      - elsif content.present?
-        = content
-      - else
-        %tr#empty-row
-          %td{colspan: columns_definition.count}
-            - if @label
-              = t("components.no_thing", thing: @label.pluralize)
-            - else
-              = t("components.none")
+        %thead
+          %tr
+            - columns_definition.each do |column|
+              %th{class: column[:class]}
+                = column[:label]
+      %tbody{data: @body_data}
+        - if rows?
+          - rows.each do |row|
+            = row
+        - elsif content.present?
+          = content
+        - else
+          %tr#empty-row
+            %td{colspan: columns_definition.count}
+              - if @label
+                = t("components.no_thing", thing: @label.pluralize)
+              - else
+                = t("components.none")
   HAML
 
-  def initialize(label = nil, hover: true, centered: true, **kwargs)
+  def initialize(label = nil, hover: true, centered: true, body_data: {}, **kwargs)
     @hover = hover
     @label = label
     @centered = centered
+    @body_data = body_data
     super(**kwargs)
   end
 
