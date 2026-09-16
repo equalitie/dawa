@@ -1,0 +1,15 @@
+- d(container, "Container") # init decorator
+= v.table_row(id: "container-row-#{container.id}") do |r|
+  - r.columns container_columns
+  - r.with_cell do
+    = d(container).state_badge
+  - r.with_cell do
+    = r.link_to d(container).display_name, container_path(container.id)
+  - r.with_cell do
+    = r.link_to container.id.slice(0,12), container_path(container.id)
+  - r.with_cell do
+    = r.link_to container.image, container_path(container.id)
+  - r.with_cell do
+    = time_ago_in_words(Time.at(container.created))
+  - r.with_cell do
+    = d(container).changed

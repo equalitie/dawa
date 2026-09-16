@@ -6,7 +6,7 @@
   .d
     %span.fw-bold= d(container).display_name
     %code= d(container).short_id
-  %div{id: "container-status-#{container.id}"}
+  .d
     = d(container).state_badge
   = box.with_buttons do
     -# START BUTTON
@@ -15,8 +15,12 @@
         icon: "spinner", disabled: true
     - elsif [:exited, :created, :paused].include?(container.state.status)
       = v.update_button label: t("containers.action.start"),
+        data: {"stream-ready-target" => "button"},
         icon: "play-fill", url: container_path(container.id),
         params: {command: "start"}, disabled: disabled
+    - else
+      = v.button label: t("containers.action.start"),
+        icon: "play-fill", disabled: true
 
     -# STOP BUTTON
     - if :stopping == container.state.status
@@ -25,7 +29,11 @@
     - elsif :running == container.state.status
       = v.update_button label: t("containers.action.stop"),
         icon: "stop-fill", url: container_path(container.id),
+        data: {"stream-ready-target" => "button"},
         params: {command: "stop"}, disabled: disabled
+    - else
+      = v.button label: t("containers.action.stop"),
+        icon: "stop-fill", disabled: true
 
     -# RESTART BUTTON
     - if :restarting == container.state.status
@@ -34,6 +42,7 @@
     - elsif :running == container.state.status
       = v.update_button label: t("containers.action.restart"),
         icon: "arrow-clockwise", url: container_path(container.id),
+        data: {"stream-ready-target" => "button"},
         params: {command: "restart"}, disabled: disabled
     - else
       = v.button label: t("containers.action.restart"),

@@ -1,40 +1,66 @@
 class ContainerDecorator
   def display_name
-    @container.name.delete_prefix("/")
+    if @container.respond_to?(:names)
+      @container.names.first.delete_prefix("/")
+    elsif @container.respond_to?(:name)
+      @container.name.delete_prefix("/")
+    end
+  end
+
+  def changed
+    if @container.respond_to?(:status)
+      @container.status
+    elsif @container.respond_to?(:state)
+      state = @container.state
+      if state.status == :running
+        start_time = Time.parse(state.started_at)
+        "Up #{ActionController::Base.helpers.distance_of_time_in_words(start_time, Time.now)}"
+      else
+        start_time = Time.parse(state.finished_at)
+        "Exited #{ActionController::Base.helpers.distance_of_time_in_words(start_time, Time.now)}"
+      end
+    end
   end
 
   def short_id
     @container.id.slice(0, 12)
   end
 
-  # possible states:
-  # ["running", "exited", "restarting", "paused", "removing", "dead", "created"]
-  # - "created" container has been created but not started
-  # - "running" container is currently running
-  # - "paused" container has been paused
-  # - "restarting" container is in the process of restarting
-  # - "removing" container is being removed
-  # - "exited" container has run and completed/stoped
-  # - "dead" container is dead (non-recoverable error)
+  # possible Docker API states from inspect:
+  #   running, exited, restarting, paused, removing, dead, created
+  # from summary (list): state is a symbol directly
+  # fake states broadcast by ContainerJob while waiting for Docker:
+  #   starting, stopping
   def state_badge
     state = @container.state
-    if state.status == :running
+    status = state.respond_to?(:status) ? state.status : state
+    if status == :running
       badge("success", "running")
-    elsif state.status == :paused
+    elsif status == :paused
       badge("warning", "paused")
-    elsif state.status == :restarting
+    elsif status == :restarting
       badge("info", "restarting")
-    elsif state.status == :dead
+    elsif status == :starting
+      badge("info", "starting")
+    elsif status == :stopping
+      badge("warning", "stopping")
+    elsif status == :dead
       badge("dark", "dead")
-    elsif state.status == :created
+    elsif status == :created
       badge("info", "created")
-    elsif state.status == :removing
+    elsif status == :removing
       badge("warning", "removing")
-    elsif state.status = :exited
-      if state.exit_code == 0
+    elsif status == :exited
+      exit_code = if state.is_a?(Symbol) && @container.respond_to?(:status)
+        # handle DockerEngineRuby::Models::Summary differently
+        @container.status.gsub(/.*\((\d+)\).*/, "\\1").to_i
+      else
+        state.exit_code
+      end
+      if exit_code == 0
         badge("secondary", "exited_ok")
       else
-        badge("danger", "exited_error", {code: state.exit_code})
+        badge("danger", "exited_error", {code: exit_code})
       end
     else
       badge("dark", "unknown")

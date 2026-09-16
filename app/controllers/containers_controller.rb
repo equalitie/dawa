@@ -4,7 +4,7 @@ class ContainersController < BaseAdminController
   before_action :fetch_container, only: :show
 
   def index
-    @containers = docker_client.containers.list(all: false)
+    @containers = docker_client.containers.list(all: true)
   rescue DockerEngineRuby::Errors::APIConnectionError => e
     @error = "Could not connect to Docker: #{e.cause}"
   rescue DockerEngineRuby::Errors::RateLimitError => e

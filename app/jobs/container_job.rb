@@ -1,27 +1,39 @@
 class ContainerJob < ApplicationJob
   queue_as :default
 
+  TARGET_STATUSES = {
+    start:   :running,
+    stop:    :exited,
+    restart: :running
+  }.freeze
+
+  POLL_INTERVAL = 1.0  # seconds between status checks
+  MAX_POLL_TIME  = 30  # seconds before giving up
+
   def perform(container_id, action)
     @container_id = container_id
     container = docker_client.containers.inspect_(@container_id)
 
     if action == "start"
       if [:exited, :created].include? container.state.status
-        broadcast_refresh(mock_container(status: :starting))
+        broadcast_refresh(mock_container(container, status: :starting))
         docker_client.containers.start(@container_id)
-      elsif :paused == container.state.status
-        broadcast_refresh(mock_container(status: :starting))
+      elsif container.state.status == :paused
+        broadcast_refresh(mock_container(container, status: :starting))
         docker_client.containers.unpause(@container_id)
       else
         broadcast_error("container is not in a state that can be started")
+        return
       end
     elsif action == "stop"
-      broadcast_refresh(mock_container(status: :stopping))
+      broadcast_refresh(mock_container(container, status: :stopping))
       docker_client.containers.stop(container_id)
     elsif action == "restart"
-      broadcast_refresh(mock_container(status: :restarting))
+      broadcast_refresh(mock_container(container, status: :restarting))
       docker_client.containers.restart(container_id)
     end
+
+    wait_for_target(action.to_sym)
 
     container = docker_client.containers.inspect_(container_id)
     broadcast_refresh(container)
@@ -33,43 +45,46 @@ class ContainerJob < ApplicationJob
 
   private
 
-  def mock_container(**state_options)
+  def wait_for_target(action)
+    target = TARGET_STATUSES.fetch(action)
+    deadline = Time.now + MAX_POLL_TIME
+
+    loop do
+      sleep(POLL_INTERVAL)
+      current = docker_client.containers.inspect_(@container_id).state.status
+      break if current == target
+      raise Timeout::Error, "Container did not reach #{target} within #{MAX_POLL_TIME}s (last status: #{current})" if Time.now > deadline
+    end
+  end
+
+  def mock_container(container, **state_options)
     OpenStruct.new(
-      id: @container_id,
-      name: "/",
+      id: container.id,
+      name: container.name,
+      image: container.respond_to?(:image) ? container.image : nil,
+      created: container.respond_to?(:created) ? container.created : Time.now.to_i,
       decorator_name: "container",
+      status: "",
       state: OpenStruct.new(**state_options)
     )
   end
 
-  def container_box_html(container)
-    renderer.render(partial: "containers/show/container_box", locals: { container: container })
-  end
-
-  def status_badge_html(container)
-    renderer.render(inline: "<%= d(container).state_badge %>", locals: { container: container })
-  end
-
   def broadcast_refresh(container)
-    broadcast_status_badge(status_badge_html(container))
-    Turbo::StreamsChannel.broadcast_replace_to(@container_id, target: "container-box-#{@container_id}", content: container_box_html(container))
+    stream_replace_to("containers",
+      target: "container-row-#{@container_id}",
+      partial: "containers/row",
+      locals: {container: container}
+    )
+    stream_replace_to(@container_id,
+      target: "container-box-#{@container_id}",
+      partial: "containers/show/container_box",
+      locals: {container: container}
+    )
   end
 
   def broadcast_error(message)
-    broadcast_message_to(@container_id, message)
-    broadcast_message_to("containers", message)
-  end
-
-  def broadcast_status_badge(html)
-    turbo_stream_replace_to(@container_id, target: "container-status-#{@container_id}", content: html)
-    turbo_stream_replace_to("containers", target: "container-status-#{@container_id}", content: html)
-  end
-
-  def renderer
-    @renderer ||= ApplicationController.renderer.new(
-      https: false,
-      http_host: "localhost"
-    )
+    stream_message_to(@container_id, message)
+    stream_message_to("containers", message)
   end
 
   def docker_client

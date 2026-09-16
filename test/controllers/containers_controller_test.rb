@@ -7,7 +7,7 @@ class ContainersControllerTest < ActionDispatch::IntegrationTest
   end
 
   def test_index_renders_table_when_docker_available
-    container = OpenStruct.new(id: "id-123", names: ["/web-app"], image: "nginx:latest", status: "Up 2 hours", created: 1.hour.ago.to_i)
+    container = OpenStruct.new(id: "id-123", names: ["/web-app"], image: "nginx:latest", status: "Up 2 hours", state: :running, created: 1.hour.ago.to_i)
 
     stub_docker_list([container]) do
       login_as(@user)
@@ -16,6 +16,8 @@ class ContainersControllerTest < ActionDispatch::IntegrationTest
 
     assert_response :success
     assert_select "td", text: "web-app"
+    assert_select "span.badge.bg-success", text: "Running"
+    assert_select "td", text: "Up 2 hours"
   end
 
   def test_index_handles_connection_error
@@ -39,21 +41,45 @@ class ContainersControllerTest < ActionDispatch::IntegrationTest
     assert_response :success
   end
 
-  def test_restart_enqueues_job
-    container_id = "restart-test-1"
+  def test_update_start_enqueues_job
+    container_id = "start-test-1"
 
     login_as(@user)
 
-    assert_enqueued_with(job: Containers::RestartJob, args: [ container_id ]) do
-      post restart_container_path(container_id)
+    assert_enqueued_with(job: ContainerJob, args: [ container_id, "start" ]) do
+      put container_path(container_id), params: { command: "start" }
     end
 
     assert_response :ok
   end
 
-  def test_restart_responds_ok_when_authenticated
+  def test_update_stop_enqueues_job
+    container_id = "stop-test-1"
+
     login_as(@user)
-    post restart_container_path("any-id")
+
+    assert_enqueued_with(job: ContainerJob, args: [ container_id, "stop" ]) do
+      put container_path(container_id), params: { command: "stop" }
+    end
+
+    assert_response :ok
+  end
+
+  def test_update_restart_enqueues_job
+    container_id = "restart-test-1"
+
+    login_as(@user)
+
+    assert_enqueued_with(job: ContainerJob, args: [ container_id, "restart" ]) do
+      put container_path(container_id), params: { command: "restart" }
+    end
+
+    assert_response :ok
+  end
+
+  def test_update_returns_ok_even_without_command
+    login_as(@user)
+    put container_path("any-id")
 
     assert_response :ok
   end
@@ -75,7 +101,7 @@ class ContainersControllerTest < ActionDispatch::IntegrationTest
 
   def test_show_shows_exited_status
     container_id = "dead0000beef"
-    container = build_container_stub(container_id, running: false, exit_code: 0, finished_at: "2026-07-23T10:00:00Z")
+    container = build_container_stub(container_id, status: :exited, running: false, exit_code: 0, finished_at: "2026-07-23T10:00:00Z")
 
     stub_docker_inspect(container_id, container) do
       login_as(@user)
@@ -88,7 +114,7 @@ class ContainersControllerTest < ActionDispatch::IntegrationTest
 
   def test_show_shows_error_status
     container_id = "err00000001"
-    container = build_container_stub(container_id, running: false, exit_code: 137, finished_at: "2026-07-23T10:00:00Z")
+    container = build_container_stub(container_id, status: :exited, running: false, exit_code: 137, finished_at: "2026-07-23T10:00:00Z")
 
     stub_docker_inspect(container_id, container) do
       login_as(@user)
@@ -199,8 +225,9 @@ class ContainersControllerTest < ActionDispatch::IntegrationTest
     ContainersController.send(:remove_method, :docker_client)
   end
 
-  def build_container_stub(id, running: true, exit_code: 0, finished_at: nil)
+  def build_container_stub(id, status: :running, running: true, exit_code: 0, finished_at: nil)
     state = OpenStruct.new(
+      status: status,
       running: running,
       paused: false,
       restarting: false,

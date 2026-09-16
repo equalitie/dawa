@@ -1,9 +1,10 @@
-= turbo_stream_from @container.id
+= turbo_stream_from @container.id, id: "#{@container.id}-stream"
 
 = breadcrumbs do |bc|
   - bc.with_crumb { d(@container).display_name }
 
-= render "containers/show/container_box", container: @container
+= v.controller("stream-ready") do
+  = render "containers/show/container_box", container: @container
 
 = v.tab_bar do |tabs|
   - tabs.with_tab(label: t(".overview_tab"), url: container_path(@container.id), active: params[:tab].nil? || params[:tab] == "overview") do
