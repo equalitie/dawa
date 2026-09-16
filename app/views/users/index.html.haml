@@ -1,13 +1,3 @@
-:ruby
-  active_badges = {
-    true: ["primary", "user.active"],
-    false: ["secondary", "user.inactive"]
-  }
-  admin_badges = {
-    true: ["dark", "user.admin"],
-    false: nil #["secondary", "user.normal"]
-  }
-
 = breadcrumbs
 
 .btn-toolbar.mb-3
@@ -28,8 +18,8 @@
         - r.with_cell do
           = t.link_to v.avatar(user, label: user.display_name, size: 24), user
           = t.link_to "@"+user.username, user
-          = v.state_badge(user, field: :is_admin, map: admin_badges)
+          = v.role_badge(user)
         - r.with_cell do
           = t.link_to(user.email||" ", user)
         - r.with_cell do
-          = v.state_badge(user, field: :is_active, map: active_badges)
+          = v.active_badge(user)

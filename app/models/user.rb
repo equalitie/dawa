@@ -18,6 +18,22 @@ class User < ApplicationRecord
     false
   end
 
+  #
+  # placeholder until we figure out what roles we want to support other than
+  # user and admin.
+  #
+  def role
+    is_admin? ? "admin" : "user"
+  end
+
+  def role=(value)
+    if value.to_s == "admin"
+      self.is_admin = true
+    else
+      self.is_admin = false
+    end
+  end
+
   private
 
   def assign_uuid

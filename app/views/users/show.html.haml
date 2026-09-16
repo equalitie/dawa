@@ -1,18 +1,27 @@
 = breadcrumbs do |bc|
   - bc.with_crumb { link_to(@user.username, @user) }
 
+= v.box(size: "md") do |box|
+  = box.with_image do
+    = v.avatar(@user, size: 48)
+  .d
+    %span.fw-bold= @user.username
+    = v.active_badge(@user)
+  = box.with_buttons do
+    = choose_active(@user)
+    = choose_role(@user)
+
 = bootstrap_form_with model: @user do |f|
   = f.text_field :username, required: true
   = f.email_field :email
   = f.text_field :display_name
-  = f.form_group do
+  -#= f.form_group do
     = f.check_box :is_active, label: "Active"
-  = f.form_group do
+  -#= f.form_group do
     = f.check_box :is_admin, label: "Admin"
   .btn-toolbar
     = v.link_button icon: "arrow-left", label: t("nav.back"), url: users_path
     = v.save_button
-
 
 -# %h2= t(".sessions")
 -# - if @sessions.any?

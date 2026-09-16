@@ -33,14 +33,16 @@
           = t("invites.uses")
           = "(%d)" % @invite.used_count
         .border.rounded.overflow-y-scroll(style="width: 100%; max-height: 10em")
-          %table.table.table-sm.table-borderless.table-striped
+          %table.table.table-borderless.table-striped
             %tr.border-bottom
               %td= t("users.users")
               %td= t("users.date_joined")
+              %td= t("users.role")
             - @invite.users.each do |user|
               %tr
                 %td= v.avatar(user, label: true, size: 24, url: user_path(user))
-                %td= display_time(user.created_at, :long)
+                %td= display_time(user.created_on, :long)
+                %td= v.role_badge(user)
 
   .btn-toolbar
     = v.cancel_button_link label: t("nav.close"), url: invites_path
