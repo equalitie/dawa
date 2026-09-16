@@ -1,9 +1,9 @@
 module DecoratorHelper
-  def d(record, *args, **kwargs)
+  def d(record, decorator_class = nil, *args, **kwargs)
     if decorator = record.instance_variable_get("@decorator")
       decorator
     else
-      decorator_name = resolve_name(record)
+      decorator_name = decorator_class || resolve_name(record)
       decorator = "#{decorator_name.capitalize}Decorator".constantize.new(*args, **kwargs)
       decorator.instance_variable_set("@#{decorator_name.downcase}", record)
       decorator.instance_variable_set("@view", self)
