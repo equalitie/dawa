@@ -131,6 +131,20 @@ class ContainerJobTest < ActiveJob::TestCase
     assert restarted, "docker restart should have been called"
   end
 
+  def test_refuses_to_act_on_own_container
+    # Restarting the container this Dawa runs in would kill the worker before the job is marked
+    # finished, so it must be a no-op that completes (and lets Solid Queue drop it).
+    restarted = false
+    original = ENV["HOSTNAME"]
+    ENV["HOSTNAME"] = @container_id
+    stub_docker_client(restart: ->(id) { restarted = true }) do
+      ContainerJob.perform_now(@container_id, "restart")
+    end
+    refute restarted, "docker restart must not be called for Dawa's own container"
+  ensure
+    original.nil? ? ENV.delete("HOSTNAME") : (ENV["HOSTNAME"] = original)
+  end
+
   def test_connection_error_is_rescued
     ContainerJob.define_method(:docker_client) { raise DockerEngineRuby::Errors::APIConnectionError.new(url: URI.parse("http://localhost")) }
 

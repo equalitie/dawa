@@ -84,6 +84,38 @@ class ContainersControllerTest < ActionDispatch::IntegrationTest
     assert_response :ok
   end
 
+  def test_update_refuses_command_against_own_container
+    # Simulate Dawa running in the container it is asked to manage (hostname == target id).
+    login_as(@user)
+    original = ENV["HOSTNAME"]
+    ENV["HOSTNAME"] = "self-container-id"
+    assert_no_enqueued_jobs do
+      put container_path("self-container-id"), params: { command: "restart" }
+    end
+    assert_response :forbidden
+  ensure
+    restore_hostname(original)
+  end
+
+  def test_destroy_refuses_own_container
+    container_id = "self-destroy-id"
+    container = build_container_stub(container_id)
+    original = ENV["HOSTNAME"]
+    ENV["HOSTNAME"] = container_id
+    stub_docker_inspect(container_id, container) do
+      login_as(@user)
+      delete container_path(container_id)
+    end
+
+    assert_response :forbidden
+  ensure
+    restore_hostname(original)
+  end
+
+  def restore_hostname(original)
+    original.nil? ? ENV.delete("HOSTNAME") : (ENV["HOSTNAME"] = original)
+  end
+
   def test_show_renders_container_details
     container_id = "abc123def456"
     container = build_container_stub(container_id)

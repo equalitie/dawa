@@ -12,6 +12,14 @@ class ContainerJob < ApplicationJob
 
   def perform(container_id, action)
     @container_id = container_id
+
+    # Never act on the container we're running in: restarting/stopping it would terminate the
+    # worker before it can mark the job as finished, leaving Solid Queue to re-run it forever.
+    if ContainerIdentity.own_container?(container_id)
+      broadcast_error("Dawa cannot manage the container it is running in")
+      return
+    end
+
     container = docker_client.containers.inspect_(@container_id)
 
     if action == "start"

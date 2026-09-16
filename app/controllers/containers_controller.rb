@@ -4,6 +4,7 @@ class ContainersController < BaseAdminController
   include DockerClientConcern
 
   before_action :fetch_container, only: [ :show, :destroy ]
+  before_action :prevent_own_container, only: [ :update, :destroy ]
 
   def index
     @containers = docker_client.containers.list(all: true)
@@ -41,4 +42,11 @@ class ContainersController < BaseAdminController
   def fetch_container
     @container = docker_client.containers.inspect_(params[:id])
   end
+
+  def prevent_own_container
+    if ContainerIdentity.own_container?(params[:id])
+      head :forbidden
+    end
+  end
+
 end
