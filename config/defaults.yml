@@ -34,17 +34,14 @@ defaults:
   # see https://api.rubyonrails.org/classes/ActiveSupport/TimeZone.html
   default_timezone: "Mountain Time (US & Canada)"
 
-  # the name of the session id in the cookie
-  session_key: id
-
 development:
   demo: true
-  site_title: "Dawa"
+  site_title: "dComms"
   site_domain: localhost
   public_protocol: http
   site_public_url: http://localhost:3000
   site_private_url: http://host.docker.internal:3000
-  salt: "46006f16af1ff1656e199decf4c3813359ef2b4220dff2bfd65ed69d362a678a"
+  salt: "019f4f667b62e1df76051b373167abe6cea1c72648702f60f914acfdaba7f48d089d64a320184ed2e053055e8fd7950553d952bbe523cf976011fdacad04582b"
   db_name: dawa_development
   db_password: my_db_password
 
@@ -54,7 +51,7 @@ test:
   site_domain: localhost
   public_protocol: http
   site_public_url: http://localhost:3000
-  salt: "686774987296de6f62004b691365d0e765acbf01ad7817c43eab3c7c23cde4c3"
+  salt: "019f4f667b62e1df76051b373167abe6cea1c72648702f60f914acfdaba7f48d089d64a320184ed2e053055e8fd7950553d952bbe523cf976011fdacad04582b"
   jwt_secret: my_jwt_secret
   db_name: dawa_test
   db_password: my_db_password

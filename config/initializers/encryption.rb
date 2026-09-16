@@ -7,4 +7,7 @@ unless ENV["SKIP_CONF"]
   Auth.salt = Conf.salt
   Auth.app_private_key  = key_provider.private_key(Conf.secret_key_base, salt: Conf.salt)
   Auth.app_public_key   = Auth.app_private_key.public_key
+
+  Auth.origin = Conf.site_domain
+  Auth.relaying_party = Conf.site_title
 end
