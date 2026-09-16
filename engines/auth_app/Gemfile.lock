@@ -12,6 +12,14 @@ PATH
       turbo-rails
       webauthn (>= 3.4.3)
 
+PATH
+  remote: /home/elijah/cloud/dev/dawa/gems/secrets_helper
+  specs:
+    secrets_helper (0.1.0)
+      openssl
+      rbnacl
+      securerandom
+
 GEM
   remote: https://gem.coop/
   specs:
@@ -287,6 +295,7 @@ DEPENDENCIES
   propshaft
   puma
   rails
+  secrets_helper!
   sqlite3
 
 CHECKSUMS
@@ -367,6 +376,7 @@ CHECKSUMS
   rdoc (8.0.0) sha256=03bf8c08a9639658855a0cfd77c0abca8325c227693f7f33f82957811348c469
   reline (0.6.3) sha256=1198b04973565b36ec0f11542ab3f5cfeeec34823f4e54cebde90968092b1835
   safety_net_attestation (0.5.0) sha256=c8cd01dd550dbe8553862918af6355a04672db11d218ec96104ce3955293f2aa
+  secrets_helper (0.1.0)
   securerandom (0.4.1) sha256=cc5193d414a4341b6e225f0cb4446aceca8e50d5e1888743fac16987638ea0b1
   sqlite3 (2.9.5-x86_64-linux-gnu) sha256=233dbcb6714148dd23bc5aeb33e8efd6eac974969564ddd5794c23d5f52b231e
   temple (0.10.4) sha256=b7a1e94b6f09038ab0b6e4fe0126996055da2c38bec53a8a336f075748fff72c

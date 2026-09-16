@@ -39,7 +39,7 @@ module Auth
     # SHA1 is 40 hex chars, so should fit in authenticator_id column.
     #
     def self.id_from_code(code)
-      OpenSSL::HMAC.hexdigest("SHA1", Conf.secret_key_base, code)
+      OpenSSL::HMAC.hexdigest("SHA1", Auth.secret_key_base, code)
     end
   end
 end

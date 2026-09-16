@@ -80,6 +80,7 @@ module Auth
   mattr_accessor :jwt_secret
   mattr_accessor :jwt_header, default: "HTTP_AUTHORIZATION"
   mattr_accessor :jwt_expiry, default: "1 hour"
+  mattr_accessor :secret_key_base
 
   class Error < StandardError; end
   class InvalidConfiguration < Error; end

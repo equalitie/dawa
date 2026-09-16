@@ -4,6 +4,8 @@
 
 module Auth
   class Link < ApplicationRecord
+    self.table_name = "links"
+
     #belongs_to :workspace
     belongs_to :linkable, polymorphic: true, optional: true
 

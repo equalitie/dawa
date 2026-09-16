@@ -1,39 +1,77 @@
 require_relative "../test_helper"
 
 class UserUsernameTest < ActiveSupport::TestCase
-  # FIXME: test that username_valid? accepts valid usernames (alphanumeric with separators)
+  def setup
+    @existing_username = "existing-#{SecureRandom.hex(4)}"
+    User.create!(username: @existing_username)
+  end
+
   def test_valid_username_accepted
-    skip "Not yet implemented"
-    assert true
+    assert User.new(username: "john").valid?
   end
 
-  # FIXME: test that username_valid? rejects invalid usernames (too short, starts with number)
-  def test_invalid_username_rejected
-    skip "Not yet implemented"
-    assert true
+  def test_valid_username_with_separators
+    assert User.new(username: "john-doe").valid?
+    assert User.new(username: "jane_doe").valid?
+    assert User.new(username: "a.b.c").valid?
   end
 
-  # FIXME: test that username_allowed? rejects forbidden usernames and homoglyphs
-  def test_forbidden_usernames
-    skip "Not yet implemented"
-    assert true
+  def test_valid_username_with_numbers
+    assert User.new(username: "user123").valid?
   end
 
-  # FIXME: test that username_taken? returns true when username exists
-  def test_username_taken
-    skip "Not yet implemented"
-    assert true
+  def test_invalid_username_too_short
+    assert_not User.new(username: "a").valid?
   end
 
-  # FIXME: test that usernames are downcased before create
-  def test_username_downcased
-    skip "Not yet implemented"
-    assert true
+  def test_invalid_username_starts_with_symbol
+    assert_not User.new(username: "-john").valid?
   end
 
-  # FIXME: test that duplicate usernames raise validation error
+  def test_invalid_username_double_symbols
+    assert_not User.new(username: "john--doe").valid?
+  end
+
+  def test_forbidden_usernames_rejected
+    assert_not User.new(username: "admin").valid?
+  end
+
+  def test_forbidden_usernames_homoglyphs_rejected
+    assert_not User.new(username: "adm1n").valid?
+  end
+
+  def test_username_taken_returns_true
+    assert User.send(:username_taken?, @existing_username)
+  end
+
+  def test_username_taken_returns_false
+    assert_not User.send(:username_taken?, "nonexistent")
+  end
+
+  def test_username_downcased_before_create
+    user = User.create!(username: "mixedcase")
+    assert_equal "mixedcase", user.username
+  end
+
   def test_duplicate_username_rejected
-    skip "Not yet implemented"
-    assert true
+    user = User.new(username: @existing_username)
+    assert_not user.valid?
+    assert user.errors[:username].present?
+  end
+
+  def test_username_valid_class_method
+    assert User.send(:username_valid?, "validuser")
+    assert_not User.send(:username_valid?, "admin")
+  end
+
+  def test_username_allowed_class_method
+    assert User.send(:username_allowed?, "okay_user")
+    assert_not User.send(:username_allowed?, "admin")
+    assert_not User.send(:username_allowed?, "adm1n")
+    assert_not User.send(:username_allowed?, "r00t")
+  end
+
+  def test_max_username_length
+    assert_not User.new(username: "a" * 41).valid?
   end
 end

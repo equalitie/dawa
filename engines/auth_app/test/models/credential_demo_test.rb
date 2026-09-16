@@ -3,30 +3,46 @@ require_relative "../test_helper"
 class CredentialDemoTest < ActiveSupport::TestCase
   def setup
     @user = User.create!(username: "tester")
-    @credential = Auth::Credential::Demo.create!(user: @user)
   end
 
-  # FIXME: test demo credential generates authenticator and authenticator_id on create
-  def test_defaults
-    skip "Not yet implemented"
-    assert true
+  def test_defaults_generate_authenticator_and_id
+    cred = Auth::Credential::Demo.create!(user: @user)
+    assert cred.authenticator.present?
+    assert cred.authenticator_id.present?
+    assert_not_equal cred.authenticator, cred.authenticator_id
   end
 
-  # FIXME: test that demo credential is not deletable
   def test_not_deletable
-    skip "Not yet implemented"
-    assert true
+    cred = Auth::Credential::Demo.create!(user: @user)
+    assert_not cred.deletable?
   end
 
-  # FIXME: test that demo credential is not editable
   def test_not_editable
-    skip "Not yet implemented"
-    assert true
+    cred = Auth::Credential::Demo.create!(user: @user)
+    assert_not cred.editable?
   end
 
-  # FIXME: test key_from_secret uses the stored authenticator and authenticator_id instead of the passed secret
-  def test_key_from_secret_ignores_secret
-    skip "Not yet implemented"
-    assert true
+  def test_label
+    cred = Auth::Credential::Demo.create!(user: @user)
+    assert_equal "Demo Credential", cred.label
+  end
+
+  def test_comment
+    cred = Auth::Credential::Demo.create!(user: @user)
+    assert_equal "Automatic Encryption", cred.comment
+  end
+
+  def test_key_from_secret_uses_stored_authenticator_instead_of_passed_secret
+    cred = Auth::Credential::Demo.create!(user: @user)
+    key1 = cred.key_from_secret("any_secret")
+    key2 = cred.key_from_secret("different_secret")
+    # Both should produce the same key since Demo ignores the passed secret
+    assert_equal key1, key2
+  end
+
+  def test_key_from_secret_returns_rbnacl_sized_key
+    cred = Auth::Credential::Demo.create!(user: @user)
+    key = cred.key_from_secret("anything")
+    assert_equal RbNaCl::PrivateKey::BYTES, key.bytesize
   end
 end

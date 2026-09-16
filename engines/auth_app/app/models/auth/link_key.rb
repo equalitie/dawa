@@ -18,6 +18,8 @@
 
 module Auth
   class LinkKey < ApplicationRecord
+    self.table_name = "link_keys"
+
     attribute :key, default: -> { SecureRandom.random_bytes(32) }
     validates :expires_on, presence: true
   end

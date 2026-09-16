@@ -12,3 +12,4 @@ Auth.argon2_opslimit = 3
 Auth.argon2_memlimit = 2**13
 
 Auth.jwt_secret = SecureRandom.hex(64)
+Auth.secret_key_base = secret_key_base

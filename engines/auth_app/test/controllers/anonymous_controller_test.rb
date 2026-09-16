@@ -2,7 +2,7 @@ require_relative "../test_helper"
 
 class AnonymousControllerTest < ActionDispatch::IntegrationTest
   def setup
-    User.create!(username: "anon")
+    User.create!(username: "anon-test")
   end
 
   # FIXME: test GET edit requires authentication (anonymous user must be logged in)
