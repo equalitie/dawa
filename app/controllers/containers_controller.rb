@@ -25,20 +25,23 @@ class ContainersController < BaseAdminController
     head :ok
   end
 
+  MAX_POINTS = 60
+
   def stats
     fetch_stats
     @payload = stats_payload
+    append_point(@payload)
 
     respond_to do |format|
-      format.html { render partial: "containers/show/stats", locals: { cpu_stats: @cpu_stats, memory_stats: @memory_stats } }
-      format.json { render json: @payload }
+      format.html do
+        render partial: "containers/show/stats", locals: { points: points, point: @payload }
+      end
+      format.json do
+        render json: { sample: @payload, points: points }
+      end
     end
   rescue DockerEngineRuby::Errors::Error
-    @payload = stats_payload
-    respond_to do |format|
-      format.html { render partial: "containers/show/stats", locals: { cpu_stats: nil, memory_stats: nil } }
-      format.json { render json: @payload }
-    end
+    render json: { sample: {}, points: points }
   end
 
   private
@@ -61,8 +64,12 @@ class ContainersController < BaseAdminController
     # stats not available (container not running, etc.)
   end
 
+  #
+  # A single normalized, JSON-friendly sample.
+  #
   def stats_payload
     {
+      time: (@polled_at || Time.current).to_f * 1000, # ms epoch for temporal vega scale
       cpu_pct: cpu_percent,
       mem_used: @memory_stats&.usage,
       mem_limit: @memory_stats&.limit,
@@ -70,9 +77,22 @@ class ContainersController < BaseAdminController
       net_rx: network_rate(:rx_bytes),
       net_tx: network_rate(:tx_bytes),
       blk_read: block_io_rate(:read),
-      blk_write: block_io_rate(:write),
-      timestamp: @polled_at&.to_f || Time.current.to_f
+      blk_write: block_io_rate(:write)
     }
+  end
+
+  def points_key
+    "container_stats_points:#{params[:id]}"
+  end
+
+  def points
+    @points ||= Rails.cache.read(points_key) || []
+  end
+
+  def append_point(point)
+    next_points = (points + [ point ]).last(MAX_POINTS)
+    Rails.cache.write(points_key, next_points)
+    @points = next_points
   end
 
   #

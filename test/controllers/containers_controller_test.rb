@@ -138,7 +138,7 @@ class ContainersControllerTest < ActionDispatch::IntegrationTest
     assert_select "turbo-frame#container-stats"
   end
 
-  def test_stats_returns_cpu_and_memory
+  def test_stats_renders_charts_html
     container_id = "stats-test-1"
     stats_obj = build_stats_stub
 
@@ -148,11 +148,19 @@ class ContainersControllerTest < ActionDispatch::IntegrationTest
     end
 
     assert_response :success
-    assert_select ".progress-bar"
+    # four area chart containers, each with a streamable spec
+    assert_select "[data-container-stats-target=chart]", count: 4
+    assert_select "[data-chart-key=cpu]"
+    assert_select "[data-chart-key=memory]"
+    assert_select "[data-chart-key=network]"
+    assert_select "[data-chart-key=block_io]"
+    assert_select "[data-chart-spec]"
   end
 
   def test_stats_returns_json_payload
     container_id = "stats-json-1"
+    Rails.cache.delete("container_stats_points:#{container_id}")
+    Rails.cache.delete("container_stats_prev:#{container_id}")
     first = build_stats_stub
     second = build_stats_stub(net_total: 2_500_000, blk_total: 1_000_000)
 
@@ -163,31 +171,32 @@ class ContainersControllerTest < ActionDispatch::IntegrationTest
         get stats_container_path(container_id, format: :json)
         assert_response :success
         first_json = JSON.parse(response.body)
-        assert_equal 20.0, first_json["cpu_pct"]
-        assert_equal 67_108_864, first_json["mem_used"]
-        assert_equal 134_217_728, first_json["mem_limit"]
-        assert_equal 50.0, first_json["mem_pct"]
-        assert_nil first_json["net_rx"] # no previous sample yet
-        assert json_timestamp_present(first_json)
+        first_sample = first_json["sample"]
+        assert_equal 20.0, first_sample["cpu_pct"]
+        assert_equal 50.0, first_sample["mem_pct"]
+        assert_nil first_sample["net_rx"] # no previous sample yet
+        assert first_sample["time"].present?
+        # first poll seeds a single point
+        assert_equal 1, first_json["points"].length
 
         # Advance time by 2s, then poll again -> rates are delta / elapsed
         travel(2.seconds)
         get stats_container_path(container_id, format: :json)
         assert_response :success
         second_json = JSON.parse(response.body)
+        second_sample = second_json["sample"]
 
         # rx/tx delta = (2.5MB - 1MB) / 2s = 750KB/s
-        assert_equal 750_000, second_json["net_rx"]
-        assert_equal 750_000, second_json["net_tx"]
+        assert_equal 750_000, second_sample["net_rx"]
+        assert_equal 750_000, second_sample["net_tx"]
         # blk delta = (1MB - 500KB) / 2s = 250KB/s
-        assert_equal 250_000, second_json["blk_read"]
-        assert_equal 250_000, second_json["blk_write"]
+        assert_equal 250_000, second_sample["blk_read"]
+        assert_equal 250_000, second_sample["blk_write"]
+        # points accumulate over time
+        assert_equal 2, second_json["points"].length
+        assert_equal 20.0, second_json["points"].first["cpu_pct"]
       end
     end
-  end
-
-  def json_timestamp_present(json)
-    json["timestamp"].present?
   end
 
   def test_stats_handles_unavailable

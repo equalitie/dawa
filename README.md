@@ -13,6 +13,15 @@ Dawa is the web interface for managing:
 
 ## Usage
 
+
+## Dummy Data
+
+To create a dummy container that simulates different load conditions:
+
+```sh
+docker run -d --name keep-vm-alive gentasumantri/keep-vm-alive
+```
+
 ## Support
 
 ## Roadmap

@@ -1,15 +1,4 @@
-%turbo-frame#container-stats{src: stats_container_path(@container.id), loading: :lazy}
-  .card.mb-3
-    .card-header= t("containers.show.stats.stats")
-    .card-body
-      %table.table.table-sm.mb-0
-        %tbody
-          %tr
-            %th.text-nowrap= t(".cpu")
-            %td.text-muted
-          %tr
-            %th.text-nowrap= t(".memory")
-            %td.text-muted
+= render "containers/show/stats"
 
 .card.mb-3
   .card-header= t(".overview")
