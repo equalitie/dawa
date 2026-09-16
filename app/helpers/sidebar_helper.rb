@@ -71,6 +71,12 @@ module SidebarHelper
       path: main_app.settings_path,
       active: active?(c: "settings")
     }
+    sb[:oauth_applications] = {
+      label: t("sidebar.oauth_applications"),
+      icon: "key",
+      path: main_app.settings_oauth_applications_path,
+      active: active?(c: "oauth/applications")
+    }
     sb[:my_account] = "<hr>".html_safe
     sb[:profile] = {
       label: t("sidebar.profile"),

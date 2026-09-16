@@ -58,6 +58,9 @@ gem "bootstrap_form", "~> 5.6.1"       # form builder with bootstrap styles
 gem "pagy", "~> 43.5.5"                # pagination
 gem "vega"                              # vega-lite charts
 
+gem "doorkeeper"                        # OAuth2 authorization server
+gem "doorkeeper-openid_connect"         # OpenID Connect (OIDC) layer on top of doorkeeper
+
 gem "config_magic",    path: "gems/config_magic"
 gem "layout",          path: "engines/layout"
 gem "auth_app",        path: "engines/auth_app"

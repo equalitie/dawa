@@ -1,0 +1,41 @@
+= breadcrumbs do |bc|
+  - bc.with_crumb { link_to(@application.name, settings_oauth_application_path(@application)) }
+
+.row
+  .col-md-8
+    .card.mb-3
+      .card-header= @application.name
+      .card-body
+        %dl.row.mb-0
+          %dt.col-sm-3= t(".application_id")
+          %dd.col-sm-9
+            %code= @application.uid
+          %dt.col-sm-3= t(".secret")
+          %dd.col-sm-9
+            - if flash[:oauth_application_secret].present?
+              .alert.alert-warning.mb-2
+                %strong= t(".secret_once")
+              %code= flash[:oauth_application_secret]
+            - else
+              %span.text-muted= t(".secret_hashed")
+          %dt.col-sm-3= t(".scopes")
+          %dd.col-sm-9
+            - if @application.scopes.present?
+              = @application.scopes.to_a.map { |s| content_tag(:span, s, class: "badge text-bg-light me-1") }.join.html_safe
+            - else
+              %span.text-muted Default
+          %dt.col-sm-3= t(".redirect_uri")
+          %dd.col-sm-9
+            %code= @application.redirect_uri
+          %dt.col-sm-3= t(".confidential")
+          %dd.col-sm-9
+            - if @application.confidential?
+              %span.badge.text-bg-dark= t("yes")
+            - else
+              %span.badge.text-bg-secondary= t("no")
+
+    .btn-toolbar
+      = v.link_button icon: "arrow-left", label: t("nav.back"), url: settings_oauth_applications_path
+      = v.link_button icon: "pencil", label: t(".edit"), url: edit_settings_oauth_application_path(@application)
+      = button_to t(".rotate"), rotate_settings_oauth_application_path(@application), method: :patch, data: { confirm: t("are_you_sure") }, class: "btn btn-warning ms-2"
+      = button_to t(".delete"), settings_oauth_application_path(@application), method: :delete, data: { confirm: t("are_you_sure") }, class: "btn btn-outline-danger ms-2", form: { class: "d-inline" }

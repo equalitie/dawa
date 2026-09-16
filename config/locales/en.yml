@@ -121,6 +121,7 @@ en:
     metrics: "Metrics"
     troubleshoot: "Troubleshoot"
     settings: "Settings"
+    oauth_applications: "OAuth Apps"
     authentication: "Authentication"
     profile: "Profile"
 
@@ -269,3 +270,39 @@ en:
   settings:
     show:
       title: "Settings"
+
+  oauth_applications:
+    index:
+      title: "OAuth Applications"
+      new: "New Application"
+      name: "Name"
+      redirect_uri: "Redirect URI"
+      scopes: "Scopes"
+      confidential: "Confidential"
+      actions: "Actions"
+      empty: "No OAuth applications yet."
+    new:
+      title: "New Application"
+    create:
+      created: "Application created"
+    edit:
+      title: "Edit Application"
+      rotate: "Rotate secret"
+    update:
+      updated: "Application updated"
+    show:
+      title: "Application"
+      application_id: "Client ID"
+      secret: "Client Secret"
+      secret_once: "Copy this secret now — it is stored hashed and shown only once."
+      secret_hashed: "Secret is stored hashed"
+      scopes: "Scopes"
+      redirect_uri: "Redirect URIs"
+      confidential: "Confidential"
+      edit: "Edit"
+      rotate: "Rotate Secret"
+      delete: "Delete"
+    destroy:
+      destroyed: "Application deleted"
+    rotate:
+      rotated: "Client secret rotated. Update the client with the new secret."

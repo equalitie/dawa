@@ -1,4 +1,11 @@
 Rails.application.routes.draw do
+  use_doorkeeper do
+    # Render Doorkeeper's consent screen with Dawa's controller, layout, and WebAuthn
+    # session (see app/controllers/oauth/authorizations_controller.rb). Public API
+    # endpoints kept on Doorkeeper defaults.
+    controllers authorizations: "oauth/authorizations"
+  end
+  use_doorkeeper_openid_connect
   mount Auth::Engine, at: "/auth"
   mount RaftComponents::Engine, at: "/"
 
@@ -27,6 +34,16 @@ Rails.application.routes.draw do
   resource :troubleshoot, only: :show, controller: "troubleshoot"
   resource :settings, only: :show
   resource :profile, only: :show
+
+  # Admin CRUD for Doorkeeper OIDC client applications (see app/controllers/oauth/applications_controller.rb).
+  # Path is under /settings to avoid colliding with Doorkeeper's own /oauth routes; `as:`
+  # avoids the `oauth_application(s)` helper names Doorkeeper already claims.
+  resources :oauth_applications,
+            path: "settings/oauth-applications",
+            controller: "oauth/applications",
+            as: :settings_oauth_applications do
+    member { patch :rotate }
+  end
 
   if Conf.demo
     namespace :demo do

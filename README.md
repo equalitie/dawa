@@ -28,6 +28,12 @@ To create a dummy container that simulates logs:
 docker run -d --name loggen kubetail/loggen:0.2.0
 ```
 
+OIDC testing:
+
+```sh
+docker run -d --name oidc-client authelia/oidc-tester-app
+```
+
 ## Support
 
 ## Roadmap

@@ -1,0 +1,7 @@
+= bootstrap_form_with model: application, url: (application.persisted? ? settings_oauth_application_path(application) : settings_oauth_applications_path), scope: :oauth_application do |f|
+  = f.text_field :name, required: true, label: t("oauth_applications.index.name")
+  = f.text_field :redirect_uri, label: t("oauth_applications.index.redirect_uri"), help: "One URI per line. Must be an absolute HTTPS URI."
+  = f.text_field :scopes, label: t("oauth_applications.index.scopes"), help: "Space-separated. Leave blank for the default scope."
+  = f.form_group label: t("oauth_applications.index.confidential") do
+    = f.check_box :confidential
+  = f.primary "Save"

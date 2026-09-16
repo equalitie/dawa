@@ -1,0 +1,152 @@
+require "test_helper"
+
+#
+# End-to-end tests for Dawa as an OpenID Connect identity provider (Doorkeeper +
+# doorkeeper-openid_connect).
+#
+class OidcFlowTest < ActionDispatch::IntegrationTest
+  setup do
+    @user = User.create!(
+      username: "oidcuser",
+      email: "oidcuser@example.com",
+      display_name: "Oidc User",
+      is_admin: false
+    )
+    @client = Doorkeeper::Application.create!(
+      name: "OIDC Client",
+      redirect_uri: "https://client.example/cb",
+      scopes: "openid username email",
+      confidential: true
+    )
+    @code_challenge = "E9Melhoa2OwvFrEMTJguCHaoeK1t8URWbuGJSstw-cM"
+    @code_verifier = "dBjftJeZ4CVP-mB92K27uhbUJU1p1r_wW1gFWFOEjXk"
+  end
+
+  def test_discovery_document
+    get "/.well-known/openid-configuration"
+    assert_response :success
+    body = JSON.parse(response.body)
+    assert_equal "#{host}/oauth", body["issuer"]
+    assert_equal "#{host}/oauth/authorize", body["authorization_endpoint"]
+    assert_equal "#{host}/oauth/token", body["token_endpoint"]
+    assert_equal "#{host}/oauth/userinfo", body["userinfo_endpoint"]
+    assert_equal "#{host}/oauth/discovery/keys", body["jwks_uri"]
+    assert_includes body["scopes_supported"], "openid"
+    assert_includes body["scopes_supported"], "username"
+  end
+
+  def test_jwks_public_key
+    get "/oauth/discovery/keys"
+    assert_response :success
+    keys = JSON.parse(response.body)["keys"]
+    assert_equal 1, keys.length
+    assert_equal "RSA", keys.first["kty"]
+    assert keys.first["n"].present?
+    assert keys.first["e"].present?
+  end
+
+  def test_authorization_code_flow_issues_id_token_and_access_token
+    # Log in via the demo session (WebAuthn-equivalent session[:user_id]).
+    post "/demo/session", params: { username: @user.username }
+    follow_redirect!
+
+    # Step 1: authorize (consent screen).
+    get "/oauth/authorize", params: authorize_params
+    assert_response :success
+
+    # Step 2: grant consent (POST to authorize). Doorkeeper will auto-issue an
+    # authorization code and redirect to the client callback.
+    post "/oauth/authorize", params: authorize_params
+    assert_response :redirect
+    location = URI.parse(response.location)
+    assert_equal "https", location.scheme
+    assert_equal "client.example", location.host
+
+    query = Rack::Utils.parse_nested_query(location.query)
+    code = query["code"]
+    assert code.present?, "expected an authorization code, got: #{location.inspect}"
+    assert_equal "xyz-state", query["state"]
+
+    # Step 3: exchange the code for tokens (PKCE S256).
+    post "/oauth/token", as: :json, params: {
+      grant_type: "authorization_code",
+      code: code,
+      redirect_uri: @client.redirect_uri,
+      client_id: @client.uid,
+      client_secret: @client.plaintext_secret,
+      code_verifier: @code_verifier
+    }
+    assert_response :success, "token exchange failed: #{response.body}"
+    tokens = JSON.parse(response.body)
+    assert tokens["access_token"].present?
+    assert tokens["id_token"].present?, "expected an id_token"
+    assert_equal "openid username email", tokens["scope"]
+
+    # Step 4: decode and verify the id_token against the JWKS public key.
+    id_token = verify_id_token(tokens["id_token"])
+    assert_equal "#{host}/oauth", id_token["iss"]
+    assert_equal @user.id.to_s, id_token["sub"]
+    assert_equal @client.uid, id_token["aud"]
+    assert_equal @user.username, id_token["preferred_username"]
+    assert id_token["exp"].to_i > Time.now.to_i
+
+    # Step 5: fetch userinfo with the access token.
+    get "/oauth/userinfo", headers: { "Authorization" => "Bearer #{tokens["access_token"]}" }
+    assert_response :success
+    info = JSON.parse(response.body)
+    assert_equal @user.id.to_s, info["sub"]
+    assert_equal @user.username, info["preferred_username"]
+    assert_equal @user.email, info["email"]
+  end
+
+  def test_unauthenticated_authorize_redirects_to_login
+    get "/oauth/authorize", params: authorize_params
+    assert_redirected_to "/login"
+  end
+
+  def test_password_grant_is_rejected
+    post "/oauth/token", as: :json, params: {
+      grant_type: "password",
+      username: @user.username,
+      password: "whatever"
+    }
+    assert_response :bad_request
+    assert_equal "unsupported_grant_type", JSON.parse(response.body)["error"]
+  end
+
+  private
+
+  def host
+    Conf.site_public_url
+  end
+
+  def authorize_params
+    {
+      client_id: @client.uid,
+      redirect_uri: @client.redirect_uri,
+      response_type: "code",
+      scope: "openid username email",
+      state: "xyz-state",
+      code_challenge: @code_challenge,
+      code_challenge_method: "S256"
+    }
+  end
+
+  #
+  # Verify the JWT id_token signature against Dawa's RSA signing key (the same key the
+  # JWKS endpoint publishes, read directly from the private key file). Returns the
+  # decoded payload.
+  #
+  def verify_id_token(id_token)
+    rsa_public = OpenSSL::PKey::RSA.new(File.read("config/oidc_signing_key.pem")).public_key
+
+    header, payload, signature = id_token.split(".")
+    signed_data = [ header, payload ].join(".")
+
+    signature_bytes = Base64.urlsafe_decode64(signature)
+    assert rsa_public.verify(OpenSSL::Digest::SHA256.new, signature_bytes, signed_data),
+           "id_token signature verification failed"
+
+    JSON.parse(Base64.urlsafe_decode64(payload))
+  end
+end

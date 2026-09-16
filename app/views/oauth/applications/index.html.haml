@@ -1,0 +1,32 @@
+= breadcrumbs
+
+.btn-toolbar.mb-3
+  = v.link_button label: t(".new"), icon: "plus-lg", url: new_settings_oauth_application_path
+
+- if @applications.any?
+  = v.table do |t|
+    - t.column(label: t(".name"))
+    - t.column(label: t(".redirect_uri"))
+    - t.column(label: t(".scopes"))
+    - t.column(label: t(".confidential"))
+    - t.column(label: t(".actions"), shrink: true)
+    - @applications.each do |app|
+      - t.with_row do |r|
+        - r.with_cell do
+          = link_to app.name, settings_oauth_application_path(app)
+        - r.with_cell do
+          %code= app.redirect_uri
+        - r.with_cell do
+          - if app.scopes.present?
+            = app.scopes.to_a.map { |s| content_tag(:span, s, class: "badge text-bg-light me-1") }.join.html_safe
+        - r.with_cell do
+          - if app.confidential?
+            %span.badge.text-bg-dark= t("yes")
+          - else
+            %span.badge.text-bg-secondary= t("no")
+        - r.with_cell do
+          .d-flex.gap-1
+            = link_to t(".edit"), edit_settings_oauth_application_path(app), class: "btn btn-sm btn-outline-secondary"
+            = button_to t("oauth_applications.show.delete"), settings_oauth_application_path(app), method: :delete, data: { confirm: t("are_you_sure") }, class: "btn btn-sm btn-outline-danger"
+- else
+  %p.text-muted= t(".empty")
