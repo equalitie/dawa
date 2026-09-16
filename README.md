@@ -82,8 +82,8 @@ Push image to registry:
 
 ```sh
 docker login gitlab.equalit.ie
-docker tag dawa git.equalit.ie/dcomms/dawa:latest
-docker push git.equalit.ie/dcomms/dawa:latest
+docker tag dawa gitlab.equalit.ie/dcomms/dawa:latest
+docker push gitlab.equalit.ie/dcomms/dawa:latest
 ```
 
 ## Running Demo
