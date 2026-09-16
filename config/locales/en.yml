@@ -79,6 +79,12 @@ en:
     copy: "Copy"
     copied: "Copied"
     clear: "Clear"
+    created: "Created"
+    updated: "Updated"
+  notice:
+    saved: "Changes Saved"
+    created: "Record Created"
+    destroyed: "Record Removed"
   error:
     exception_message: "Something has gone wrong. Rest assured! We have been notified and will fix the problem soon."
 
@@ -121,7 +127,7 @@ en:
     metrics: "Metrics"
     troubleshoot: "Troubleshoot"
     settings: "Settings"
-    oauth_applications: "OAuth Apps"
+    sso: "Single Sign-on"
     authentication: "Authentication"
     profile: "Profile"
 
@@ -271,38 +277,41 @@ en:
     show:
       title: "Settings"
 
-  oauth_applications:
-    index:
+  oauth:
+    applications:
+      scopes_help: "Select the scopes this client may request. Default scopes are always applied."
       title: "OAuth Applications"
       new: "New Application"
-      name: "Name"
+      app_name: "App Name"
       redirect_uri: "Redirect URI"
+      uri_help: |-
+        This is the OIDC callback URI for the app. It must match exactly what the
+        app offers to the identity provider as the redirect_uri parameter. It must start with https://
       scopes: "Scopes"
+      default_scope: "default"
       confidential: "Confidential"
-      actions: "Actions"
-      empty: "No OAuth applications yet."
-    new:
-      title: "New Application"
-    create:
-      created: "Application created"
-    edit:
-      title: "Edit Application"
-      rotate: "Rotate secret"
-    update:
-      updated: "Application updated"
-    show:
-      title: "Application"
-      application_id: "Client ID"
-      secret: "Client Secret"
-      secret_once: "Copy this secret now — it is stored hashed and shown only once."
-      secret_hashed: "Secret is stored hashed"
-      scopes: "Scopes"
-      redirect_uri: "Redirect URIs"
-      confidential: "Confidential"
-      edit: "Edit"
-      rotate: "Rotate Secret"
-      delete: "Delete"
-    destroy:
-      destroyed: "Application deleted"
-    rotate:
-      rotated: "Client secret rotated. Update the client with the new secret."
+      client_id: "OIDC Client ID"
+      client_secret: "Client Secret"
+      secret_once:
+        This value will only be shown once and is required
+        when configuring an OIDC single sign-on client application.
+        Previous client secrets are no longer valid.
+      new_client_secret: "New Client Secret"
+      new:
+        title: "New OIDC Application Configuration"
+      create:
+        created: "Application created"
+      edit:
+      show:
+        title: "Application"
+        secret_hashed: "Secret is stored hashed"
+        scopes: "Scopes"
+        redirect_uri: "Redirect URIs"
+        confidential: "Confidential"
+        edit: "Edit"
+        rotate: "Rotate Secret"
+        delete: "Delete"
+      destroy:
+        destroyed: "Application deleted"
+      rotate:
+        rotated: "Client secret rotated. Update the client with the new secret."

@@ -35,6 +35,15 @@ module SidebarHelper
       path: main_app.apps_path,
       active: active?(c: "apps")
     }
+    if active?(c: ["apps", "oauth/applications"])
+      sb[:sso_applications] = {
+        indent: 1,
+        label: t("sidebar.sso"),
+        icon: "key",
+        path: main_app.oauth_applications_path,
+        active: active?(c: "oauth/applications")
+      }
+    end
     sb[:containers] = {
       label: t("sidebar.containers"),
       icon: "box",
@@ -70,12 +79,6 @@ module SidebarHelper
       icon: "gear-fill",
       path: main_app.settings_path,
       active: active?(c: "settings")
-    }
-    sb[:oauth_applications] = {
-      label: t("sidebar.oauth_applications"),
-      icon: "key",
-      path: main_app.settings_oauth_applications_path,
-      active: active?(c: "oauth/applications")
     }
     sb[:my_account] = "<hr>".html_safe
     sb[:profile] = {

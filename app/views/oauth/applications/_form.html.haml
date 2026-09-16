@@ -1,7 +1,26 @@
-= bootstrap_form_with model: application, url: (application.persisted? ? settings_oauth_application_path(application) : settings_oauth_applications_path), scope: :oauth_application do |f|
-  = f.text_field :name, required: true, label: t("oauth_applications.index.name")
-  = f.text_field :redirect_uri, label: t("oauth_applications.index.redirect_uri"), help: "One URI per line. Must be an absolute HTTPS URI."
-  = f.text_field :scopes, label: t("oauth_applications.index.scopes"), help: "Space-separated. Leave blank for the default scope."
-  = f.form_group label: t("oauth_applications.index.confidential") do
-    = f.check_box :confidential
-  = f.primary "Save"
+- default_scopes = Doorkeeper.config.default_scopes.to_a
+- optional_scopes = Doorkeeper.config.optional_scopes.to_a
+- current_scopes = application.scopes.to_s.split(" ")
+
+= bootstrap_form_with model: application, url: (application.persisted? ? oauth_application_path(application) : oauth_applications_path), scope: :oauth_application do |f|
+  = f.text_field :name, required: true, label: tt(".app_name")
+  = f.text_field :redirect_uri, label: tt(".redirect_uri"), help: tt(".uri_help")
+  = f.form_group label: { text: tt(".scopes") } do
+    - default_scopes.each do |scope|
+      .form-check
+        = check_box_tag "oauth_application[scopes][]", scope, true, id: "scope_#{scope}", class: "form-check-input", disabled: true
+        = label_tag "scope_#{scope}", scope, class: "form-check-label"
+        %span.badge.text-bg-light.ms-1= tt(".default_scope")
+    - optional_scopes.each do |scope|
+      .form-check
+        = check_box_tag "oauth_application[scopes][]", scope, current_scopes.include?(scope), id: "scope_#{scope}", class: "form-check-input"
+        = label_tag "scope_#{scope}", scope, class: "form-check-label"
+    = hidden_field_tag "oauth_application[scopes][]", ""
+    .form-text= tt(".scopes_help")
+  -# f.form_group do
+    = f.check_box :confidential, label: t("oauth_applications.index.confidential"), help: "True for server-side apps that can keep a secret; false for native/SPA clients (which must use PKCE)."
+  .btn-toolbar
+    = v.cancel_button_link(label: t("nav.close"), url: oauth_applications_path)
+    - if application.persisted?
+      = f.v.delete_button(url: oauth_application_path(application), confirm: true)
+    = f.v.save_button(label: t("nav.save"))

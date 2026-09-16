@@ -23,11 +23,6 @@ module Oauth
       @current_user ||= User.find_by(id: session[:user_id])
     end
 
-    # Dawa's consent layout (app/views/layouts/oauth.html.haml) is a self-contained,
-    # branded bootstrap shell rendered via the layout engine's `inset` template. It does
-    # NOT pull in Dawa's admin sidebar / session header, which depend on auth-engine
-    # helpers (logout_button, sidebar_items, v) that are unavailable to doorkeeper
-    # controllers. This keeps the consent screen decoupled and robust.
     layout "oauth"
   end
 end

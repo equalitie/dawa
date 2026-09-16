@@ -1,5 +1,29 @@
-= breadcrumbs
+= breadcrumbs do |bc|
+  - bc.with_crumb { link_to(@application.name, edit_oauth_application_path(@application)) }
 
-%div
-  %h4= t(".title")
+- if flash[:oauth_application_secret].present?
+  - client_secret = flash[:oauth_application_secret]
+  - flash.delete(:oauth_application_secret)
+  = v.alert("warning", size: "md", dismiss: false) do
+    %h4= tt(".client_secret")
+    .mb-2= tt(".secret_once")
+    = v.copy text: client_secret
+
+= v.box(icon: "key", size: "md") do |box|
+  .fw-bold= @application.name
+  .d
+    = tt(".client_id")
+    %code= @application.uid
+  .d
+    = t("nav.created")
+    = datetime @application.created_at
+    &bull;
+    = t("nav.updated")
+    = datetime @application.updated_at
+  = box.with_buttons do
+    = v.update_button(icon: "arrow-clockwise",
+      label: tt(".new_client_secret"),
+      params: {rotate: true},
+      url: oauth_application_path(@application))
+
 = render "form", application: @application

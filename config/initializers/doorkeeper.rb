@@ -48,7 +48,8 @@ Doorkeeper.configure do
   # request (see Doorkeeper::OpenidConnect); the rest are optional claims scopes. `profile`
   # gates the `is_admin` claim.
   default_scopes :openid
-  optional_scopes :username, :email, :profile, :offline_access
+  optional_scopes :username, :email, :profile
+  # others -- :address, :phone, :offline_access
 
   # Restrict doorkeeper's web interface (oauth/applications) to Dawa admins. Dawa records
   # admin-ness on User#is_admin. This mirrors how Auth::Authorization gates admin actions.
