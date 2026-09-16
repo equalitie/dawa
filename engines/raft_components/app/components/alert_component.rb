@@ -4,9 +4,9 @@
 #
 #
 class AlertComponent < ApplicationComponent
-  def initialize(color = "primary", dismiss: true, icon: nil, size: "sm", **args)
+  def initialize(color_arg = "primary", color: nil, dismiss: false, icon: nil, size: "sm", **args)
     super(**args)
-    @color = color&.to_s
+    @color = color&.to_s || color_arg
     @icon = icon.to_s unless icon.nil?
     @dismiss = dismiss
     @size = size&.to_s

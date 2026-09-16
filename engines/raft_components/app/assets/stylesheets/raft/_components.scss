@@ -184,6 +184,19 @@ turbo-frame[aria-busy="true"] + .frame-progress > .when-busy {
   padding-inline-start: 20px;
 }
 
+// make the first line have no extra leading, which makes it
+// line up with the icon. 0.2em is usually about what the top
+// leading works out to be.
+.alert {
+  .alert-body.align-self-start {
+    & > div:first-child,
+    & > ul:first-child > li:first-child,
+    & > p:first-child {
+      margin-top: -0.2em;
+    }
+  }
+}
+
 //
 // CARDS
 //
