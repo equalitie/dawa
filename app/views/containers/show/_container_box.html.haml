@@ -1,0 +1,11 @@
+- container = local_assigns[:container] || @container
+
+= v.box(icon: "box", size: "md", id: "container-box-#{container.id}") do |box|
+  .d
+    %span.fw-bold= d(container).display_name
+    %code= d(container).short_id
+  %div{id: "container-status-#{container.id}"}
+    = d(container).state_badge
+  = box.with_buttons do
+    - restart_icon = container.state.restarting ? "spinner" : "arrow-repeat"
+    = v.post_button label: t("containers.action.restart"), icon: restart_icon, url: restart_container_path(container.id)

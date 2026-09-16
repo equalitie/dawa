@@ -151,6 +151,11 @@ en:
       title: "Backups"
 
   containers:
+    action:
+      restart: "Restart"
+      start: "Start"
+      stop: "Stop"
+      suspend: "Suspend"
     status:
       running: "Running"
       paused: "Paused"
@@ -183,7 +188,6 @@ en:
         resolv_conf_path: "Resolv.conf"
         log_path: "Log Path"
         back: "Back to Containers"
-        restart: "Restart"
         loading: "Loading..."
         cpu: "CPU"
         memory: "Memory"

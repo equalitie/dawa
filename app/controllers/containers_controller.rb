@@ -19,12 +19,8 @@ class ContainersController < BaseAdminController
   end
 
   def restart
-    docker_client.containers.restart(params[:id])
-    redirect_to container_path(params[:id]), notice: t(".restarting")
-  rescue DockerEngineRuby::Errors::APIConnectionError => e
-    redirect_to containers_path, alert: "Could not connect to Docker: #{e.cause}"
-  rescue DockerEngineRuby::Errors::APIStatusError => e
-    redirect_to container_path(params[:id]), alert: "Failed to restart container: #{e.message}"
+    Containers::RestartJob.perform_later(params[:id])
+    head :ok
   end
 
   def stats
