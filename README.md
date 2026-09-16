@@ -10,18 +10,26 @@ Dawa is the web interface for managing:
 * Server metrics and logging
 * OpenID Connect Provider / SSO 
 
+## The container
+
+For now, Dawa is typically distributed as an all-in-one container. Because we don't anticipate
+Dawa getting much traffic the database is simply sqlite stored is `/rails/storage` and background job
+processing is handled in the main webapp's process tree (SOLID_QUEUE_IN_PUMA=true).
+
+If it is ever the case the Dawa needs to handle more traffic, it would be good to split database and background job processing into separate, specialized containers (or a single container that uses a Procfile to run rails and job processing separately).
+
 ## Dummy Data
 
 To create a dummy container that simulates different load conditions:
 
 ```sh
-docker run -d --name keep-vm-alive gentasumantri/keep-vm-alive
+docker run --rm --name keep-vm-alive --label dc_app=keepalive gentasumantri/keep-vm-alive
 ```
 
 To create a dummy container that simulates logs:
 
 ```sh
-docker run -d --name loggen kubetail/loggen:0.2.0
+docker run -rm --name loggen --label dc_app=loggen kubetail/loggen:0.2.0
 ```
 
 ## OIDC testing
@@ -108,6 +116,7 @@ cd container/demo
 # generate required env vars:
 docker run --rm dawa rake dawa:required > .env
 # ensure docker proxy runs with the right group id
+# (only needed if docker group id is not the default 984)
 echo "DOCKER_GID=`getent group docker | cut -d: -f3`" >> .env
 ```
 
@@ -118,8 +127,6 @@ cd container/demo
 docker-compose up -d
 ```
 
-## Links
-
-* Node Exporter: used to gather statistics for the host. https://github.com/prometheus/node_exporter
-
 ## License
+
+TBD

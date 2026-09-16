@@ -1,4 +1,3 @@
-# Make sure RUBY_VERSION matches the Ruby version in .ruby-version
 ARG RUBY_VERSION=3.4
 FROM docker.io/library/ruby:$RUBY_VERSION-slim AS base
 
@@ -80,11 +79,6 @@ COPY --chown=rails:rails --from=build /rails /rails
 # Entrypoint prepares the database.
 ENTRYPOINT ["/rails/bin/docker-entrypoint"]
 
-# Run the Solid Queue supervisor inside Puma for single-server, low-traffic deployments. This
-# approach is lightweight (one process serves requests and runs the queue worker threads).
-# Late, if needed, we can either have a separate process for jobs in this container
-# (e.g. using Procfile) or run two separate containers with the same image (one for the web app and one
-# for background job processing).
 EXPOSE 3000
 ENV PORT=3000 \
     SOLID_QUEUE_IN_PUMA=true
