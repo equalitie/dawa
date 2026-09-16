@@ -1,0 +1,74 @@
+= breadcrumbs do |bc|
+  - bc.with_crumb { link_to t("apps.install"), catalog_index_path }
+  - bc.with_crumb(active: true) { @entry ? @entry.name : params[:id] }
+
+- if @error.present?
+  -#
+    Nothing to show, so show nothing but the reason. An empty detail page would read as
+    "this app has no metadata", which is a different claim from "we could not reach the
+    backend".
+  = v.alert("danger", icon: "x-circle") do
+    .mb-2.fw-bold= t("apps.catalog_unreachable")
+    %div= @error
+
+- elsif @entry
+  = v.box(icon: "box-seam", size: "lg") do |box|
+    %h3.mb-1= @entry.name
+    - if @entry.described?
+      %p.mb-2= @entry.description
+    .d-flex.flex-wrap.gap-3.small.text-muted
+      %span.text-nowrap
+        = t("apps.version")
+        \:
+        = @entry.versioned? ? @entry.version : t("apps.version_unknown")
+      - if @entry.updated?
+        %span.text-nowrap= t("apps.catalog_updated", date: format_date(@entry.updated_at, :date))
+      %span.text-nowrap
+        %code= @entry.id
+
+    -#
+      Not wired up. Installing creates an app, which is a separate resource with its own
+      lifecycle; the button is here so the page shows its shape. Disabled rather than
+      invisible so it is not mistaken for a working action.
+    - box.with_buttons do
+      = v.button label: t("apps.install_application"), icon: "download", color: "primary",
+        fill: true, size: "lg", disabled: true,
+        tooltip: t("apps.install_not_wired")
+
+  .row.g-3
+    .col-12.col-lg-8
+      - if @entry.long_described?
+        = simple_format @entry.long_description
+      - else
+        %div{data: {placeholder: "true"}}
+          = simple_format long_description_placeholder
+
+
+    .col-12.col-lg-4
+      .mb-3
+        = v.card(header: t("apps.catalog_releases")) do |card|
+          - if @entry.released_versions?
+            %ul.list-group.list-group-flush
+              - @entry.releases.each_with_index do |release, index|
+                %li.list-group-item.d-flex.justify-content-between.align-items-baseline.gap-2
+                  %span
+                    %span.fw-semibold= release.version
+                    - if index.zero?
+                      %span.badge.text-bg-primary.ms-1= t("apps.latest")
+                  %span.small.text-muted.text-nowrap
+                    - if release.released?
+                      = format_date(release.released_at, :date)
+                    - else
+                      = t("apps.date_unknown")
+          - else
+            .text-muted= t("apps.no_releases")
+      .mb-3
+        = v.card(header: t("apps.catalog_links")) do
+          %table.table.table-sm.mb-0.table-borderless
+            %tbody
+              %tr
+                %th.text-nowrap{style: "width: 40%"}= t("apps.upstream_project")
+                %td= external_link_or_blank(@entry.upstream_url)
+              %tr
+                %th.text-nowrap= t("apps.app_definition")
+                %td= external_link_or_blank(@entry.definition_url)

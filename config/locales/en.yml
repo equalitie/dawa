@@ -150,6 +150,35 @@ en:
     authentication: "Authentication"
     profile: "Profile"
 
+  #
+  # Apps. One flat prefix covers both the catalog (what CAN be installed) and installed
+  # apps (what IS installed), because they are two views of the same concept and are
+  # always read together.
+  #
+  apps:
+    # the apps index (installed apps)
+    install: "Install"
+    install_application: "Install Application"
+    name: "Name"
+    version: "Version"
+    version_unknown: "Unknown"
+    version_number: "Version %{version}"
+
+    # the catalog index (installable entries)
+    catalog_empty: "No installable apps were found in the catalog."
+    catalog_unreachable: "Could not reach dcommsctl"
+    catalog_updated: "Updated %{date}"
+    catalog_about: "About"
+    catalog_links: "Links"
+    catalog_releases: "Releases"
+    upstream_project: "Upstream project"
+    app_definition: "App definition"
+    latest: "Latest"
+    date_unknown: "Date unknown"
+    no_releases: "No releases have been published for this app."
+    not_provided: "Not provided"
+    install_not_wired: "Installing is not available yet"
+
   role:
     user: "User"
     admin: "Admin"
@@ -312,10 +341,6 @@ en:
         container_port: "Container Port"
         host_port: "Host Port"
       restarting: "Container is restarting"
-
-  apps:
-    index:
-      title: "Apps"
 
   logs:
     index:

@@ -12,7 +12,9 @@ class DcommsMockTest < ActiveSupport::TestCase
     @mock = DcommsMock.new
   end
 
-  # --- job/status (§B) ---------------------------------------------------
+  ##
+  ## job/status (§B)
+  ##
 
   test "job_status advances through pending to a terminal state" do
     @mock.script_job(id: "j2", running_for: 2)
@@ -41,7 +43,9 @@ class DcommsMockTest < ActiveSupport::TestCase
     assert_raises(DcommsClient::ServerError) { @mock.job_status(id: "nope") }
   end
 
-  # --- job/log (§C) ------------------------------------------------------
+  ##
+  ## job/log (§C)
+  ##
 
   test "job_log serves chunks incrementally and advances the offset" do
     @mock.script_job(id: "j1", chunks: [ "one\n", "two\n" ])
@@ -88,7 +92,9 @@ class DcommsMockTest < ActiveSupport::TestCase
     refute @mock.job_status(id: "j1").terminal?, "eof must not imply completion"
   end
 
-  # --- job/list (§D) -----------------------------------------------------
+  ##
+  ## job/list (§D)
+  ##
 
   test "job_list filters by instance and by active state" do
     @mock.script_job(id: "a", instance_id: "inst-1", running_for: 5)
@@ -108,20 +114,81 @@ class DcommsMockTest < ActiveSupport::TestCase
     assert_equal [ "done-job" ], @mock.job_list.map(&:id)
   end
 
-  # --- inst/list (§E) ----------------------------------------------------
+  ##
+  ## inst/list (§E)
+  ##
 
-  test "instances_list drops rows without an identity" do
-    instances = @mock.instances_list
+  test "apps_installed_list drops rows without an identity" do
+    instances = @mock.apps_installed_list
 
     assert_equal %w[dawa-okapi peertube-quokka], instances.map(&:id).sort
     assert instances.all?(&:available?)
   end
 
-  test "instances_list exposes the fields the UI needs" do
-    instance = @mock.instances_list.find { |i| i.id == "peertube-quokka" }
+  test "apps_installed_list exposes the fields the UI needs" do
+    instance = @mock.apps_installed_list.find { |i| i.id == "peertube-quokka" }
 
-    assert_equal "peertube", instance.app
+    assert_equal "peertube", instance.catalog_entry_id
     assert_equal "peertube.test", instance.domain
     assert_equal "running", instance.status
+    assert instance.running?
+  end
+
+  #
+  # catalog entry detail
+  #
+
+  test "catalog_entry returns the fields the show page renders" do
+    entry = @mock.catalog_entry(id: "peertube")
+
+    assert_equal "peertube", entry.id
+    assert_equal "Peertube", entry.name
+    assert entry.available?
+    assert entry.long_described?
+    assert entry.upstream?
+    assert entry.definition_linked?
+    assert entry.updated?
+  end
+
+  test "catalog_entry's version matches its newest release" do
+    # These two must not disagree: the header shows `version` while the release list is
+    # ordered newest-first, and a mismatch would look like a data bug.
+    entry = @mock.catalog_entry(id: "peertube")
+
+    assert_equal entry.releases.first.version, entry.version
+  end
+
+  test "catalog_entry returns releases newest first" do
+    entry = @mock.catalog_entry(id: "peertube")
+
+    assert_equal %w[5.0.0 4.0.0 3.0.0 2.0.0 1.0.0], entry.releases.map(&:version)
+    dates = entry.releases.map(&:released_at)
+    assert_equal dates.sort.reverse, dates, "releases must be ordered newest first"
+    assert entry.releases.all?(&:released?)
+  end
+
+  test "catalog_entry fixture covers single-release and multi-release entries" do
+    # The show page has a release list and an empty-list branch, so the fixtures must
+    # exercise both without hand-editing data.
+    assert_equal 1, @mock.catalog_entry(id: "dawa").releases.size
+    assert_equal 5, @mock.catalog_entry(id: "peertube").releases.size
+  end
+
+  test "catalog_entry is deterministic across instances" do
+    # Faker is seeded per entry, so two mocks agree. Without this, screenshots and test
+    # expectations would drift on every run.
+    first = DcommsMock.new.catalog_entry(id: "peertube")
+    second = DcommsMock.new.catalog_entry(id: "peertube")
+
+    assert_equal first.long_description, second.long_description
+    assert_equal first.releases.map(&:changelog), second.releases.map(&:changelog)
+  end
+
+  test "catalog_entry raises for an unknown id rather than returning a blank entry" do
+    # Same rule as job/status: the backend must not invent state for something it never
+    # had. A blank entry would render as "this app has no metadata".
+    error = assert_raises(DcommsClient::ServerError) { @mock.catalog_entry(id: "nope") }
+
+    assert_match(/unknown catalog entry/, error.message)
   end
 end

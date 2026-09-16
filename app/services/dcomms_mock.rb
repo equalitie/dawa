@@ -1,5 +1,5 @@
 #
-# Canned dcommsctl responses — TEMPORARY.
+# Canned dcommsctl responses -- TEMPORARY.
 #
 # The dcommsctl backend does not yet implement `job/status`, `job/log` (real output),
 # `job/list` or `inst/list`; see docs/dcommsctl-api-requests.md and
@@ -87,13 +87,31 @@ class DcommsMock
   #
   # Deterministic fixtures, including one row with a blank id/name. The real `apps/list`
   # has an equivalent zero-value-row bug, so the filtering rules must cope.
-  DEFAULT_INSTANCES = [
+  DEFAULT_APPS = [
     { "id" => "peertube-quokka", "app" => "peertube", "domain" => "peertube.test",
       "version" => "7.0.0", "status" => "running" },
     { "id" => "dawa-okapi", "app" => "dawa", "domain" => "dawa.test",
       "version" => "0.0.1", "status" => "running" },
     { "id" => "", "app" => "", "domain" => "", "version" => "", "status" => "" }
   ].freeze
+
+  #
+  # MOCK(dcommsctl): the detail half of apps/list.
+  #
+  # `apps/list` returns only id/name/version/redirect_uri, so everything the catalog
+  # *show* page needs (long description, upstream and definition URLs, the release
+  # history) is absent. The real implementation should return these per entry; until it
+  # does, anything missing is filled with deterministic Faker text so the page can be
+  # built and reviewed.
+  #
+  # Release histories are shaped to exercise the UI: one entry with many releases, one
+  # with a single release, and none with an empty history, so the "no releases" branch
+  # is reachable without hand-editing fixtures.
+  #
+  # Faker is seeded per entry id, so the same entry always produces the same text. That
+  # keeps tests and screenshots stable while still reading like real prose.
+  #
+  RELEASE_COUNTS = { "peertube" => 5, "mastodon" => 3, "dawa" => 1 }.freeze
 
   # A log long enough to need several offset-based polls, ending in a partial line (the
   # live-progress-bar case the byte cursor must tolerate).
@@ -105,8 +123,8 @@ class DcommsMock
     "still working" # deliberately no trailing newline
   ].freeze
 
-  def initialize(instances: DEFAULT_INSTANCES)
-    @instances = instances
+  def initialize(apps: DEFAULT_APPS)
+    @apps = apps
     @jobs = {}
     @order = []
   end
@@ -123,12 +141,14 @@ class DcommsMock
     register(ScriptedJob.new(id: id, type: type, instance_id: instance_id, **options))
   end
 
-  # --- mocked API surface ------------------------------------------------
+  ##
+  ## mocked API surface
+  ##
 
   # MOCK(dcommsctl): job/status (§B).
   #
   # Advances the scripted job one step per call. An unknown job is an error, not a
-  # zero-value success — matching the intended contract (job/status must not invent
+  # zero-value success -- matching the intended contract (job/status must not invent
   # state for a job it never had).
   def job_status(id:)
     job = fetch_job(id)
@@ -160,8 +180,39 @@ class DcommsMock
   end
 
   # MOCK(dcommsctl): inst/list (§E).
-  def instances_list
-    @instances.filter_map { |raw| Dcomms::Instance.from_json(raw) }.select(&:available?)
+  def apps_installed_list
+    @apps.filter_map { |raw| Dcomms::AppInstance.from_json(raw) }.select(&:available?)
+  end
+
+  # Old name, kept so nothing breaks mid-refactor.
+  alias_method :instances_list, :apps_installed_list
+
+  # MOCK(dcommsctl): catalog entry detail (the unwritten `apps/get`).
+  #
+  # Decorates one entry from `apps/list` with the metadata the show page needs. Returning
+  # a CatalogEntry rather than raw JSON keeps the same value-object contract as the real
+  # client, so the view cannot tell the two apart.
+  #
+  # @param id [String] the catalog entry id.
+  # @raise [DcommsClient::ServerError] for an unknown id, matching `job/status`'s rule
+  #   that the backend must not invent state for something it never had.
+  #
+  def catalog_entry(id:)
+    raw = catalog_raw(id)
+    raise DcommsClient::ServerError.new(code: -32000, message: "unknown catalog entry: #{id}") if raw.nil?
+
+    Dcomms::CatalogEntry.new(
+      id: raw["id"],
+      name: raw["name"],
+      version: latest_version_for(raw["id"]),
+      redirect_uri: raw["redirect_uri"],
+      description: raw["description"],
+      long_description: long_description_for(raw),
+      upstream_url: UPSTREAM_URLS[raw["id"]] || "https://example.invalid/#{raw["id"]}",
+      definition_url: DEFINITION_URLS[raw["id"]] || "https://example.invalid/dcomms-apps/#{raw["id"]}",
+      updated_at: updated_at_for(raw["id"]),
+      releases: releases_for(raw["id"])
+    )
   end
 
   private
@@ -169,4 +220,66 @@ class DcommsMock
   def fetch_job(id)
     @jobs[id] || raise(DcommsClient::ServerError.new(code: -32000, message: "unknown job: #{id}"))
   end
+
+  # The catalog itself is real; these are the extra entries the detail mock can describe.
+  CATALOG_FIXTURES = [
+    { "id" => "peertube", "name" => "Peertube",
+      "description" => "A federated video platform." },
+    { "id" => "mastodon", "name" => "Mastodon",
+      "description" => "A federated social network." },
+    { "id" => "dawa", "name" => "DAWA", "description" => "Web admin for your server." }
+  ].freeze
+
+  UPSTREAM_URLS = {
+    "peertube" => "https://joinpeertube.org",
+    "mastodon" => "https://joinmastodon.org",
+    "dawa" => "https://example.invalid/dawa"
+  }.freeze
+
+  DEFINITION_URLS = {
+    "peertube" => "https://example.invalid/dcomms-apps/peertube",
+    "mastodon" => "https://example.invalid/dcomms-apps/mastodon",
+    "dawa" => "https://example.invalid/dcomms-apps/dawa"
+  }.freeze
+
+  def catalog_raw(id)
+    CATALOG_FIXTURES.detect { |entry| entry["id"] == id.to_s }
+  end
+
+  # The real `long_description` is prose, so the fixture is too: a lead sentence plus
+  # several paragraphs. Passing count: 1 here produced a one-paragraph "long" description,
+  # which made the show page look like it was truncating.
+  def long_description_for(raw)
+    "#{raw["description"]} #{CatalogPlaceholderText.paragraphs("#{raw["id"]}-long")}"
+  end
+
+  def updated_at_for(id)
+    # Spread entries over the recent past so "updated" ordering is visible, and keep it
+    # deterministic (a fixed anchor, not Time.now) so tests do not drift.
+    days_ago = (id.to_s.bytes.sum % 30) + 1
+    (MOCK_NOW - days_ago.days).iso8601
+  end
+
+  def latest_version_for(id)
+    releases_for(id).first&.version
+  end
+
+  # Descending semver-ish history, newest first. The count is fixed per entry so the
+  # same entry always gets the same list.
+  def releases_for(id)
+    count = RELEASE_COUNTS[id.to_s].to_i
+    return [] if count.zero?
+
+    (0...count).map do |index|
+      Dcomms::Release.new(
+        version: "#{count - index}.0.0",
+        released_at: (MOCK_NOW - (index * 45).days).iso8601,
+        changelog: CatalogPlaceholderText.tagline("#{id}-#{index}")
+      )
+    end
+  end
+
+  # A stable anchor for generated dates. Deliberately not Time.now: fixtures must not
+  # change between runs.
+  MOCK_NOW = Time.zone.parse("2026-01-01T00:00:00Z").freeze
 end

@@ -42,7 +42,7 @@ module SidebarHelper
       label: t("sidebar.apps"),
       icon: "boxes",
       path: main_app.apps_path,
-      active: active?(c: "apps")
+      active: active?(c: ["apps", "catalog"])
     }
     if active?(c: ["apps", "oauth/applications"])
       sb[:sso_applications] = {

@@ -1,15 +1,19 @@
 require "test_helper"
+require "socket"
 
 #
 # Unit tests for the dcommsctl JSON-RPC client.
 #
-# `#exchange` (the socket round trip) is stubbed, so these run without a live daemon
-# and pin the parts that actually encode the contract: request/response correlation,
-# result unwrapping, error-code mapping, and the guards against the backend's
-# silent no-op behaviours.
+# Most of these stub `#exchange` (the socket round trip), so they run without a live
+# daemon and pin the parts that actually encode the contract: request/response
+# correlation, result unwrapping, error-code mapping, and the guards against the
+# backend's silent no-op behaviours.
 #
 # The canned responses mirror what the live daemon was observed to return
 # (see docs/dcommsctl-integration-plan.md, Step 0 / "Probe results").
+#
+# `#exchange` itself is covered by the transport tests at the bottom, which run the
+# real WebSocket handshake against a loopback echo server.
 #
 class DcommsClientTest < ActiveSupport::TestCase
   setup do
@@ -37,11 +41,13 @@ class DcommsClientTest < ActiveSupport::TestCase
     @client.singleton_class.send(:remove_method, :exchange)
   end
 
-  # --- request shape -----------------------------------------------------
+  ##
+  ## request shape
+  ##
 
   test "sends a JSON-RPC 2.0 request with a matching id" do
     stub_exchange(result: { "applications" => [] }) do
-      @client.apps_list
+      @client.catalog_list
     end
 
     request = @sent.last
@@ -52,7 +58,7 @@ class DcommsClientTest < ActiveSupport::TestCase
 
   test "omits params for parameterless methods" do
     stub_exchange(result: { "applications" => [] }) do
-      @client.apps_list
+      @client.catalog_list
     end
 
     refute @sent.last.key?("params")
@@ -63,37 +69,112 @@ class DcommsClientTest < ActiveSupport::TestCase
     assert_equal "ws://other.test:6006/ws", DcommsClient.new(url: "ws://other.test:6006/ws").url
   end
 
-  # --- apps/list ---------------------------------------------------------
+  ##
+  ## apps/list
+  ##
 
-  test "apps_list unwraps the applications array into App objects" do
+  test "catalog_list unwraps the applications array into Definition objects" do
     result = { "applications" => [
       { "id" => "peertube", "name" => "Peertube", "version" => "", "redirect_uri" => "/tmp_redirect" },
       { "id" => "dawa", "name" => "DAWA", "version" => "0.0.1", "redirect_uri" => "/tmp_redirect" }
     ] }
 
     stub_exchange(result: result) do
-      apps = @client.apps_list
-      assert_equal 2, apps.size
-      assert_equal "peertube", apps.first.id
-      assert_equal "Peertube", apps.first.name
-      # an empty version must NOT disqualify an app (the live catalog has them)
-      assert_nil apps.first.version
-      assert apps.first.available?
+      definitions = @client.catalog_list
+      assert_equal 2, definitions.size
+      assert_equal "peertube", definitions.first.id
+      assert_equal "Peertube", definitions.first.name
+      # an empty version must NOT disqualify a definition (the live catalog has them)
+      assert_nil definitions.first.version
+      refute definitions.first.versioned?
+      assert definitions.first.available?
     end
   end
 
-  test "apps_list drops rows missing both id and name" do
+  test "apps_list is a deprecated alias for catalog_list" do
+    stub_exchange(result: { "applications" => [] }) do
+      assert_equal @client.catalog_list, @client.apps_list
+    end
+  end
+
+  test "catalog_list drops rows missing both id and name" do
     result = { "applications" => [
       { "id" => "peertube", "name" => "Peertube", "version" => "", "redirect_uri" => "/tmp_redirect" },
       { "id" => "", "name" => "", "version" => "", "redirect_uri" => "" }
     ] }
 
     stub_exchange(result: result) do
-      assert_equal [ "peertube" ], @client.apps_list.map(&:id)
+      assert_equal [ "peertube" ], @client.catalog_list.map(&:id)
     end
   end
 
-  # --- error mapping -----------------------------------------------------
+  test "catalog_list parses the detail fields when the backend sends them" do
+    # `apps/list` does not send these today, but the entry shape is shared with the detail
+    # method, so the parser must handle them now rather than silently dropping them later.
+    result = { "applications" => [ {
+      "id" => "peertube", "name" => "Peertube", "version" => "7.0.0",
+      "description" => "short", "long_description" => "much longer",
+      "upstream_url" => "https://joinpeertube.org",
+      "definition_url" => "https://example.test/defs/peertube",
+      "updated_at" => "2026-03-04T10:00:00Z",
+      "releases" => [ { "version" => "7.0.0", "released_at" => "2026-03-04T10:00:00Z" } ]
+    } ] }
+
+    stub_exchange(result: result) do
+      entry = @client.catalog_list.first
+
+      assert entry.long_described?
+      assert_equal "https://joinpeertube.org", entry.upstream_url
+      assert_equal "https://example.test/defs/peertube", entry.definition_url
+      assert_equal 1, entry.releases.size
+      assert_equal "7.0.0", entry.releases.first.version
+      assert entry.releases.first.released?
+    end
+  end
+
+  test "catalog_entry requests one entry by id and parses the detail" do
+    result = {
+      "id" => "peertube", "name" => "Peertube", "version" => "7.0.0",
+      "long_description" => "much longer",
+      "releases" => [
+        { "version" => "7.0.0", "released_at" => "2026-03-04T10:00:00Z" },
+        { "version" => "6.0.0" }
+      ]
+    }
+
+    stub_exchange(result: result) do
+      entry = @client.catalog_entry(id: "peertube")
+
+      assert_equal "peertube", entry.id
+      assert entry.long_described?
+      assert_equal %w[7.0.0 6.0.0], entry.releases.map(&:version)
+      refute entry.releases.last.released?, "a release with no date must not invent one"
+    end
+
+    assert_equal({ "id" => "peertube" }, @sent.last["params"])
+    assert_equal "apps/get", @sent.last["method"]
+  end
+
+  test "catalog_entry drops releases with no version" do
+    result = { "id" => "peertube", "name" => "Peertube",
+               "releases" => [ { "version" => "7.0.0" }, { "version" => "" }, {} ] }
+
+    stub_exchange(result: result) do
+      assert_equal [ "7.0.0" ], @client.catalog_entry(id: "peertube").releases.map(&:version)
+    end
+  end
+
+  test "catalog_entry raises EmptyResult for a blank entry" do
+    # An all-empty response is the backend's way of saying nothing, which must not render
+    # as a valid entry with no name.
+    stub_exchange(result: { "id" => "", "name" => "" }) do
+      assert_raises(DcommsClient::EmptyResult) { @client.catalog_entry(id: "nope") }
+    end
+  end
+
+  ##
+  ## error mapping
+  ##
 
   test "maps -32601 to MethodNotFound" do
     error = { "code" => -32601, "message" => "method not found: job/status" }
@@ -131,7 +212,9 @@ class DcommsClientTest < ActiveSupport::TestCase
     end
   end
 
-  # --- guards against silent no-ops --------------------------------------
+  ##
+  ## guards against silent no-ops
+  ##
 
   test "install raises EmptyResult when the backend silently did nothing" do
     # Observed live for an unsupported app: six empty strings, no error.
@@ -175,7 +258,9 @@ class DcommsClientTest < ActiveSupport::TestCase
     end
   end
 
-  # --- jobs --------------------------------------------------------------
+  ##
+  ## jobs
+  ##
 
   test "job_status parses state and terminality" do
     result = {
@@ -241,21 +326,25 @@ class DcommsClientTest < ActiveSupport::TestCase
     assert_equal({ "active_only" => true }, @sent.last["params"])
   end
 
-  test "instances_list parses instances, tolerating blank rows" do
+  test "apps_installed_list parses instances, tolerating blank rows" do
     result = { "instances" => [
       { "id" => "peertube-quokka", "app" => "peertube", "domain" => "pt.test", "status" => "running" },
       { "id" => "" }
     ] }
 
     stub_exchange(result: result) do
-      instances = @client.instances_list
+      instances = @client.apps_installed_list
       assert_equal 1, instances.size
       assert_equal "peertube-quokka", instances.first.id
-      assert_equal "peertube", instances.first.app
+      # dcommsctl names this field "app"; it identifies the catalog entry the app came from
+      assert_equal "peertube", instances.first.catalog_entry_id
+      assert instances.first.running?
     end
   end
 
-  # --- protocol failures -------------------------------------------------
+  ##
+  ## protocol failures
+  ##
 
   test "raises ProtocolError on malformed JSON" do
     assert_raises(DcommsClient::ProtocolError) { @client.send(:parse_response, "not json") }
@@ -268,5 +357,98 @@ class DcommsClientTest < ActiveSupport::TestCase
   test "raises ConnectionError when the url scheme is unsupported" do
     client = DcommsClient.new(url: "ftp://nope/ws")
     assert_raises(DcommsClient::ConnectionError) { client.send(:exchange, "{}") }
+  end
+
+  ##
+  ## transport (real sockets)
+  ##
+  #
+  # These drive the real handshake and frame parsing over loopback, so they catch
+  # breakage in `#exchange`/`#read_reply` that stubbing cannot see. Regression guard
+  # for the reply never being observed: the `:message` handler must hand its data
+  # back to the read loop (a bare local rebound inside the handler is invisible to
+  # the caller, which made every call time out despite a correct reply).
+
+  test "completes a real websocket round trip and unwraps the result" do
+    with_echo_server { |url| assert_client_round_trip(url) }
+  end
+
+  test "exchanges one request per call on a fresh connection" do
+    requests = []
+
+    with_echo_server(requests: requests) do |url|
+      client = DcommsClient.new(url: url, timeout: 3)
+      3.times { assert_equal [], client.catalog_list }
+    end
+
+    assert_equal 3, requests.size, "each call must open its own connection"
+    assert_equal %w[apps/list apps/list apps/list], requests.map { |r| r["method"] }
+  end
+
+  test "raises ConnectionError when nothing is listening" do
+    # Bind and immediately release a port so we have one that is almost certainly free.
+    server = TCPServer.new("127.0.0.1", 0)
+    port = server.addr[1]
+    server.close
+
+    client = DcommsClient.new(url: "ws://127.0.0.1:#{port}/ws", timeout: 1)
+
+    assert_raises(DcommsClient::ConnectionError) { client.catalog_list }
+  end
+
+  #
+  # A minimal WebSocket echo server: does the handshake, and answers each JSON-RPC
+  # request with `result: {applications: []}`.
+  #
+  # Accepts connections until the server socket is closed by `with_echo_server`, so
+  # it can serve tests that make several calls (the client opens one per call).
+  #
+  # @param requests [Array<Hash>, nil] collects the decoded requests the server saw.
+  #
+  def with_echo_server(requests: nil)
+    server = TCPServer.new("127.0.0.1", 0)
+    port = server.addr[1]
+    thread = Thread.new { serve_echo_connections(server, requests) }
+
+    yield "ws://127.0.0.1:#{port}/ws"
+  ensure
+    server&.close
+    thread&.join(2)
+  end
+
+  def serve_echo_connections(server, requests)
+    loop { serve_echo_connection(server.accept, requests) }
+  rescue IOError, SystemCallError
+    # server closed by with_echo_server; no more connections to serve
+  end
+
+  def serve_echo_connection(socket, requests)
+    driver = WebSocket::Driver.server(socket)
+    driver.on(:connect) { driver.start }
+    driver.on(:message) { |event| reply_to(socket, driver, event.data, requests) }
+
+    loop do
+      begin
+        driver.parse(socket.read_nonblock(DcommsClient::READ_CHUNK))
+      rescue IO::WaitReadable
+        IO.select([ socket ], nil, nil, 0.1)
+      rescue EOFError, IOError, SystemCallError
+        break # client closed after reading its reply
+      end
+    end
+  end
+
+  def reply_to(socket, driver, data, requests)
+    request = JSON.parse(data)
+    requests << request if requests
+
+    driver.text(JSON.generate({ "jsonrpc" => "2.0", "id" => request["id"],
+                                "result" => { "applications" => [] } }))
+  rescue IOError, SystemCallError
+    socket.close
+  end
+
+  def assert_client_round_trip(url)
+    assert_equal [], DcommsClient.new(url: url, timeout: 3).catalog_list
   end
 end

@@ -1,7 +1,7 @@
 require "test_helper"
 
 #
-# Tests for the dcommsctl adapter — the seam that decides whether a call goes to the
+# Tests for the dcommsctl adapter -- the seam that decides whether a call goes to the
 # real backend or to DcommsMock.
 #
 # The two things worth pinning: the routing is exactly the documented split (so a method
@@ -18,8 +18,10 @@ class DcommsAdapterTest < ActiveSupport::TestCase
       @return_value = return_value
     end
 
+    def catalog_list = record(:catalog_list)
+    def catalog_entry(id:) = record(:catalog_entry, id: id)
     def apps_list = record(:apps_list)
-    def instances_list = record(:instances_list)
+    def apps_installed_list = record(:apps_installed_list)
     def install(name:, domain:) = record(:install, name: name, domain: domain)
     def uninstall(id:) = record(:uninstall, id: id)
     def start(id:) = record(:start, id: id)
@@ -46,34 +48,77 @@ class DcommsAdapterTest < ActiveSupport::TestCase
     @adapter = DcommsAdapter.new(client: @client, mock: @mock)
   end
 
-  # --- the documented split ----------------------------------------------
+  ##
+  ## construction
+  ##
+
+  test "a default-constructed adapter has real collaborators, not nil" do
+    # Controllers call DcommsAdapter.new with no arguments. If the collaborators defaulted to
+    # nil, every request would raise "undefined method ... for nil" rather than reaching the
+    # backend. Tests that always inject stubs cannot catch that, so assert it directly.
+    adapter = DcommsAdapter.new
+
+    assert_instance_of DcommsClient, adapter.client
+    assert_instance_of DcommsMock, adapter.mock
+  end
+
+  test "the default-constructed adapter routes mocked methods to the mock" do
+    adapter = DcommsAdapter.new
+
+    # apps_installed_list is mocked; it must not reach the (unreachable, in tests) socket,
+    # and it must not blow up on a nil mock.
+    assert_equal DcommsMock::DEFAULT_APPS.size - 1, adapter.apps_installed_list.size
+  end
+
+  ##
+  ## the documented split
+  ##
 
   test "MOCKED lists exactly the methods the backend does not implement" do
-    assert_equal %i[job_status job_log job_list instances_list].sort, DcommsAdapter::MOCKED.sort
+    # Deliberately exhaustive: adding a method here means the backend lacks it, which is a
+    # claim that should require updating this list.
+    assert_equal %i[job_status job_log job_list apps_installed_list catalog_entry].sort,
+                 DcommsAdapter::MOCKED.sort
   end
 
   test "REAL and MOCKED do not overlap" do
     assert_empty DcommsAdapter::REAL & DcommsAdapter::MOCKED
   end
 
+  # Deprecated aliases, kept for compatibility while the vocabulary settles. Each should
+  # disappear once nothing calls them.
+  DEPRECATED_ALIASES = %i[definitions_list apps_list instances_list].freeze
+
   test "every method on the adapter is classified as real or mocked" do
     adapter_methods = DcommsAdapter.public_instance_methods(false)
     classified = DcommsAdapter::REAL + DcommsAdapter::MOCKED
-    # methods that are not RPC calls (routing helpers) are exempt
-    unclassified = adapter_methods - classified - %i[mocked? mocked_methods client mock]
+    # methods that are not RPC calls (routing helpers) are exempt, as are deprecated aliases
+    unclassified = adapter_methods - classified - %i[mocked? mocked_methods client mock] - DEPRECATED_ALIASES
 
     assert_empty unclassified, "unclassified adapter methods: #{unclassified.inspect}"
+  end
+
+  test "the deprecated aliases still route like their replacements" do
+    assert_equal :from_client, @adapter.definitions_list
+    assert_equal [ [ :catalog_list, {} ] ], @client.calls
+
+    # apps_installed_list is mocked (the backend lacks inst/list), so its alias routes to the
+    # mock too. The point is that the alias takes the same path as the new name.
+    assert_equal :from_mock, @adapter.instances_list
+    assert_equal [ [ :apps_installed_list, {} ] ], @mock.calls
   end
 
   test "the default configuration mocks exactly MOCKED" do
     assert_equal DcommsAdapter::MOCKED.sort, @adapter.mocked_methods.sort
   end
 
-  # --- routing -----------------------------------------------------------
+  ##
+  ## routing
+  ##
 
   test "real methods go to the client, not the mock" do
-    assert_equal :from_client, @adapter.apps_list
-    assert_equal [ [ :apps_list, {} ] ], @client.calls
+    assert_equal :from_client, @adapter.catalog_list
+    assert_equal [ [ :catalog_list, {} ] ], @client.calls
     assert_empty @mock.calls
   end
 
@@ -114,7 +159,9 @@ class DcommsAdapterTest < ActiveSupport::TestCase
     assert_equal [ [ :job_list, { instance_id: "inst-1", active_only: true } ] ], @mock.calls
   end
 
-  # --- configuration -----------------------------------------------------
+  ##
+  ## configuration
+  ##
 
   test "use_mocks none sends everything to the client" do
     with_use_mocks("none") do
@@ -130,17 +177,17 @@ class DcommsAdapterTest < ActiveSupport::TestCase
     with_use_mocks("all") do
       adapter = DcommsAdapter.new(client: @client, mock: @mock)
 
-      assert_equal :from_mock, adapter.apps_list
+      assert_equal :from_mock, adapter.catalog_list
       assert_empty @client.calls
     end
   end
 
   test "use_mocks accepts an explicit list" do
-    with_use_mocks("job_status, apps_list") do
+    with_use_mocks("job_status, catalog_list") do
       adapter = DcommsAdapter.new(client: @client, mock: @mock)
 
-      assert_equal %i[apps_list job_status].sort, adapter.mocked_methods.sort
-      assert_equal :from_mock, adapter.apps_list
+      assert_equal %i[catalog_list job_status].sort, adapter.mocked_methods.sort
+      assert_equal :from_mock, adapter.catalog_list
       assert_equal :from_client, adapter.job_log(id: "j")
     end
   end
@@ -155,9 +202,30 @@ class DcommsAdapterTest < ActiveSupport::TestCase
 
   test "mocked? answers per method" do
     assert @adapter.mocked?(:job_status)
-    assert @adapter.mocked?("instances_list")
-    refute @adapter.mocked?(:apps_list)
+    assert @adapter.mocked?("apps_installed_list")
+    refute @adapter.mocked?(:catalog_list)
     refute @adapter.mocked?(:install)
+  end
+
+  #
+  # catalog entry detail
+  #
+
+  test "catalog_entry is mocked until the backend exposes a detail method" do
+    # Note the asymmetry: catalog_list is REAL, catalog_entry is mocked. The show page
+    # therefore mixes real and fake data, which is why every detail field it renders must
+    # be treated as optional.
+    assert @adapter.mocked?(:catalog_entry)
+    assert_equal :from_mock, @adapter.catalog_entry(id: "peertube")
+  end
+
+  test "catalog_entry goes to the client once unmocked" do
+    with_use_mocks("none") do
+      adapter = DcommsAdapter.new(client: @client, mock: @mock)
+
+      assert_equal :from_client, adapter.catalog_entry(id: "peertube")
+      assert_equal [ [ :catalog_entry, { id: "peertube" } ] ], @client.calls
+    end
   end
 
   private

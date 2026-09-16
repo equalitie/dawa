@@ -5,22 +5,93 @@
 # never poke at raw Hashes with string keys, and so the intended contract from
 # docs/dcommsctl-api-requests.md lives in one place per shape.
 #
+# Vocabulary. Two words are deliberately kept apart, and the mapping from dcommsctl's
+# method names is confined to the client:
+#
+#   dcommsctl method   Dawa concept    meaning
+#   apps/list          CatalogEntry    what CAN be installed (Peertube, an IMAP server)
+#   inst/list          App             what IS installed (one deployment, own data)
+#
+# So in Dawa, "app" always means an installed thing, never a catalog entry. dcommsctl uses
+# "app" for both, and `dc_app` labels a container with the catalog entry it came from,
+# which is why the translation is spelled out rather than assumed.
+#
+# A catalog entry has zero or more apps.
+#
 module Dcomms
   #
-  # One installable application from `apps/list`.
+  # One release of a catalog entry: a specific version, published at a specific time.
   #
-  # NOTE: the live catalog is not fully trustworthy — `version` is empty for some
-  # apps, and `redirect_uri` may be a placeholder/relative path (e.g. "/tmp_redirect").
+  # A release is what an app instance is pinned to. Per notes/todo.md an app version is
+  # "a specific set of the container image versions that make up that release", declared
+  # together, and it may carry its own backup/restore/upgrade scripts -- so this is the
+  # unit that upgrade paths are expressed between, not a cosmetic label.
+  #
+  # Only `version` is required. `released_at` is part of the intended contract but is not
+  # sent yet; callers must tolerate nil and should not invent a date.
+  #
+  class Release
+    attr_reader :version, :released_at, :changelog
+
+    def initialize(version:, released_at: nil, changelog: nil)
+      @version = version.to_s
+      @released_at = parse_time(released_at)
+      @changelog = changelog.presence
+    end
+
+    def self.from_json(raw)
+      return nil unless raw.is_a?(Hash)
+      return nil unless raw["version"].present?
+
+      new(version: raw["version"], released_at: raw["released_at"], changelog: raw["changelog"])
+    end
+
+    def released? = released_at.present?
+
+    def to_s = version
+
+    private
+
+    def parse_time(value)
+      case value
+      when nil then nil
+      when Time, DateTime then value
+      when String then Time.zone.parse(value)
+      end
+    rescue ArgumentError
+      nil
+    end
+  end
+
+  #
+  # One installable entry from `apps/list`.
+  #
+  # NOTE: the live catalog is not fully trustworthy - `version` is empty for some
+  # entries, and `uri` may be a placeholder/relative path (e.g. "/tmp_redirect").
   # `available?` therefore does NOT consider `version`.
   #
-  class App
-    attr_reader :id, :name, :version, :redirect_uri
+  # `description`, `long_description`, `upstream_url`, `definition_url`, `updated_at` and
+  # `releases` are part of the intended contract but are NOT sent yet (see
+  # docs/dcommsctl-api-requests.md). Callers must tolerate nil/empty for all of them; the
+  # view falls back to placeholder text rather than pretending the data exists.
+  #
+  class CatalogEntry
+    attr_reader :id, :name, :version, :redirect_uri, :description, :long_description,
+                :upstream_url, :definition_url, :updated_at, :releases
 
-    def initialize(id:, name:, version: nil, redirect_uri: nil)
+    def initialize(id:, name:, version: nil, redirect_uri: nil, description: nil,
+                   long_description: nil, upstream_url: nil, definition_url: nil,
+                   updated_at: nil, releases: [])
       @id = id.to_s
       @name = name.to_s
       @version = version.presence
       @redirect_uri = redirect_uri.presence
+      @description = description.presence
+      @long_description = long_description.presence
+      @upstream_url = upstream_url.presence
+      @definition_url = definition_url.presence
+      @updated_at = parse_time(updated_at)
+      @releases = Array(releases).compact
     end
 
     def self.from_json(raw)
@@ -30,20 +101,91 @@ module Dcomms
         id: raw["id"],
         name: raw["name"],
         version: raw["version"],
-        redirect_uri: raw["redirect_uri"]
+        redirect_uri: raw["redirect_uri"],
+        description: raw["description"],
+        long_description: raw["long_description"],
+        upstream_url: raw["upstream_url"],
+        definition_url: raw["definition_url"],
+        updated_at: raw["updated_at"],
+        releases: Array(raw["releases"]).filter_map { |r| Release.from_json(r) }
       )
     end
 
+    # True when the catalog told us something. Absent data is not an error here - the
+    # backend simply does not send these fields yet.
+    def described? = description.present?
+    def long_described? = long_description.present?
+    def updated? = updated_at.present?
+    def upstream? = upstream_url.present?
+    def definition_linked? = definition_url.present?
+    def released_versions? = releases.any?
+
     #
-    # True when the row carries enough information to be shown/installed. A row with
-    # no id and no name is the zero-value entry `apps/list` appends when a per-app
+    # True when the row carries enough information to be shown or installed. A row with
+    # no id and no name is the zero-value entry `apps/list` appends when a per-entry
     # config.json fails to parse (it swallows that error), and must be dropped.
     #
     def available?
       id.present? && name.present?
     end
 
+    # True when we know a concrete version. The live catalog leaves this blank for most
+    # entries, so a blank version means "unknown", not "broken".
+    def versioned? = version.present?
+
     def to_s = name.presence || id
+
+    private
+
+    # Accept an ISO8601 string or a Time; anything unparseable becomes nil so a bad
+    # value degrades to "unknown" instead of raising inside a view.
+    def parse_time(value)
+      case value
+      when nil then nil
+      when Time, DateTime then value
+      when String then Time.zone.parse(value)
+      end
+    rescue ArgumentError
+      nil
+    end
+  end
+
+  # Old name, kept so nothing breaks mid-refactor.
+  Definition = CatalogEntry
+
+  #
+  # One installed app: a deployment of a CatalogEntry, from `inst/list` (not implemented
+  # yet by the backend). Owns its own containers, data, and scripts.
+  #
+  class AppInstance
+    attr_reader :id, :catalog_entry_id, :domain, :version, :status
+
+    def initialize(id:, catalog_entry_id: nil, domain: nil, version: nil, status: nil)
+      @id = id.to_s
+      @catalog_entry_id = catalog_entry_id.presence
+      @domain = domain.presence
+      @version = version.presence
+      @status = status.presence
+    end
+
+    def self.from_json(raw)
+      return nil unless raw.is_a?(Hash)
+
+      new(
+        id: raw["id"],
+        # dcommsctl calls this field "app" (and sometimes "name"); both mean the catalog
+        # entry the app was created from.
+        catalog_entry_id: raw["app"] || raw["name"],
+        domain: raw["domain"],
+        version: raw["version"],
+        status: raw["status"]
+      )
+    end
+
+    # Same guard as CatalogEntry#available? - drop rows without an identity.
+    def available? = id.present?
+
+    def running? = status == "running"
   end
 
   #
@@ -171,36 +313,8 @@ module Dcomms
     # No new output in this chunk.
     def empty? = log.empty?
 
-    # NOTE: `eof` means "caught up for now", NOT "the job finished" — completion is
+    # NOTE: `eof` means "caught up for now", NOT "the job finished" -- completion is
     # only ever signalled by JobStatus#state.
     def to_s = "JobLog(bytes=#{log.bytesize} next_offset=#{next_offset} eof=#{eof})"
-  end
-
-  #
-  # One installed instance, from `inst/list` (NOT YET IMPLEMENTED by the backend).
-  #
-  class Instance
-    attr_reader :id, :app, :domain, :version, :status
-
-    def initialize(id:, app: nil, domain: nil, version: nil, status: nil)
-      @id = id.to_s
-      @app = app.presence
-      @domain = domain.presence
-      @version = version.presence
-      @status = status.presence
-    end
-
-    def self.from_json(raw)
-      new(
-        id: raw["id"],
-        app: raw["app"] || raw["name"],
-        domain: raw["domain"],
-        version: raw["version"],
-        status: raw["status"]
-      )
-    end
-
-    # Same guard as App#available? — drop rows without an identity.
-    def available? = id.present?
   end
 end

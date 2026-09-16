@@ -8,7 +8,7 @@ require "securerandom"
 # JSON-RPC 2.0 client for the dcommsctl backend (a Go daemon that installs and
 # supervises docker-compose applications for Dawa).
 #
-# Transport: **one WebSocket connection per call** — open, send one request, read the
+# Transport: **one WebSocket connection per call** -- open, send one request, read the
 # reply, close. dcommsctl speaks JSON-RPC over `ws://host:6006/ws`.
 #
 # Deliberately stateless. Every long-running call is made from a background job (not
@@ -19,8 +19,8 @@ require "securerandom"
 # is required.
 #
 # Example:
-#   DcommsClient.new.apps_list
-#   # => [ #<Dcomms::App id="peertube" name="Peertube" ...>, ... ]
+#   DcommsClient.new.catalog_list
+#   # => [ #<Dcomms::CatalogEntry id="peertube" name="Peertube" ...>, ... ]
 #
 # NOTE: the backend does not yet implement `job/status`, `job/log` (real output) or
 # `inst/list`; see docs/dcommsctl-api-requests.md. DcommsAdapter is what decides
@@ -85,35 +85,69 @@ class DcommsClient
   attr_reader :url
 
   #
-  # --- Catalog -----------------------------------------------------------
+  #
+  ##
+  ## Catalog
+  ##
   #
 
-  # `apps/list` — the catalog of installable applications.
   #
-  # @return [Array<Dcomms::App>] only rows with an id and name (see App#available?).
+  # `apps/list` - the catalog of installable entries.
   #
-  def apps_list
+  # dcommsctl calls this method "apps" and returns "applications", but what it returns is
+  # what CAN be installed, not what IS. In Dawa those are catalog entries, and "app" is
+  # reserved for an installed deployment (see the vocabulary note in dcomms.rb).
+  #
+  # @return [Array<Dcomms::CatalogEntry>] only rows with an id and name.
+  #
+  def catalog_list
     result = call("apps/list")
     applications = result.is_a?(Hash) ? result["applications"] : result
-    Array(applications).filter_map { |raw| Dcomms::App.from_json(raw) }.select(&:available?)
+    Array(applications).filter_map { |raw| Dcomms::CatalogEntry.from_json(raw) }.select(&:available?)
+  end
+
+  # Old names, kept so nothing breaks mid-refactor.
+  alias_method :definitions_list, :catalog_list
+  alias_method :apps_list, :catalog_list
+
+  #
+  # `apps/get` - one catalog entry, with the detail `apps/list` omits.
+  #
+  # NOT IMPLEMENTED by the backend yet (the method is not registered, so this raises
+  # MethodNotFound); DcommsAdapter mocks it. The method name follows the existing
+  # `inst/*` and `job/*` convention and is the shape proposed in
+  # docs/dcommsctl-api-requests.md.
+  #
+  # @return [Dcomms::CatalogEntry]
+  #
+  def catalog_entry(id:)
+    entry = Dcomms::CatalogEntry.from_json(call("apps/get", { id: id }))
+    raise EmptyResult, "dcommsctl returned no catalog entry for #{id.inspect}" if entry.nil? || !entry.available?
+
+    entry
   end
 
   #
-  # --- Instances ---------------------------------------------------------
+  ##
+  ## Apps (installed)
+  ##
   #
 
-  # `inst/list` — installed instances. NOT IMPLEMENTED by the backend yet
+  # `inst/list` - installed apps. NOT IMPLEMENTED by the backend yet
   # (raises MethodNotFound); DcommsAdapter mocks it.
   #
-  # @return [Array<Dcomms::Instance>]
+  # @return [Array<Dcomms::AppInstance>]
   #
-  def instances_list
+  def apps_installed_list
     result = call("inst/list")
     instances = result.is_a?(Hash) ? result["instances"] : result
-    Array(instances).filter_map { |raw| Dcomms::Instance.from_json(raw) }.select(&:available?)
+    Array(instances).filter_map { |raw| Dcomms::AppInstance.from_json(raw) }.select(&:available?)
   end
 
-  # `inst/install` — install an app. Starts a job; returns its id plus the OAuth
+  # Old name, kept so nothing breaks mid-refactor.
+  alias_method :instances_list, :apps_installed_list
+
+  # `inst/install` -- install an app. Starts a job; returns its id plus the OAuth
   # credentials the backend generated for the new instance.
   #
   # @raise [EmptyResult] when the backend silently did nothing (unimplemented app).
@@ -143,10 +177,12 @@ class DcommsClient
   def restore(id:) = job_id_from(call("inst/restore", { id: id }), "inst/restore")
 
   #
-  # --- Jobs --------------------------------------------------------------
+  ##
+  ## Jobs
+  ##
   #
 
-  # `job/status` — NOT IMPLEMENTED yet (raises MethodNotFound). DcommsAdapter mocks it.
+  # `job/status` -- NOT IMPLEMENTED yet (raises MethodNotFound). DcommsAdapter mocks it.
   #
   # @return [Dcomms::JobStatus]
   #
@@ -154,7 +190,7 @@ class DcommsClient
     Dcomms::JobStatus.from_json(call("job/status", { id: id }))
   end
 
-  # `job/log` — registered but stubbed by the backend (always returns an empty log).
+  # `job/log` -- registered but stubbed by the backend (always returns an empty log).
   #
   # @return [Dcomms::JobLog]
   #
@@ -162,7 +198,7 @@ class DcommsClient
     Dcomms::JobLog.from_json(call("job/log", { id: id, offset: offset }))
   end
 
-  # `job/list` — NOT IMPLEMENTED yet. DcommsAdapter mocks it.
+  # `job/list` -- NOT IMPLEMENTED yet. DcommsAdapter mocks it.
   #
   # @return [Array<Dcomms::JobStatus>]
   #
@@ -234,24 +270,29 @@ class DcommsClient
     socket = open_socket(uri)
     driver = WebSocket::Driver.client(SocketDelegate.new(socket, @url))
 
-    reply = nil
+    # A shared mutable box, not a bare local: the :message handler is called from
+    # inside read_reply, and rebinding a local of *this* method there would be
+    # invisible to the read loop (Ruby passes values, not references).
+    reply = []
     protocol_error = nil
 
-    driver.on(:message) { |event| reply ||= event.data }
+    driver.on(:message) { |event| reply << event.data }
     driver.on(:error) { |event| protocol_error ||= event.message }
     driver.on(:open) { driver.text(payload) }
 
     begin
       driver.start
-      reply = read_reply(socket, driver, reply, protocol_error)
+      read_reply(socket, driver, reply, protocol_error)
     ensure
       close_socket(socket)
     end
 
     raise ProtocolError, "dcommsctl WebSocket error: #{protocol_error}" if protocol_error
-    raise ProtocolError, "dcommsctl closed the connection without replying" if reply.nil? || reply.empty?
 
-    parse_response(reply)
+    message = reply.first
+    raise ProtocolError, "dcommsctl closed the connection without replying" if message.nil? || message.empty?
+
+    parse_response(message)
   end
 
   def open_socket(uri)
@@ -265,10 +306,13 @@ class DcommsClient
   end
 
   # Pump the socket until a message arrives or we exceed the timeout.
+  #
+  # `reply` is a mutable box shared with the :message handler, so it is read as
+  # `reply.empty?` rather than being assigned here.
   def read_reply(socket, driver, reply, protocol_error)
     deadline = monotonic + @timeout
 
-    while reply.nil? && protocol_error.nil?
+    while reply.empty? && protocol_error.nil?
       raise ConnectionError, "dcommsctl did not reply within #{@timeout}s" if monotonic > deadline
 
       begin
@@ -279,8 +323,6 @@ class DcommsClient
         break
       end
     end
-
-    reply
   end
 
   def close_socket(socket)

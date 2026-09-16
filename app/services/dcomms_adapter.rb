@@ -13,7 +13,7 @@
 #   1. set Conf.dcomms_use_mocks to "none" (or delete the key)
 #   2. delete DcommsMock and its test
 #   3. empty MOCKED (the routing branches then vanish) or delete this class entirely
-#   4. grep for "MOCK(dcommsctl):" — there should be nothing left
+#   4. grep for "MOCK(dcommsctl):" -- there should be nothing left
 #
 class DcommsAdapter
   #
@@ -24,34 +24,73 @@ class DcommsAdapter
   #  * `inst/list`   -> JSON-RPC -32601 method not found
   #  * `job/list`    -> not registered
   #  * `job/log`     -> registered but STUBBED (always returns an empty string), so it
-  #                     cannot be detected at runtime — hence this explicit list rather
+  #                     cannot be detected at runtime -- hence this explicit list rather
   #                     than probing for support.
   #
-  # `apps/list` and the `inst/*` mutations (excluding `upgrade`, which is a stub) ARE real.
+  # `apps/list` (catalog_list) and the `inst/*` mutations (excluding `upgrade`, a stub) ARE real.
   #
-  MOCKED = %i[job_status job_log job_list instances_list].freeze
+  MOCKED = %i[job_status job_log job_list apps_installed_list catalog_entry].freeze
 
   # Fully-implemented methods, listed so tests can assert the split is deliberate.
-  REAL = %i[apps_list install uninstall start stop backup restore].freeze
+  REAL = %i[catalog_list install uninstall start stop backup restore].freeze
 
   def initialize(client: nil, mock: nil)
-    @client = client
-    @mock = mock
+    # Default to the real collaborators. Without this, `DcommsAdapter.new` (which is how the
+    # controllers build it) would have a nil client and nil mock, and every call would fail
+    # with "undefined method ... for nil".
+    @client = client || DcommsClient.new
+    @mock = mock || DcommsMock.new
   end
 
   attr_reader :client, :mock
 
-  # --- catalog (real) ----------------------------------------------------
+  ##
+  ## catalog (real)
+  ##
 
-  def apps_list
-    mocked?(:apps_list) ? mock.apps_list : client.apps_list
+  #
+  # The catalog of installable entries.
+  #
+  # Named for what it returns (catalog entries, the things that CAN be installed) rather
+  # than the backend's method name (`apps/list`, which sounds like installed apps).
+  #
+  def catalog_list
+    mocked?(:catalog_list) ? mock.catalog_list : client.catalog_list
   end
 
-  # --- instances ---------------------------------------------------------
-
-  def instances_list
-    mocked?(:instances_list) ? mock.instances_list : client.instances_list
+  #
+  # One catalog entry, with the detail the index does not carry (long description,
+  # upstream and definition URLs, release history).
+  #
+  # MOCKED until the backend exposes a detail method. Note the asymmetry with
+  # `catalog_list`, which is real: the list comes from the daemon, but the detail is
+  # faked. That is why the show page must treat every detail field as optional.
+  #
+  def catalog_entry(id:)
+    if mocked?(:catalog_entry)
+      mock.catalog_entry(id: id)
+    else
+      client.catalog_entry(id: id)
+    end
   end
+
+  # Old names, kept so nothing breaks mid-refactor.
+  alias_method :definitions_list, :catalog_list
+  alias_method :apps_list, :catalog_list
+
+  ##
+  ## apps (installed)
+  ##
+
+  #
+  # Installed apps. MOCKED until the backend implements `inst/list`.
+  #
+  def apps_installed_list
+    mocked?(:apps_installed_list) ? mock.apps_installed_list : client.apps_installed_list
+  end
+
+  # Old name, kept so nothing breaks mid-refactor.
+  alias_method :instances_list, :apps_installed_list
 
   def install(name:, domain:)
     if mocked?(:install)
@@ -67,7 +106,9 @@ class DcommsAdapter
   def backup(id:) = route(:backup, id: id)
   def restore(id:) = route(:restore, id: id)
 
-  # --- jobs --------------------------------------------------------------
+  ##
+  ## jobs
+  ##
 
   # MOCKED until the backend implements `job/status`.
   def job_status(id:) = route(:job_status, id: id)

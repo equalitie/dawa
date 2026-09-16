@@ -1,0 +1,21 @@
+= breadcrumbs do |bc|
+  - bc.with_crumb(active: true) { t("apps.install") }
+
+- if @error.present?
+  -#
+    An error is terminal: show the banner and nothing else. Rendering an empty grid
+    underneath would read as "the catalog is empty" stacked on "we could not reach the
+    backend", which are different claims and only one of them is true.
+  = v.alert("danger", icon: "x-circle") do
+    .mb-2.fw-bold= t("apps.catalog_unreachable")
+    %div= @error
+
+- elsif @entries.empty?
+  = v.alert("info", icon: "info-circle") do
+    = t("apps.catalog_empty")
+
+- else
+  .row.row-cols-1.row-cols-md-2.row-cols-xl-3.g-3
+    - @entries.each do |entry|
+      .col
+        = link_to v.catalog_entry_card(entry), catalog_path(entry.id), class: "text-decoration-none"

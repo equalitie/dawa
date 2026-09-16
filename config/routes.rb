@@ -20,7 +20,10 @@ Rails.application.routes.draw do
   resources :users
   resources :invites
   resources :join, only: [:show, :update]
-  resources :apps, only: :index
+
+  resources :apps
+  resources :catalog
+
   resources :backups, only: :index
   resources :containers
   get "containers/:id/stats", to: "container_stats#stats", as: :stats_container
