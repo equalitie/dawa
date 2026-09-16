@@ -15,7 +15,7 @@ Rails.application.routes.draw do
 
   root "root#show"
 
-  resources :users, only: :index
+  resources :users
   resources :apps, only: :index
   resources :containers, only: :index
   resources :logs, only: :index

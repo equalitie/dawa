@@ -68,12 +68,17 @@ en:
     cancel: "Cancel"
     save: "Save"
     close: "Close"
+    edit: "Edit"
     destroy: "Destroy"
     create: "Create"
     back: "Back"
     delete: "Delete"
     abort: "Abort"
     download: "Download"
+
+  yes: "Yes"
+  no: "No"
+  are_you_sure: "Are you sure?"
 
   #
   # Active Record attribute labels
@@ -83,6 +88,8 @@ en:
       user:
         username: "Username"
         display_name: "Display Name"
+        email: "Email"
+        is_active: "Active"
 
   enroll:
     title: "Register a new user"
@@ -105,8 +112,29 @@ en:
     authentication: "Authentication"
 
   users:
+    active: "Active"
+    inactive: "Disabled"
+    admin: "Admin"
+    normal: "Normal"
     index:
       title: "Users"
+      new: "New User"
+    new:
+      title: "New User"
+    create:
+      created: "User created"
+    edit:
+      title: "Edit User"
+    update:
+      updated: "User updated"
+    show:
+      title: "User"
+      sessions: "Sessions"
+      created: "Created"
+      last_seen: "Last Seen"
+      no_sessions: "No sessions"
+    destroy:
+      destroyed: "User destroyed"
 
   containers:
     index:

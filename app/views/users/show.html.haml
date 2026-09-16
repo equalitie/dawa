@@ -1,0 +1,30 @@
+= breadcrumbs do |bc|
+  - bc.with_crumb { link_to(@user.username, @user) }
+
+= bootstrap_form_with model: @user do |f|
+  = f.text_field :username, required: true
+  = f.email_field :email
+  = f.text_field :display_name
+  = f.form_group do
+    = f.check_box :is_active, label: "Active"
+  = f.form_group do
+    = f.check_box :is_admin, label: "Admin"
+  .btn-toolbar
+    = v.link_button icon: "arrow-left", label: t("nav.back"), url: users_path
+    = v.save_button
+
+
+-# %h2= t(".sessions")
+-# - if @sessions.any?
+-#   %table.table.table-sm
+-#     %thead
+-#       %tr
+-#         %th= t(".created")
+-#         %th= t(".last_seen")
+-#     %tbody
+-#       - @sessions.each do |session|
+-#         %tr
+-#           %td= time_tag session.created_at
+-#           %td= time_tag session.updated_at
+-# - else
+-#   %p.text-muted= t(".no_sessions")
