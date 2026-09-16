@@ -99,13 +99,11 @@ module Auth
     #
     def derive_pb_key(secret, salt, bytes: DEFAULT_BYTES)
       salt = salt.byteslice(0, pb_key_salt_bytes)
-      opslimit = 5
-      memlimit = 1_073_741_824 # (1 gb) the maximum bytes used in memory
       RbNaCl::PasswordHash.argon2(
         secret,
         salt,
-        opslimit,
-        memlimit,
+        Auth.argon2_opslimit,
+        Auth.argon2_memlimit,
         bytes
       )
     end

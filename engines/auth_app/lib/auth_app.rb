@@ -26,6 +26,9 @@ module Auth
   # everything else is reset.
   mattr_accessor :preserve_session_keys, default: [ :locale, :timezone ]
 
+  mattr_accessor :user_session_idle_timeout, default: "4 hours"
+  mattr_accessor :user_session_max_lifetime, default: "20 hours"
+
   # array of usernames that cannot be used by normal users
   mattr_accessor :forbidden_usernames, default: %w(
     admin anon contact hello help help-desk info root security security-staff staff support support-staff sysadmin team web-master
@@ -56,6 +59,12 @@ module Auth
   # 4 =   very unguessable: strong protection from offline slow-hash scenario
   #                         guesses >= 10^10
   mattr_accessor :minimum_password_strength_score, default: 4
+
+  # argon2 parameters
+  # opslimit is CPU cost, 3..10
+  # memlimit is memory cost, in bytes
+  mattr_accessor :argon2_opslimit, default: 5 # the 3..10 the CPU cost
+  mattr_accessor :argon2_memlimit, default: 1_073_741_824 # (1 gb)
 
   # Whether to update user#last_login_on  after sucessfuly log in
   mattr_accessor :update_last_login, default: true
