@@ -345,8 +345,6 @@ en:
   logs:
     index:
       title: "Logs"
-      details: "Details"
-      json: "JSON"
       none: "—"
       unreachable: "Could not reach VictoriaLogs"
       pause: "Pause"
@@ -368,7 +366,6 @@ en:
       _time: "Time"
       host: "Host"
       programname: "Program"
-      unit: "Unit"
       severity: "Severity"
       priority: "Priority"
       _stream: "Stream"

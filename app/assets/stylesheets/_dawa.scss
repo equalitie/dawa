@@ -21,3 +21,97 @@
   // ensure lines emitted via the channel get the same styling
   color: inherit;
 }
+
+//
+// Log severity stripe.
+//
+// The severity column renders as a narrow colour bar instead of text, so the level of a
+// whole page of logs is scannable without reading. The colour goes on the <td> itself (a
+// `text-bg-*` utility in the markup), not on a child element: a child sits inside the cell
+// padding and reads as a small block rather than a full-height stripe.
+//
+// The selectors below are deliberately over-qualified and `!important`:
+//
+//   * Bootstrap's cell padding is `.table > :not(caption) > * > *` (specificity 0,3,1), so
+//     a bare `.log-severity-cell` (0,1,0) loses and the colour stays inset.
+//   * Bootstrap paints row backgrounds with an `inset ... 9999px` box-shadow on the cell
+//     (for hover and striping). That shadow covers the cell's own background, so it has to
+//     be cleared or the stripe disappears on hover.
+//
+// Width is fixed rather than content-based so the stripe is identical in every row.
+//
+.table .log-severity-cell {
+  width: 6px;
+  min-width: 6px;
+  max-width: 6px;
+  padding: 0 !important;
+  box-shadow: none !important;
+}
+
+//
+// Log message disclosure.
+//
+// The message cell expands to show the record's fields. The default disclosure marker is a
+// triangle, drawn because Bootstrap sets `summary { display: list-item }`. That marker sells
+// the cell as a control rather than as content, and it appears and disappears as rows stream
+// in, so it is removed in favour of the message text itself being the affordance.
+//
+// `list-style: none` is what suppresses the marker; the WebKit pseudo-element needs its own
+// rule because Safari still renders it as a marker box rather than honouring `list-style`.
+//
+// Wrapping: the message column is `truncate-auto`, which is `.table-shrink`'s ellipsis
+// treatment -- `max-width: 0` to let the table's auto layout give it the leftover width, plus
+// `white-space: nowrap` and `overflow: hidden` to clip it. That is right for the collapsed
+// summary, which should stay one line high, but wrong for the expanded body: a sysadmin
+// opened the row precisely to read the whole value, and `nowrap` would clip it to a single
+// unreadable line. So the <details> resets `white-space` for its contents and the summary
+// opts back into truncation individually.
+//
+// `overflow-wrap: anywhere` matters more here than in normal prose: log values are long
+// unbroken tokens (paths, base64, trace ids, kernel command lines) with no space to wrap at,
+// so without it they would overflow the cell instead of wrapping.
+//
+// Collapsing: the whole expanded body is the way back. Native `<details>` only toggles from
+// the summary, and the summary cannot serve here because its text is hidden while open --
+// leaving an empty strip as the only hit target, which is invisible and undiscoverable. So
+// the body itself carries a click handler (`logs_explorer#collapseMessage`) that closes the
+// disclosure. The summary is left in place because it is the control assistive tech and
+// keyboard users drive, and it still works for collapsing; the handler is an addition for
+// pointer users, not a replacement.
+//
+.log-message {
+  white-space: normal;
+  overflow-wrap: anywhere;
+
+  summary {
+    display: block;
+    list-style: none;
+    cursor: pointer;
+
+    // The collapsed line stays a single truncated line, matching every other cell.
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+
+    &::-webkit-details-marker {
+      display: none;
+    }
+  }
+
+  // The body collapses the row when clicked, so it should read as clickable.
+  &[open] > div,
+  &[open] > ul {
+    cursor: pointer;
+  }
+
+  &[open] summary .log-message-summary-text {
+    display: none;
+  }
+
+  // The fields are label/value pairs; the key carries the emphasis so a value containing a
+  // colon is not mistaken for the separator.
+  li i {
+    font-style: italic;
+    opacity: 0.75;
+  }
+}

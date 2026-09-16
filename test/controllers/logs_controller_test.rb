@@ -46,12 +46,100 @@ class LogsControllerTest < ActionDispatch::IntegrationTest
 
     assert_response :success
     assert_select "td", text: /sshd/
-    assert_select "code", text: /Accepted publickey/
-    assert_select "code", text: /session opened/
+    # The message is the disclosure's summary, so it is still readable without expanding.
+    assert_select "details summary", text: /Accepted publickey/
+    assert_select "details summary", text: /session opened/
     # the time-range selector reflects the default window
     assert_select "button", text: /#{I18n.t("logs.index.range.#{LogsHelper::DEFAULT_RANGE}")}/
-    # each record exposes its full JSON
-    assert_select "details summary", text: "JSON"
+  end
+
+  test "the message body renders _msg separately, above the metadata list" do
+    # `_msg` is the line the row exists to show, so it is not one labelled entry among many:
+    # it gets its own unlabelled element, and the remaining fields follow in the record's own
+    # order.
+    with_stubbed_service(records: sample_records) do
+      login_as(@user)
+      get data_logs_path
+    end
+
+    message = JSON.parse(response.body)["rows"].first["cells"].find { |c| c["kind"] == "message" }
+
+    assert_equal "Accepted publickey for admin", message["message"],
+                 "the cell carries the full message on its own"
+    refute_includes message["fields"].map { |f| f["key"] }, "_msg",
+                    "_msg must not be repeated in the metadata list"
+    assert_equal %w[_time _stream host programname unit severity],
+                 message["fields"].map { |f| f["key"] }
+  end
+
+  test "the message cell discloses the full record when clicked" do
+    # The JSON used to be its own column, which cost width on every row for a control most
+    # rows never used. It now rides inside the message cell, so expanding a message shows the
+    # record it came from and nothing is lost.
+    with_stubbed_service(records: sample_records) do
+      login_as(@user)
+      get logs_path
+    end
+
+    body = response.body[%r{<details[^>]*>\s*<summary[^>]*>.*?</details>}m]
+
+    refute_nil body, "the message must be a details disclosure"
+    # The summary text sits in its own span so the stylesheet can hide just the text while
+    # the disclosure is open, keeping the summary element as the collapse target.
+    assert_match(/<summary[^>]*>\s*<span class="log-message-summary-text">\s*Accepted publickey for admin\s*<\/span>/, body)
+    # The message itself, unlabelled, at the table's normal size (no `small`).
+    assert_match(/<div class="mb-2 mt-2"[^>]*>\s*Accepted publickey for admin\s*<\/div>/, body)
+    assert_includes body, "<ul", "the metadata follows as an unstyled list"
+    assert_includes body, "list-unstyled"
+    assert_includes body, "<i>programname</i>", "keys are italic"
+    assert_includes body, "sshd", "the body carries the record's values"
+    refute_includes body, "<i>_msg</i>", "the message is not repeated as a labelled field"
+  end
+
+  test "the collapsed summary marks its text so it can be hidden when open" do
+    # The expanded body repeats the message in full, so the summary text is hidden while the
+    # disclosure is open -- otherwise the same line prints twice, once clipped and once whole.
+    # That is a CSS rule keyed on `[open]`, so the span is what the stylesheet targets and
+    # this test is what keeps the two ends from drifting apart.
+    with_stubbed_service(records: sample_records) do
+      login_as(@user)
+      get logs_path
+    end
+
+    assert_select "summary span.log-message-summary-text", minimum: 1
+  end
+
+  test "the expanded message is collapsed by clicking the body" do
+    # Native `<details>` only toggles from its <summary>, and the summary's text is hidden while
+    # open -- leaving an empty strip as the only pointer target, which is invisible and
+    # undiscoverable. The body therefore carries a click action that closes the disclosure, so
+    # clicking the text you are reading puts the row back.
+    with_stubbed_service(records: sample_records) do
+      login_as(@user)
+      get logs_path
+    end
+
+    assert_select "details.log-message[open]", false, "rows start collapsed"
+    assert_select "details.log-message div[data-action*='collapseMessage']", minimum: 1
+    assert_select "details.log-message ul[data-action*='collapseMessage']", minimum: 1
+    # The summary is left intact as the control keyboard and assistive tech drive.
+    assert_select "details.log-message summary", minimum: 1
+    assert_select "details.log-message summary span.log-message-summary-text", minimum: 1
+  end
+
+  test "there is no separate details column" do
+    with_stubbed_service(records: sample_records) do
+      login_as(@user)
+      get logs_path
+    end
+
+    headers = response.body[/<thead.*?<\/thead>/m].scan(/<th\b.*?<\/th>/m)
+    labels = headers.map { |h| h.gsub(/<[^>]+>/, "").strip }
+
+    assert_equal LogsFieldCatalog::HOST_FIELDS.size, headers.size,
+                 "only catalog columns remain"
+    refute_includes labels, "Details"
+    refute_includes labels, "JSON"
   end
 
   test "index rows carry the dedupe key" do
@@ -65,6 +153,156 @@ class LogsControllerTest < ActionDispatch::IntegrationTest
     assert_select "tr[data-row-key]", count: 2
   end
 
+  test "the refresh target is the tbody, not the table" do
+    # Rows are inserted with `tbody.prepend(row)`. If the target were the <table>, the row
+    # would land before the header row and the browser would hoist it out of the table --
+    # new log lines would appear above the table instead of in it.
+    with_stubbed_service(records: sample_records) do
+      login_as(@user)
+      get logs_path
+    end
+
+    assert_select "tbody[data-logs-explorer-target='rows']"
+    assert_select "table[data-logs-explorer-target]", count: 0
+  end
+
+  test "initial rows render inside the tbody" do
+    with_stubbed_service(records: sample_records) do
+      login_as(@user)
+      get logs_path
+    end
+
+    assert_select "tbody[data-logs-explorer-target='rows'] tr[data-row-key]", count: 2
+  end
+
+  test "server-rendered rows have one cell per declared column" do
+    # The row partial and the JSON endpoint must emit the same cells, or a live row would
+    # have a different number of columns than a loaded one.
+    with_stubbed_service(records: sample_records) do
+      login_as(@user)
+      get logs_path
+    end
+
+    header_cells = response.body[/<thead.*?<\/thead>/m].scan(/<th\b/).size
+    first_row = response.body[/<tbody.*?<\/tbody>/m][/<tr\b.*?<\/tr>/m]
+
+    assert_equal header_cells, first_row.scan(/<td\b/).size,
+                 "a row must have a cell for every header column"
+    assert_equal LogsFieldCatalog::HOST_FIELDS.size, header_cells
+  end
+
+  test "the severity column leads the table and has no heading text" do
+    with_stubbed_service(records: sample_records) do
+      login_as(@user)
+      get logs_path
+    end
+
+    headers = response.body[/<thead.*?<\/thead>/m].scan(/<th\b.*?<\/th>/m)
+
+    assert_includes headers.first, "log-severity-cell", "the stripe column comes first"
+    assert_equal "", headers.first.gsub(/<[^>]+>/, "").strip, "it carries no label"
+    # The other columns still have their headings.
+    assert_equal "Time", headers[1].gsub(/<[^>]+>/, "").strip
+  end
+
+  test "the severity cell is a coloured stripe, not text" do
+    with_stubbed_service(records: sample_records) do
+      login_as(@user)
+      get logs_path
+    end
+
+    cell = response.body[/<tbody.*?<\/tbody>/m][/<td\b[^>]*log-severity-cell.*?<\/td>/m]
+
+    # The colour is a class on the <td> itself. A nested element would sit inside the cell's
+    # padding, so the stripe would not fill the cell.
+    assert_match(/<td\b[^>]*class="[^"]*\btext-bg-success\b[^"]*"/, cell)
+    assert_includes cell, "log-severity-cell"
+    # The level is still discoverable even though it is not visible text.
+    assert_includes cell, 'title="info"'
+    refute_includes cell, ">info<", "the level must not be rendered as visible text"
+  end
+
+  test "the severity stripe has no inner coloured element" do
+    # Guards the specific regression: the colour used to sit on a span inside the cell, which
+    # the cell padding then inset.
+    with_stubbed_service(records: sample_records) do
+      login_as(@user)
+      get logs_path
+    end
+
+    cell = response.body[/<tbody.*?<\/tbody>/m][/<td\b[^>]*log-severity-cell.*?<\/td>/m]
+    inner = cell.sub(/\A<td\b[^>]*>/, "").sub(/<\/td>\z/, "")
+
+    refute_match(/text-bg-/, inner, "no inner element may carry the colour")
+  end
+
+  test "the html row and the json row describe the same cells" do
+    # This is the pairing that keeps live rows looking like loaded ones: `logs/_row` and
+    # `log_row_cells` must agree, since the client rebuilds the JSON shape as markup.
+    json_cells = nil
+    html_cell_count = nil
+
+    with_stubbed_service(records: sample_records) do
+      login_as(@user)
+      get logs_path
+      html_cell_count = response.body[/<tbody.*?<\/tbody>/m][/<tr\b.*?<\/tr>/m].scan(/<td\b/).size
+
+      get data_logs_path
+    end
+    json_cells = JSON.parse(response.body)["rows"].first["cells"]
+
+    assert_equal html_cell_count, json_cells.size
+  end
+
+  test "each json row publishes the same cell classes the html row renders" do
+    #
+    # The regression this pins: the severity stripe was styled by a class the row template
+    # composed in Ruby, while the Stimulus controller composed its own class strings in JS.
+    # The two lists were written out independently, drifted, and appended rows lost the
+    # stripe's width (the server-rendered cell carried the column's `fit`, the JS cell did
+    # not). Publishing the classes with each row means there is one derivation, and this test
+    # is what fails if a second one is ever introduced.
+    #
+    html_classes = nil
+    json_rows = nil
+
+    with_stubbed_service(records: sample_records) do
+      login_as(@user)
+      get logs_path
+      first_row = response.body[/<tbody.*?<\/tbody>/m][/<tr\b.*?<\/tr>/m]
+      html_classes = first_row.scan(/<td\b[^>]*\bclass="([^"]*)"/).flatten
+
+      get data_logs_path
+    end
+    json_rows = JSON.parse(response.body)["rows"]
+
+    assert_equal html_classes.size, json_rows.first["classes"].size,
+                 "the JSON row must publish one class string per cell"
+    assert_equal html_classes, json_rows.first["classes"]
+
+    # And the classes must survive a record with no severity, so the neutral stripe is not a
+    # special case the client has to know about.
+    blank = json_rows.first["classes"].first
+    assert_includes blank, "text-bg-success", "info severity maps to success"
+    assert_includes blank, "log-severity-cell"
+  end
+
+  test "an unknown severity still renders a neutral stripe of the same width" do
+    # The stripe carries meaning in its width even when the level is unknown, so a missing
+    # level must not collapse the cell or drop the width class.
+    record = sample_records.first.merge("severity" => nil)
+    classes = nil
+
+    with_stubbed_service(records: [ record ]) do
+      login_as(@user)
+      get data_logs_path
+    end
+    classes = JSON.parse(response.body)["rows"].first["classes"]
+
+    assert_includes classes.first, "log-severity-cell"
+    assert_includes classes.first, "text-bg-secondary"
+  end
+
   ##
   ## pause / resume control
   ##
@@ -76,22 +314,23 @@ class LogsControllerTest < ActionDispatch::IntegrationTest
     end
 
     assert_select "button[data-logs-explorer-target='pauseButton']" do |buttons|
-      refute buttons.first["hidden"], "pause must be visible while polling"
+      refute_includes buttons.first["class"].to_s.split, "d-none",
+                      "pause must be visible while polling"
     end
-    assert_select "button[data-logs-explorer-target='resumeButton'][hidden]"
+    assert_select "button[data-logs-explorer-target='resumeButton'].d-none"
   end
 
-  test "pause and resume are hidden with the hidden attribute, not an inline style" do
-    # The controller toggles `.hidden` (the property/attribute). Its counterpart on the
-    # server must use the SAME mechanism: an inline `display: none` survives
-    # `.hidden = false`, so the Resume button would never reappear and the pause button
-    # would simply vanish. `hide: true` now emits `hidden`, so this pins that contract.
+  test "pause and resume are hidden with the d-none class, not an inline style" do
+    # The controller toggles `classList` (`d-none`). Its counterpart on the server must use
+    # the SAME mechanism: an inline `display: none` cannot be cleared by removing a class,
+    # so the Resume button would never reappear and the pause button would simply vanish.
+    # A class is the mechanism CSS and JS can both drive. `hide: true` emits it.
     with_stubbed_service(records: sample_records) do
       login_as(@user)
       get logs_path
     end
 
-    assert_select "button[data-logs-explorer-target='resumeButton'][hidden]"
+    assert_select "button[data-logs-explorer-target='resumeButton'].d-none"
     assert_select "button[data-logs-explorer-target='resumeButton']" do |buttons|
       refute_includes buttons.first["style"].to_s, "display:",
                       "hiding must not rely on an inline display style"
@@ -104,7 +343,7 @@ class LogsControllerTest < ActionDispatch::IntegrationTest
       get logs_path
     end
 
-    assert_select "[data-logs-explorer-target='status'][hidden]"
+    assert_select "[data-logs-explorer-target='status'].d-none"
   end
 
   test "server-rendered row keys match the json endpoint" do
@@ -215,9 +454,9 @@ class LogsControllerTest < ActionDispatch::IntegrationTest
     assert_redirected_to login_path
   end
 
-  def test_data_returns_json_rows_with_the_display_fields_preformatted
-    # The client renders rows from these strings rather than re-deriving them, so a live
-    # row is formatted by the same Ruby that formatted the initial page.
+  test "data_returns_json_rows_with_the_display_fields_preformatted" do
+    # The client renders rows from these cells rather than re-deriving them, so a live row
+    # is formatted by the same Ruby that formatted the initial page.
     with_stubbed_service(records: sample_records) do
       login_as(@user)
       get data_logs_path
@@ -228,11 +467,104 @@ class LogsControllerTest < ActionDispatch::IntegrationTest
     assert_equal 2, body["rows"].size
 
     row = body["rows"].first
-    assert_equal "sshd", row["source"]
-    assert_equal "Accepted publickey for admin", row["message"]
-    assert row["time_display"].present?, "time must be preformatted server-side"
     assert row["key"].present?, "a row key is required for client-side dedupe"
-    assert row["json"].present?
+    assert row["cells"].any?, "a row must carry its cells"
+    assert_equal LogsFieldCatalog::HOST_FIELDS.size, row["cells"].size,
+                 "one cell per catalog column"
+    # The message cell carries the record so the disclosure works without a second request.
+    message = row["cells"].find { |c| c["kind"] == "message" }
+    assert message.present?, "the message cell is present"
+    assert message["message"].present?, "the message cell carries the full message"
+    keys = message["fields"].map { |f| f["key"] }
+    assert_includes keys, "programname", "the body carries the record field by field"
+    refute_includes keys, "_msg", "_msg is rendered on its own, not as a labelled field"
+  end
+
+  test "data row cells cover every catalog column" do
+    # Regression: the client used to hardcode three columns, so live rows silently dropped
+    # host, severity and priority. The cell count is what keeps the two in step.
+    with_stubbed_service(records: sample_records) do
+      login_as(@user)
+      get data_logs_path
+    end
+
+    cells = JSON.parse(response.body)["rows"].first["cells"]
+    values = cells.map { |c| c["value"] }
+
+    # sample_records[0] carries host, programname and severity.
+    assert_includes values, "tern"
+    assert_includes values, "sshd"
+    assert_includes values, "info"
+  end
+
+  test "data row cells are in catalog order" do
+    with_stubbed_service(records: sample_records) do
+      login_as(@user)
+      get data_logs_path
+    end
+
+    cells = JSON.parse(response.body)["rows"].first["cells"]
+
+    # severity, _time, host, programname, priority, _msg. The message is its own disclosure
+    # kind because it carries the record, not just a string.
+    assert_equal %w[severity time badge badge none message], cells.map { |c| c["kind"] }
+  end
+
+  test "the severity cell leads the row and carries a colour" do
+    with_stubbed_service(records: sample_records) do
+      login_as(@user)
+      get data_logs_path
+    end
+
+    cell = JSON.parse(response.body)["rows"].first["cells"].first
+
+    assert_equal "severity", cell["kind"]
+    # sample_records severity is "info".
+    assert_equal "success", cell["color"]
+  end
+
+  test "an absent severity still renders a stripe" do
+    # The column's width carries meaning, so a missing level must not collapse the cell.
+    records = [ { "_time" => "2026-09-08T00:59:12Z", "_stream_id" => "s1", "_msg" => "no level" } ]
+
+    with_stubbed_service(records: records) do
+      login_as(@user)
+      get data_logs_path
+    end
+
+    cell = JSON.parse(response.body)["rows"].first["cells"].first
+
+    assert_equal "severity", cell["kind"]
+    assert_nil cell["color"], "an unknown level must fall back to neutral, not invent one"
+  end
+
+  test "unit is not a column" do
+    # `unit` is carried by records but is deliberately not a display column; it should not
+    # appear as a cell, though the record's other fields still appear in the message body.
+    with_stubbed_service(records: sample_records) do
+      login_as(@user)
+      get data_logs_path
+    end
+
+    cells = JSON.parse(response.body)["rows"].first["cells"]
+
+    refute_includes cells.map { |c| c["value"] }, "ssh.service"
+    refute_includes LogsFieldCatalog::HOST_FIELDS, :unit
+  end
+
+  test "an empty column renders a placeholder cell rather than being omitted" do
+    # Omitting a cell would shift every column after it, so a live row would misalign with
+    # the header.
+    with_stubbed_service(records: sample_records) do
+      login_as(@user)
+      get data_logs_path
+    end
+
+    cells = JSON.parse(response.body)["rows"].first["cells"]
+    none_cell = cells.find { |c| c["kind"] == "none" }
+
+    assert none_cell, "sample_records[0] has no priority, so a placeholder is expected"
+    assert_equal I18n.t("logs.index.none"), none_cell["value"]
   end
 
   def test_data_row_keys_are_stable_and_content_derived

@@ -40,6 +40,55 @@ class LogsFieldCatalogTest < ActiveSupport::TestCase
     refute LogsFieldCatalog.displayable?(:_time, tier: :bogus)
   end
 
+  ##
+  ## severity presentation
+  ##
+
+  test "severity leads the columns" do
+    # It renders as a colour stripe, so its value is the leftmost cue in the row.
+    assert_equal :severity, LogsFieldCatalog::HOST_FIELDS.first
+  end
+
+  test "severity is the unlabelled column" do
+    assert LogsFieldCatalog.unlabelled?(:severity)
+    refute LogsFieldCatalog.unlabelled?(:_time)
+  end
+
+  test "every syslog level has a colour" do
+    # `to_syslog_level` derives severity from journald's numeric PRIORITY (0..7), producing
+    # exactly these names. A missing mapping would render a neutral stripe, silently losing
+    # the signal the column exists for.
+    %w[emerg alert crit err warning notice info debug].each do |level|
+      assert LogsFieldCatalog.severity_color(level), "#{level} must map to a colour"
+    end
+  end
+
+  test "severity colours use bootstrap colour names" do
+    valid = %w[primary secondary success danger warning info light dark]
+    LogsFieldCatalog::SEVERITY_COLORS.each_value do |colour|
+      assert_includes valid, colour
+    end
+  end
+
+  test "the noisiest levels are the loudest colours" do
+    assert_equal "danger", LogsFieldCatalog.severity_color("err")
+    assert_equal "warning", LogsFieldCatalog.severity_color("warning")
+    assert_equal "secondary", LogsFieldCatalog.severity_color("debug")
+  end
+
+  test "an unknown or absent level has no colour" do
+    # The view turns nil into a neutral stripe. It must not guess a severity.
+    assert_nil LogsFieldCatalog.severity_color(nil)
+    assert_nil LogsFieldCatalog.severity_color("")
+    assert_nil LogsFieldCatalog.severity_color("chatty")
+  end
+
+  test "severity lookup is case and whitespace insensitive" do
+    assert_equal "danger", LogsFieldCatalog.severity_color("ERR")
+    assert_equal "danger", LogsFieldCatalog.severity_color("  err  ")
+    assert_equal "danger", LogsFieldCatalog.severity_color(:err)
+  end
+
   test "catalog fields are all emitted by live host logs" do
     fields = live_field_names
     skip "VictoriaLogs not reachable" if fields.nil?

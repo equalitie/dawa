@@ -99,6 +99,19 @@ export default class extends Controller {
   }
 
   //
+  // Closes an expanded log message.
+  //
+  // Native `<details>` only toggles from its <summary>, and the summary's text is hidden while
+  // open, leaving an empty strip as the only pointer target. The message body carries this
+  // action so clicking what you are reading puts the row back. The <summary> is untouched, so
+  // keyboard and assistive tech still drive the disclosure the way the element intends.
+  //
+  collapseMessage(event) {
+    const details = event.currentTarget.closest("details");
+    if (details) details.open = false;
+  }
+
+  //
   // Resume and immediately catch up on whatever arrived while paused. The cursor was not
   // advanced while paused, so this single poll fetches the whole gap.
   //
@@ -137,23 +150,89 @@ export default class extends Controller {
     const tr = document.createElement("tr");
     tr.dataset.rowKey = row.key || "";
     tr.innerHTML = this.rowHtml(row);
+    // `rowsTarget` is the <tbody>, so this inserts into the row container. Prepending to a
+    // <table> instead would place the row before the header row, and the browser's table
+    // parsing would hoist it out of the table entirely.
     this.rowsTarget.prepend(tr);
   }
 
   //
-  // The row markup, built from the server's pre-formatted fields.
+  // The row markup, built from the server's cell descriptors.
   //
-  // Kept in the same column order as the server-rendered table (LogsFieldCatalog order:
-  // time, source, message) plus the JSON disclosure, so appended rows line up with the
-  // ones already on the page.
+  // The server sends one descriptor per visible column (`log_row_cells`), so the column
+  // list and all formatting live in Ruby only. Do NOT hardcode columns here: an earlier
+  // version did, and silently dropped every column it did not know about (host, severity,
+  // priority), so live rows had fewer cells than loaded ones.
+  //
+  // The cell classes come from the server too (`row.classes`), because the row template
+  // composes them from the table's column definition plus the hover marker. Restating them
+  // here is what made an appended severity cell miss the width class a loaded one had.
+  //
+  // `kind` must stay in step with `logs/_cell.html.haml`; the two are the paired halves.
+  // Values arrive ready to render, including the placeholder text for empty cells and the
+  // column's label, so nothing is translated or derived on this side.
   //
   rowHtml(row) {
-    return [
-      `<td class="fit"><span class="text-nowrap">${this.escape(row.time_display)}</span></td>`,
-      `<td class="fit"><span class="badge text-bg-light">${this.escape(row.source)}</span></td>`,
-      `<td class="truncate-auto"><code>${this.escape(row.message)}</code></td>`,
-      `<td class="fit"><details><summary>JSON</summary><pre class="small mb-0">${this.escape(row.json)}</pre></details></td>`,
-    ].join("");
+    return (row.cells || [])
+      .map((cell, index) => this.cellHtml(cell, row.classes?.[index]))
+      .join("");
+  }
+
+  cellHtml(cell, classes = "") {
+    const value = this.escape(cell.value);
+    const classAttr = classes ? ` class="${this.escape(classes)}"` : "";
+
+    switch (cell.kind) {
+      case "severity":
+        // The colour goes on the <td> itself so it fills the whole cell with no padding; an
+        // inner element would sit inside the cell padding. The level rides in the title so it
+        // is still discoverable, and an unknown level falls back to the neutral colour so
+        // column widths stay even. The width class arrives with the other cell classes.
+        return `<td${classAttr} title="${value}" data-bs-toggle="tooltip"><span class="d-none"></span></td>`;
+      case "time":
+        return `<td${classAttr}><span class="text-nowrap">${value}</span></td>`;
+      case "message":
+        // The message is its own disclosure: the summary is the one-line preview and the body
+        // is the whole record. `<details>` gives click-to-expand with no JS and no state, so an
+        // appended row behaves exactly like a loaded one.
+        //
+        // The body leads with the full message, unlabelled and at the table's normal font
+        // size, then the remaining fields as a list. The summary text is wrapped in a span so
+        // the stylesheet can hide just the text while open (the body repeats it in full).
+        //
+        // The body carries `collapseMessage`: with the summary text hidden, the summary is an
+        // empty strip, so the visible content is what the pointer should close the row with.
+        // Matching `logs/_cell.html.haml`.
+        const collapse = ' data-action="click->logs-explorer#collapseMessage"';
+        return `<td${classAttr}><details class="log-message"><summary class="text-truncate"><span class="log-message-summary-text">${value}</span></summary><div class="mb-3"${collapse}>${this.escape(cell.message)}</div>${this.fieldsHtml(cell.fields, collapse)}</details></td>`;
+      case "badge":
+        return `<td${classAttr}><span class="badge text-bg-light">${value}</span></td>`;
+      default:
+        // "none" (and anything unrecognized) renders a muted placeholder, matching the
+        // server, so a cell kind the client does not know still lines up.
+        return `<td${classAttr}><span class="text-muted">${value}</span></td>`;
+    }
+  }
+
+  //
+  // The metadata list: one "key: value" item per record field, excluding the message, which
+  // the caller renders on its own above this list.
+  //
+  // The key is italic and the value plain, which is the visual separator between them -- no
+  // colon run together with the value, and no punctuation to misread. Both come from the
+  // server ready to render, so nothing is derived here.
+  //
+  // Only the list is `small`: it is supporting metadata, while the message above it keeps the
+  // table's normal font size.
+  //
+  fieldsHtml(fields = [], attrs = "") {
+    const items = fields
+      .map(
+        (field) =>
+          `<li><i>${this.escape(field.key)}</i>: ${this.escape(field.value)}</li>`,
+      )
+      .join("");
+    return `<ul class="list-unstyled small mb-0"${attrs}>${items}</ul>`;
   }
 
   trimToMaxRows() {
@@ -192,24 +271,23 @@ export default class extends Controller {
   //
   // Swaps the pause/resume control.
   //
-  // Uses the `hidden` property, which toggles the `hidden` attribute. The server marks the
-  // initial state the same way (`html: {hidden: true}`); if it used an inline
-  // `display: none` instead, setting `.hidden = false` here would clear the attribute but
-  // leave the style, and Resume would never reappear.
+  // Toggles the `d-none` class -- the same mechanism the server uses (`hide: true`). A
+  // class works for both CSS and JS, so there is one way to hide things rather than a
+  // JS-only attribute competing with stylesheets.
   //
   renderPausedState() {
     if (this.hasPauseButtonTarget) {
-      this.pauseButtonTarget.hidden = this.paused;
+      this.pauseButtonTarget.classList.toggle("d-none", this.paused);
     }
     if (this.hasResumeButtonTarget) {
-      this.resumeButtonTarget.hidden = !this.paused;
+      this.resumeButtonTarget.classList.toggle("d-none", !this.paused);
     }
   }
 
   markFailed() {
     this.failed = true;
     if (this.hasStatusTarget) {
-      this.statusTarget.hidden = false;
+      this.statusTarget.classList.remove("d-none");
       this.statusTarget.textContent =
         this.statusTarget.dataset.errorText || "Disconnected";
     }
@@ -218,7 +296,7 @@ export default class extends Controller {
   clearFailed() {
     if (!this.failed) return;
     this.failed = false;
-    if (this.hasStatusTarget) this.statusTarget.hidden = true;
+    if (this.hasStatusTarget) this.statusTarget.classList.add("d-none");
   }
 
   get rowTargets() {

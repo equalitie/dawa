@@ -6,21 +6,22 @@
   `log_row_key`, which is also what the JSON endpoint returns, so the server-rendered row
   and a live-appended row agree.
 
-  Cell order matches `LogsFieldCatalog::HOST_FIELDS` (the columns declared by the table),
-  then the details cell.
+  The cells come from `log_row_cells`, the same helper the JSON endpoint uses. That is
+  deliberate: the server-rendered row and a row appended by the refresh controller must
+  have identical columns, and a second column list here (or in JS) is exactly how the two
+  drift apart.
 
 = v.table_row(hover: true, data: {"row-key": log_row_key(record)}) do |r|
-  - LogsFieldCatalog::HOST_FIELDS.each do |field|
-    - r.with_cell do
-      - if field == :_time
-        %span.text-nowrap= log_time(record)
-      - elsif field == :_msg
-        %code= log_message(record)
-      - elsif log_field_value(record, field).present?
-        %span.badge.text-bg-light= log_field_value(record, field)
-      - else
-        %span.text-muted= t("logs.index.none")
-  - r.with_cell do
-    %details
-      %summary= t("logs.index.json")
-      %pre.small.mb-0= log_json(record)
+  - cells = log_row_cells(record)
+  - classes = log_row_cell_classes(record)
+  - cells.each_with_index do |cell, index|
+    -#
+      The cell classes come from `log_row_cell_classes`, not from this template: the refresh
+      endpoint publishes the same list for each row it returns, and a second place that
+      decides what a cell looks like is how a live-appended row drifts from a loaded one.
+
+      The severity stripe in particular paints the <td> itself rather than an inner element,
+      so the colour fills the whole cell with no padding. The class list carries both the
+      stripe's width (from the column definition) and its colour (from the record).
+    - r.with_cell(class: classes[index]) do
+      = render "logs/cell", cell: cell

@@ -75,12 +75,12 @@ module LogsHelper
 
   #
   # A human "source" label for a host log. Host records are normalized by the
-  # `parse_host_logs` transform, so prefer `programname` (the daemon), then `unit`
-  # (the systemd unit), then `host` (the machine).
+  # `parse_host_logs` transform, so prefer `programname` (the daemon), then `host` (the
+  # machine). `unit` is not used: it is not a display column, and falling back to it made
+  # the label inconsistent with the Program column it sat next to.
   #
   def log_source(record)
     record["programname"].presence ||
-      record["unit"].presence ||
       record["host"].presence ||
       record["_stream"].presence ||
       "—"
@@ -114,9 +114,30 @@ module LogsHelper
     record[field.to_s]
   end
 
-  # The full record rendered as pretty JSON, for the collapsible "full JSON" cell.
+  # The full record rendered as pretty JSON, for copy/paste out of the UI.
   def log_json(record)
     JSON.pretty_generate(record)
+  end
+
+  #
+  # The record as ordered key/value pairs for the message cell's disclosure body.
+  #
+  # Pairs rather than a JSON string because the body is rendered as a list of
+  # "key: value" rows, and the client has to rebuild the same markup. Values are stringified
+  # here so both sides treat a number, a bool, and a string the same way.
+  #
+  # `_msg` is EXCLUDED: it carries the payload the row exists to show, so it is rendered on
+  # its own above the list (see `log_row_cell`) rather than as one labelled entry among
+  # metadata. Everything else keeps the record's own order.
+  #
+  def log_record_pairs(record)
+    record.except("_msg").map { |key, value| { key: key.to_s, value: stringify(value) } }
+  end
+
+  # A record value as display text. Non-strings are stringified so a number, a bool, and a
+  # string all render the same way.
+  def stringify(value)
+    value.is_a?(String) ? value : value.to_s
   end
 
   ##
@@ -126,24 +147,102 @@ module LogsHelper
   #
   # One record as the JSON row the refresh endpoint returns.
   #
-  # The client renders rows from this shape rather than re-deriving display strings, so the
-  # live-appended rows are formatted by the same Ruby that formatted the initial page render.
-  # That is what keeps "live" from looking subtly different from "loaded": time formatting,
-  # truncation, and the source badge all stay server-side.
-  #
-  # `key` is the identity used for client-side dedupe when batches overlap at a cursor
-  # boundary. See `log_row_key`.
+  # The row carries `cells`: one entry per visible column, in `LogsFieldCatalog` order,
+  # already formatted. The client renders whatever it is given rather than knowing the
+  # column list, so there is exactly one place that decides which columns exist and how
+  # they look. That is what keeps a live-appended row identical to a server-rendered one --
+  # an earlier version hardcoded a few columns in JS and silently dropped the rest.
   #
   def log_row(record)
     {
       key: log_row_key(record),
       time: record["_time"],
-      time_display: log_time(record),
-      source: log_source(record),
-      message: log_message(record),
-      message_full: record["_msg"].to_s,
-      json: log_json(record)
+      classes: log_row_cell_classes(record),
+      cells: log_row_cells(record)
     }
+  end
+
+  #
+  # The message cell, as a disclosure: the truncated message is the summary and the full
+  # record's JSON is the body, so the row stays one line high until the user asks for more.
+  # The JSON used to be its own column, which cost a column of width on every row to show a
+  # control most rows never used.
+  #
+  def log_row_cells(record)
+    LogsFieldCatalog::HOST_FIELDS.map { |field| log_row_cell(record, field) }
+  end
+
+  # One column's markup description. Mirrors `logs/_cell.html.haml` exactly.
+  def log_row_cell(record, field)
+    # Severity is handled before the blank check: an absent level is still a rendered
+    # stripe (neutral), because the column's width carries meaning even when the value
+    # does not. A blank cell would collapse the stripe and shift the row.
+    return { kind: :severity, color: LogsFieldCatalog.severity_color(record["severity"]),
+             value: record["severity"].to_s } if field == :severity
+
+    value = log_field_value(record, field)
+    # The placeholder is translated here rather than in JS so the client holds no strings.
+    return { kind: :none, value: t("logs.index.none") } if value.blank?
+
+    case field
+    when :_time
+      { kind: :time, value: log_time(record) }
+    when :_msg
+      # The summary is the readable preview, and the body repeats the message in full above
+      # the metadata list: the preview is Ruby-truncated and CSS-ellipsised, so the disclosure
+      # is where the whole line becomes readable.
+      { kind: :message, value: log_message(record), message: stringify(record["_msg"]),
+        fields: log_record_pairs(record) }
+    else
+      { kind: :badge, value: value }
+    end
+  end
+
+  #
+  # Declares the log table's columns on a `v.table` builder.
+  #
+  # The view and `log_row_cell_classes` both call this, so the header and the row classes are
+  # generated from one column list. Declaring columns twice is exactly how the severity
+  # stripe's width class ended up on the server-rendered cells but not the appended ones.
+  #
+  # The message column grows and is last: it holds the row's only elastic content, since the
+  # full record's JSON now lives inside it as a disclosure rather than in a column of its own.
+  #
+  def logs_table_columns(table)
+    LogsFieldCatalog::HOST_FIELDS.each do |field|
+      if LogsFieldCatalog.unlabelled?(field)
+        table.column :shrink, class: "log-severity-cell"
+      elsif field == :_msg
+        table.column :grow, label: t("logs.field.#{field}")
+      else
+        table.column :shrink, label: t("logs.field.#{field}")
+      end
+    end
+  end
+
+  #
+  # The <td> classes for one log row's cells, composed exactly as `v.table_row` composes
+  # them.
+  #
+  # The refresh endpoint publishes these with each row so the Stimulus controller can build
+  # the same element the row template builds. Deriving them from the column list rather than
+  # restating them in JS is the whole point: the two were written out independently once and
+  # drifted, and the log table's severity column stopped matching between loaded and appended
+  # rows.
+  #
+  # The row component is instantiated directly rather than through `v.table_row`, which
+  # renders eagerly and would return HTML instead of the builder whose class list we want.
+  #
+  # @return [Array<String>] one class string per cell, in cell order.
+  #
+  def log_row_cell_classes(record, hover: true)
+    row = TableRowComponent.new(hover: hover)
+    logs_table_columns(row)
+    cells = log_row_cells(record)
+    cells.each_index.map do |index|
+      extra = cells[index][:kind] == :severity ? LogsFieldCatalog.severity_class(cells[index][:color]) : nil
+      row.cell_class_list(TableCellComponent.new(class: extra), index).join(" ")
+    end
   end
 
   #

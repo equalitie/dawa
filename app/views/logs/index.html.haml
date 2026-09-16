@@ -25,8 +25,8 @@
 
     -# Pause/resume: the buttons swap on state, so the control always says what clicking it
       will do. Pausing is the only way to read a busy log while it is moving.
-      Hidden with the `hidden` attribute, which is what the controller toggles and what
-      `hide: true` now emits too (see AGENTS.md, "Hiding elements").
+      Hidden with the `d-none` class, which is what the controller toggles and what
+      `hide: true` emits too (see AGENTS.md, "Hiding elements").
     = v.button label: t("logs.index.pause"), icon: "pause-fill", color: "dark",
       data: {action: "logs-explorer#togglePause", "logs-explorer-target": "pauseButton"}
     = v.button label: t("logs.index.resume"), icon: "play-fill", color: "primary",
@@ -35,7 +35,7 @@
 
     -# Shown only when a refresh fails. Without it a backend outage looks exactly like a
       quiet log, which is the case a sysadmin most needs to notice.
-    %span.badge.text-bg-danger{hidden: true,
+    %span.badge.text-bg-danger.d-none{
       data: {"logs-explorer-target": "status", "error-text": t("logs.index.disconnected")}}
       = t("logs.index.disconnected")
 
@@ -80,9 +80,15 @@
         = t("logs.index.no_logs")
 
   - else
-    = v.table(t(".title"), data: {"logs-explorer-target": "rows"}) do |t|
-      - LogsFieldCatalog::HOST_FIELDS.each do |field|
-        - t.column :shrink, label: t("logs.field.#{field}")
-      - t.column :grow, label: t("logs.index.details")
+    -#
+      The refresh target goes on the <tbody>, not the <table>: rows must be inserted into
+      the row container. Prepending to the table would put a row before the header and the
+      parser would hoist it out of the table.
+    = v.table(t(".title"), body_data: {"logs-explorer-target": "rows"}) do |t|
+      -#
+        Column order comes from the catalog. An unlabelled column (severity) still needs its
+        header cell, so the stripe keeps its place; it just carries no text. The list lives in
+        `logs_table_columns` so the refresh endpoint can derive the same row classes from it.
+      - logs_table_columns(t)
       - @logs.each do |record|
         = render "logs/row", record: record

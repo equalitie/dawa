@@ -27,9 +27,9 @@ class LogsHelperTest < ActionView::TestCase
   test "log_display_cells appends the remaining fields, sorted, as unknown" do
     cells = log_display_cells(record)
     others = cells.reject { |c| c[:known] }.map { |c| c[:field] }
-    assert_equal [ :_stream ], others
-    assert_equal "{host=\"tern\",programname=\"sshd\",unit=\"ssh.service\"}",
-                 cells.find { |c| c[:field] == :_stream }[:value]
+    # `unit` is not a display column, so it lands in the trailing "other" fields along with
+    # `_stream`. Both are still visible, just not in the fixed column set.
+    assert_equal [ :_stream, :unit ], others
   end
 
   test "log_time formats the timestamp in the app zone" do
@@ -42,12 +42,14 @@ class LogsHelperTest < ActionView::TestCase
     assert_equal "—", log_time({})
   end
 
-  test "log_source prefers programname, then unit, then host, then stream" do
+  test "log_source prefers programname, then host, then stream" do
+    # `unit` is deliberately not in the chain: it is not a display column, so falling back
+    # to it would label a row with something the table does not show.
     assert_equal "sshd", log_source(record)
-    assert_equal "ssh.service", log_source(record.except("programname"))
-    assert_equal "tern", log_source(record.except("programname", "unit"))
+    assert_equal "tern", log_source(record.except("programname"))
     assert_equal "{host=\"x\"}", log_source({ "_stream" => "{host=\"x\"}" })
     assert_equal "—", log_source({})
+    assert_equal "—", log_source({ "unit" => "ssh.service" })
   end
 
   test "log_message truncates long bodies" do
