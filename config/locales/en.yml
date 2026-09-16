@@ -81,6 +81,8 @@ en:
     clear: "Clear"
     created: "Created"
     updated: "Updated"
+    no: "No"
+    yes: "Yes"
   notice:
     saved: "Changes Saved"
     created: "Record Created"
@@ -102,6 +104,11 @@ en:
         display_name: "Display Name"
         email: "Email"
         is_active: "Active"
+      invite:
+        label: "Label"
+        role: "Role"
+        expires_at: "Expires"
+        max_uses: "Max Uses"
 
   login:
     demo_user: "Demo User"
@@ -109,9 +116,20 @@ en:
 
   enroll:
     title: "Register a new user"
-    username_help: "Your unique identifier."
-    display_name_help: "How your name is displayed."
-    passkey_intro: "A **passkey** is required to log in. Passkeys are a secure alternative to passwords."
+    join_workspace: "This new user will join workspace %{name}"
+    step_name:
+      username_help: "Your unique identifier."
+      display_name_help: "How your name is displayed."
+      cancel: "Cancel"
+    step_credentials:
+      passkey_intro: "A **passkey** is required to log in. Passkeys are a secure alternative to passwords."
+    step_encryption_phrase:
+      # all i18n keys for navigation moved to nav.*
+    step_encryption_prf:
+      intro: 'Your passkey supports automatic encryption. When you click "Enable Encryption" you will be asked to validate your passkey one more time.'
+    step_avatar:
+      tab_icon: "Avatar Icon"
+      tab_image: "Avatar Image"
 
   profiles:
     remove_image: Remove Image
@@ -131,11 +149,18 @@ en:
     authentication: "Authentication"
     profile: "Profile"
 
+  role:
+    user: "User"
+    admin: "Admin"
+    none: "None"
+
   users:
     active: "Active"
     inactive: "Disabled"
     admin: "Admin"
     normal: "Normal"
+    user: "User"
+    date_joined: "Date Joined"
     index:
       title: "Users"
       new: "New User"
@@ -155,6 +180,34 @@ en:
       no_sessions: "No sessions"
     destroy:
       destroyed: "User destroyed"
+
+  links:
+    state:
+      expired: "Expired"
+      pending: "Pending"
+      used: "Used"
+
+  invites:
+    join: "Join"
+    invite: "Invite"
+    invites: "Invites"
+    tab_pending: "Pending"
+    tab_used: "Used"
+    tab_expired: "Expired"
+    new: "New Invite"
+    label: "Label"
+    role: "Role"
+    expires: "Expires"
+    uses: "Uses"
+    link: "Link"
+    new_user: "New User"
+    new_user_desc: "Create a new user account."
+    reject_desc: "Reject invite."
+    error:
+      not_found: "This invite no longer exists. Ask an admin for a fresh invite."
+      used: "This invite has already been used. Ask an admin for a fresh invite."
+      expired: "This invite has expired. Ask an admin for a fresh invite."
+
 
   backups:
     index:

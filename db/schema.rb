@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_08_07_164346) do
+ActiveRecord::Schema[8.1].define(version: 2026_08_26_000000) do
   create_table "active_storage_attachments", force: :cascade do |t|
     t.bigint "blob_id", null: false
     t.datetime "created_at", null: false
@@ -39,12 +39,8 @@ ActiveRecord::Schema[8.1].define(version: 2026_08_07_164346) do
     t.index ["blob_id", "variation_digest"], name: "index_active_storage_variant_records_uniqueness", unique: true
   end
 
-  create_table "link_keys", force: :cascade do |t|
-    t.date "expires_on"
-    t.binary "key", limit: 32
-  end
-
   create_table "links", force: :cascade do |t|
+    t.string "code"
     t.datetime "created_at", null: false
     t.integer "created_by_id"
     t.datetime "expires_at"
@@ -148,6 +144,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_08_07_164346) do
     t.json "data", default: {}
     t.string "display_name"
     t.string "email"
+    t.integer "invite_id"
     t.boolean "is_active", default: true
     t.boolean "is_admin", default: false
     t.boolean "is_finalized", default: true

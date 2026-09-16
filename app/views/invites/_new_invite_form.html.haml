@@ -1,0 +1,10 @@
+-# locals: (invite: @invite)
+#new-invite-form
+  = bootstrap_form_with(model: invite) do |f|
+    .row
+      .col= f.text_field :label
+      .col= f.select :role, invite_role_options_for_select
+      .col= f.date_field :expires_at
+      .col= f.number_field :max_uses
+    .btn-toolbar
+      = f.v.submit_button label: t("nav.create"), icon: "plus-lg"

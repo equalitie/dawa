@@ -1,0 +1,16 @@
+= breadcrumbs(auto: false) do |bc|
+  - bc.with_crumb { link_to(t("sidebar.users"), users_path) }
+  - bc.with_crumb(active: true) { link_to(t("invites.invites"), invites_path) }
+
+= v.tab_bar do |tabs|
+  - tabs.with_tab(label: t("invites.tab_pending"), url: invites_path, active: active?(view: nil))
+  - tabs.with_tab(label: t("invites.tab_used"), url: invites_path(view: "used"), active: active?(view: "used"))
+  - tabs.with_tab(label: t("invites.tab_expired"), url: invites_path(view: "expired"), active: active?(view: "expired"))
+
+#invite-list
+  = render "table", invites: @invites
+
+- if params[:view].nil?
+  .card.mt-4
+    .card-header.fw-bold= t("invites.new")
+    .card-body= render "new_invite_form"

@@ -1,0 +1,5 @@
+.middlebox
+  %h2.mb-4 Create a New User?
+  .btn-toolbar.gap-4
+    = v.link_button(icon: "x-circle", color: "danger", size: "lg", label: t("nav.no"), url: root_path)
+    = v.update_button(icon: "check-circle", color: "success", size: "lg", label: t("nav.yes"), url: join_path(@invite))

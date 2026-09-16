@@ -37,7 +37,7 @@ module ErrorsConcern
         render turbo_stream: turbo_stream.append("alerts", helpers.v.alert(color) { helpers.content_tag(:p, message) })
       end
       format.html do
-        render template: "errors/message", message: message, color: color
+        render template: "errors/message", locals: {message: message, color: color}
       end
     end
   end

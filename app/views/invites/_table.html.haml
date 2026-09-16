@@ -1,0 +1,19 @@
+= v.table do |t|
+  - t.column :grow, label: t("user.invites.label")
+  - t.column :shrink, label: t("user.invites.role")
+  - t.column :shrink, label: t("user.invites.expires")
+  - t.column :shrink, label: t("user.invites.uses")
+  - t.column :grow, :hide_sm, label: t("user.invites.link")
+  - invites.each do |invite|
+    - invite_path(invite).tap do |url|
+      - t.with_row do |r|
+        - r.with_cell do
+          = t.link_to(invite.label, url)
+        - r.with_cell do
+          = t.link_to(display_role(invite.role), url)
+        - r.with_cell do
+          = t.link_to(datetime(invite.expires_at), url)
+        - r.with_cell do
+          = "%d/%d" % [invite.used_count, invite.max_uses]
+        - r.with_cell do
+          = v.copy(text: join_url(id: invite.code), disabled: (invite.expired? || invite.used?))

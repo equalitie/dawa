@@ -18,6 +18,8 @@ Rails.application.routes.draw do
   get "login" => "root#login"
 
   resources :users
+  resources :invites
+  resources :join, only: [:show, :update]
   resources :apps, only: :index
   resources :backups, only: :index
   resources :containers

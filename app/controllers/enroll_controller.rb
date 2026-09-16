@@ -3,7 +3,6 @@ class EnrollController < ApplicationController
   optional_authorization
   helper "auth/credentials"
 
-  skip_before_action :ensure_active
   before_action :fetch_records, only: [ :update, :show, :destroy ]
   before_action { @title = "Enroll" }
   before_action :allow_inactive_user
@@ -25,7 +24,7 @@ class EnrollController < ApplicationController
   def create
     @user = UserForm.new(user_params).create
     if @user.persisted?
-      set_current_user!(@user.user, preserve: :redirect)
+      set_current_user!(@user.user, preserve: [:redirect, :current_invite])
       redirect_to next_step
     else
       render :show, status: :unprocessable_entity
@@ -65,7 +64,7 @@ class EnrollController < ApplicationController
   def update_credential
     @credential = Auth::CredentialForm.new(@credential)
     if @credential.update(credential_params)
-      UserForm.new(user: @user).finalize_enrollment!
+      UserForm.new(user: @user).finalize_enrollment!(invite_id: session[:current_invite])
       set_current_user!(@user, preserve: :redirect)
       redirect_to(url_from(session[:redirect]) || home_url)
     else

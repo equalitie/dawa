@@ -29,6 +29,15 @@ module SidebarHelper
       path: main_app.users_path,
       active: active?(c: "users")
     }
+    if active?(c: ["users", "invites"])
+      sb[:invites] = {
+        indent: 1,
+        label: t("sidebar.invites"),
+        icon: "ticket-perforated",
+        path: main_app.invites_path,
+        active: active?(c: "invites")
+      }
+    end
     sb[:apps] = {
       label: t("sidebar.apps"),
       icon: "boxes",

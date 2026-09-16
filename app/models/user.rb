@@ -4,6 +4,8 @@ class User < ApplicationRecord
   include Auth::UserUsername
   include RaftComponents::HasAvatar
 
+  belongs_to :invite, optional: true
+
   before_validation :assign_uuid, on: :create
 
   validates :uuid, presence: true, uniqueness: true

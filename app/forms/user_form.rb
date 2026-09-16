@@ -31,8 +31,11 @@ class UserForm < ApplicationForm
     return self
   end
 
-  def finalize_enrollment!
-    @user.update(is_active: true, is_finalized: true)
+  def finalize_enrollment!(invite_id: nil)
+    User.transaction do
+      Invite.find_by_id(invite_id)&.consume!(@user) if invite_id
+      @user.update(is_active: true, is_finalized: true)
+    end
   end
 
   def persisted?

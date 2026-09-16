@@ -1,0 +1,9 @@
+= v.alert(:danger) do
+  - if @invite.nil?
+    = t("invite.error.not_found")
+
+  - elsif @invite.used?
+    = t("invite.error.used")
+
+  - elsif @invite.expired?
+    = t("invite.error.expired")

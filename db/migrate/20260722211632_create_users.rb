@@ -11,6 +11,7 @@ class CreateUsers < ActiveRecord::Migration[8.1]
       t.boolean  "is_active",     default: true
       t.boolean  "is_admin",      default: false
       t.boolean  "is_finalized",  default: true
+      t.integer "invite_id"
       t.json    "data",           default: {}
       t.index ["username"], name: "index_users_on_username", unique: true
       t.index ["uuid"], name: "index_users_on_uuid", unique: true

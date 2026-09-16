@@ -1,0 +1,48 @@
+= breadcrumbs(auto: false) do |bc|
+  - bc.with_crumb { link_to(t("sidebar.users"), users_path) }
+  - bc.with_crumb { link_to(t("invites.invites"), invites_path) }
+  - bc.with_crumb(active: true) { @invite.label }
+
+%h3
+  = v.flex_bar do |bar|
+    - bar.shrink do
+      = t("invites.invite")
+      = @invite.label
+    - bar.grow(justify: "end") do
+      = v.link_badge(@invite)
+
+-# if !@invite.disabled?
+  = v.alert(:warning, size: "md", dismiss: false) do
+    %p= t("people.invite_show.ownership_notice")
+    = v.profile(@invite.membership, url: person_path(@invite.membership), size: "sm")
+
+= bootstrap_form_with(model: @invite) do |f|
+  = f.text_field :label
+  .row
+    .col= f.select :role, invite_role_options_for_select
+    .col= f.date_field :expires_at
+    .col= f.number_field :max_uses
+  .row.mb-3
+    .col
+      %label.form-label= t("invites.link")
+      = v.copy(text: join_url(@invite), disabled: (@invite.expired? || @invite.used?))
+  - if @invite.users.any?
+    .row.mb-3
+      .col
+        %label.form-label
+          = t("invites.uses")
+          = "(%d)" % @invite.used_count
+        .border.rounded.overflow-y-scroll(style="width: 100%; max-height: 10em")
+          %table.table.table-sm.table-borderless.table-striped
+            %tr.border-bottom
+              %td= t("users.users")
+              %td= t("users.date_joined")
+            - @invite.users.each do |user|
+              %tr
+                %td= v.avatar(user, label: true, size: 24, url: user_path(user))
+                %td= display_time(user.created_at, :long)
+
+  .btn-toolbar
+    = v.cancel_button_link label: t("nav.close"), url: invites_path
+    = f.v.delete_button confirm: true
+    = f.v.save_button
