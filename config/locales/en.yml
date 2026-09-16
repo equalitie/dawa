@@ -104,6 +104,7 @@ en:
     home: "Home"
     users: "Users"
     containers: "Containers"
+    backups: "Backups"
     apps: "Apps"
     logs: "Logs"
     metrics: "Metrics"
@@ -135,6 +136,10 @@ en:
       no_sessions: "No sessions"
     destroy:
       destroyed: "User destroyed"
+
+  backups:
+    index:
+      title: "Backups"
 
   containers:
     index:

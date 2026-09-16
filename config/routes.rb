@@ -17,6 +17,7 @@ Rails.application.routes.draw do
 
   resources :users
   resources :apps, only: :index
+  resources :backups, only: :index
   resources :containers, only: :index
   resources :logs, only: :index
   resource :metrics, only: :show

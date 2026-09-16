@@ -44,6 +44,12 @@ module SidebarHelper
       path: main_app.metrics_path,
       active: active?(c: "metrics")
     }
+    sb[:backups] = {
+      label: t("sidebar.backups"),
+      icon: "cloud-arrow-up",
+      path: main_app.backups_path,
+      active: active?(c: "backups")
+    }
     sb[:troubleshoot] = {
       label: t("sidebar.troubleshoot"),
       icon: "life-preserver",
