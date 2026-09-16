@@ -35,7 +35,7 @@ class BoxComponent < ApplicationComponent
         - elsif image?
           = image
         - if !buttons?
-          .alert-body.flex-grow-1.align-self-start{class: @html[:class]}
+          .alert-body.flex-grow-1.align-self-start
             = content
         - else
           .alert-body.flex-grow-1.align-self-start.align-self-sm-center

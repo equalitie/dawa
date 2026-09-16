@@ -24,6 +24,8 @@ class TableBaseComponent < ApplicationComponent
         classes << "d-none d-lg-table-cell" if arg == :hide_md
       elsif arg.is_a? String
         label = arg
+      elsif arg.is_a? Hash
+        label = arg[:label]
       end
     end
     @columns_definition << { class: classes.join(" "), label: label }
