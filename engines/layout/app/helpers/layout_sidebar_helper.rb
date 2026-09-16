@@ -14,18 +14,13 @@ module LayoutSidebarHelper
       css_class += " indent-#{indent}"
     end
 
-    graphic = if icon.present?
-      icon_class = label.present? ? "with-end-label" : ""
-      bootstrap_icon(icon, width: theme.sidebar_icon_size, height: theme.sidebar_icon_size, class: icon_class)
-    elsif image
-      image
-    else
-      ""
+    label_tag = content_tag(:span, class: 'text') { label }
+    if icon.present?
+      # icon_class = label.present? ? "with-end-label" : ""
+      label_tag = icon(icon, label_tag, size: theme.sidebar_icon_size)
     end
 
-    label_tag = content_tag(:span, class: 'text') { label }
-
-    link_to(safe_join([ graphic, label_tag ]), path, class: "nav-link #{css_class}", title: label)
+    link_to(label_tag, path, class: "nav-link #{css_class}", title: label)
   end
 
   def sidebar_section(label:, icon:)
