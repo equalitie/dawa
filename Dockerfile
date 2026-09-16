@@ -80,7 +80,12 @@ COPY --chown=rails:rails --from=build /rails /rails
 # Entrypoint prepares the database.
 ENTRYPOINT ["/rails/bin/docker-entrypoint"]
 
-# Start server via Thruster by default, this can be overwritten at runtime
-EXPOSE 8080
-ENV THRUSTER_HTTP_PORT=8080
-CMD ["./bin/thrust", "./bin/rails", "server"]
+# Run the Solid Queue supervisor inside Puma for single-server, low-traffic deployments. This
+# approach is lightweight (one process serves requests and runs the queue worker threads).
+# Late, if needed, we can either have a separate process for jobs in this container
+# (e.g. using Procfile) or run two separate containers with the same image (one for the web app and one
+# for background job processing).
+EXPOSE 3000
+ENV PORT=3000 \
+    SOLID_QUEUE_IN_PUMA=true
+CMD ["./bin/rails", "server"]

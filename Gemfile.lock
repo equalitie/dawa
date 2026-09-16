@@ -458,11 +458,6 @@ GEM
       railties (>= 6.0.0)
     temple (0.10.7)
     thor (1.5.0)
-    thruster (0.1.26)
-    thruster (0.1.26-aarch64-linux)
-    thruster (0.1.26-arm64-darwin)
-    thruster (0.1.26-x86_64-darwin)
-    thruster (0.1.26-x86_64-linux)
     tilt (2.9.0)
     timeout (0.6.1)
     tpm-key_attestation (0.14.2)
@@ -550,7 +545,6 @@ DEPENDENCIES
   solid_queue
   sqlite3 (>= 2.1)
   stimulus-rails
-  thruster
   turbo-rails
   tzinfo-data
   vega
@@ -585,6 +579,7 @@ CHECKSUMS
   brakeman (8.0.6) sha256=759cc69341115e6c2dcd47b6fd8649a0b9bd540e3585ac8a0a94e31c66fee386
   browser (6.2.0) sha256=281d5295788825c9396427c292c2d2be0a5c91875c93c390fde6e5d61a5ace2d
   builder (3.3.0) sha256=497918d2f9dca528fdca4b88d84e4ef4387256d984b8154e9d5d3fe5a9c8835f
+  bundler (4.0.17) sha256=214e21431b5665dd2f99df8a5511c6b151d7a72e8015c8b38f8b775b61cbb6c1
   bundler-audit (0.9.3) sha256=81c8766c71e47d0d28a0f98c7eed028539f21a6ea3cd8f685eb6f42333c9b4e9
   cbor (0.5.10.3) sha256=c3aa1d0c7e9bbffe8de4bed554f588d7926c62276ffe2dd7fabb65bae801d28a
   cgi (0.5.2) sha256=61ca30298171190fd4fa0d8018e57ada456eae9b7a2b78526debf7f0a0e6f8bb
@@ -724,11 +719,6 @@ CHECKSUMS
   stimulus-rails (1.3.4) sha256=765676ffa1f33af64ce026d26b48e8ffb2e0b94e0f50e9119e11d6107d67cb06
   temple (0.10.7) sha256=369fe560adb6534674ce232899c2232df614bcb29c5359b05efedff7a57ed9c0
   thor (1.5.0) sha256=e3a9e55fe857e44859ce104a84675ab6e8cd59c650a49106a05f55f136425e73
-  thruster (0.1.26) sha256=6e45e807086b29d51404841bd1ad493b67cd95892fd65dc5afcdd32e82e94ce8
-  thruster (0.1.26-aarch64-linux) sha256=2171cb34928c0250830008f535c4ab2ee57846cc3f5d3e96c3475f7b3de7a541
-  thruster (0.1.26-arm64-darwin) sha256=40676164c433abf31313422305d9e9e9210cf941b1befad88e2428b3b8dcc36c
-  thruster (0.1.26-x86_64-darwin) sha256=c7f7f0cbefd8030ea03bf88f6a988f595a0618a35a1a0d358e729c6898eb5b6a
-  thruster (0.1.26-x86_64-linux) sha256=3117a6ee430663f845a0457699fe9a05232dcc6c396e2cc83504de5a223c60e8
   tilt (2.9.0) sha256=da5735d0280bba96e9a91041bb14aee435ccad5c17b0fa519249ae543d9aa3a5
   timeout (0.6.1) sha256=78f57368a7e7bbadec56971f78a3f5ecbcfb59b7fcbb0a3ed6ddc08a5094accb
   tpm-key_attestation (0.14.2) sha256=3c994239f643822efe67a9cfbbfc357d0cd037a8662d5abb45d4dd79dce0e93c

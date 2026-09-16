@@ -1,5 +1,6 @@
 # Ports
 
+* dawa:3000
 * docker-proxy:2375
 * victoriametrics:8428
 * victorialogs:9428 
