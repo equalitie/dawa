@@ -52,6 +52,7 @@ gem "docker-engine-ruby"               # docker engine API
 gem "haml-rails", "~> 2.1"             # haml templates
 gem "dartsass-rails", "~> 0.5"         # sass stylesheets
 gem "bootstrap", "~> 5.3.8"            # css framework
+gem "commonmarker"                     # markdown support
 
 gem "bootstrap_form", "~> 5.6.1"       # form builder with bootstrap styles
 gem "pagy", "~> 43.5.5"                # pagination
