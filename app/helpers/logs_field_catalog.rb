@@ -7,7 +7,12 @@ module LogsFieldCatalog
   # `severity` is first because it renders as a narrow colour stripe rather than a labelled
   # column: putting the level at the left edge makes a stream of logs scannable without
   # reading any text, which is the point of the field.
-  HOST_FIELDS = [ :severity, :_time, :host, :programname, :priority, :_msg ].freeze
+  #
+  # `priority` is deliberately NOT a column. It is the same fact as `severity` in another
+  # encoding (journald's numeric PRIORITY -- see the transform in vector.yml), so showing both
+  # prints the same level twice, once as a stripe and once as a number. The record still
+  # carries it, and it still appears in the message cell's field list, so nothing is lost.
+  HOST_FIELDS = [ :severity, :_time, :host, :programname, :_msg ].freeze
 
   # Fields that may be offered as filters for host logs.
   # These map to host sink `_stream_fields` (`host,programname`) plus `severity`,

@@ -381,7 +381,6 @@ en:
       host: "Host"
       programname: "Program"
       severity: "Severity"
-      priority: "Priority"
       _stream: "Stream"
       _msg: "Message"
 

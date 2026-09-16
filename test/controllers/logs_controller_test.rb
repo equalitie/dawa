@@ -607,7 +607,7 @@ class LogsControllerTest < ActionDispatch::IntegrationTest
 
   test "data row cells cover every catalog column" do
     # Regression: the client used to hardcode three columns, so live rows silently dropped
-    # host, severity and priority. The cell count is what keeps the two in step.
+    # host and severity. The cell count is what keeps the two in step.
     with_stubbed_service(records: sample_records) do
       login_as(@user)
       get data_logs_path
@@ -630,9 +630,10 @@ class LogsControllerTest < ActionDispatch::IntegrationTest
 
     cells = JSON.parse(response.body)["rows"].first["cells"]
 
-    # severity, _time, host, programname, priority, _msg. The message is its own disclosure
-    # kind because it carries the record, not just a string.
-    assert_equal %w[severity time badge badge none message], cells.map { |c| c["kind"] }
+    # severity, _time, host, programname, _msg. The message is its own disclosure kind
+    # because it carries the record, not just a string. `priority` is not a column -- it is
+    # the same level as `severity` in numeric form.
+    assert_equal %w[severity time badge badge message], cells.map { |c| c["kind"] }
   end
 
   test "the severity cell leads the row and carries a colour" do
@@ -678,9 +679,12 @@ class LogsControllerTest < ActionDispatch::IntegrationTest
   end
 
   test "an empty column renders a placeholder cell rather than being omitted" do
-    # Omitting a cell would shift every column after it, so a live row would misalign with
-    # the header.
-    with_stubbed_service(records: sample_records) do
+    # A column is always rendered, even when the record has no value for it. Dropping the
+    # cell instead would shift every following column, so a row with a missing field would
+    # stop lining up with its header.
+    record = sample_records.first.merge("host" => nil)
+
+    with_stubbed_service(records: [ record ]) do
       login_as(@user)
       get data_logs_path
     end
@@ -688,8 +692,10 @@ class LogsControllerTest < ActionDispatch::IntegrationTest
     cells = JSON.parse(response.body)["rows"].first["cells"]
     none_cell = cells.find { |c| c["kind"] == "none" }
 
-    assert none_cell, "sample_records[0] has no priority, so a placeholder is expected"
+    assert none_cell, "a blank host should render a placeholder, not vanish"
     assert_equal I18n.t("logs.index.none"), none_cell["value"]
+    assert_equal LogsFieldCatalog::HOST_FIELDS.size, cells.size,
+                 "the placeholder must not change the cell count"
   end
 
   def test_data_row_keys_are_stable_and_content_derived

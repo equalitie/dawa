@@ -27,9 +27,11 @@ class LogsHelperTest < ActionView::TestCase
   test "log_display_cells appends the remaining fields, sorted, as unknown" do
     cells = log_display_cells(record)
     others = cells.reject { |c| c[:known] }.map { |c| c[:field] }
-    # `unit` is not a display column, so it lands in the trailing "other" fields along with
-    # `_stream`. Both are still visible, just not in the fixed column set.
-    assert_equal [ :_stream, :unit ], others
+    # These are not display columns, so they land in the trailing "other" fields: `_stream`
+    # is the VictoriaLogs stream label set, `priority` is the numeric form of the level already
+    # shown as the severity stripe, and `unit` is the systemd unit. All are still visible, just
+    # not in the fixed column set.
+    assert_equal [ :_stream, :priority, :unit ], others
   end
 
   test "log_time formats the timestamp in the app zone" do
