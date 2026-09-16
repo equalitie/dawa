@@ -176,6 +176,8 @@ en:
         log_path: "Log Path"
         back: "Back to Containers"
         restart: "Restart"
+        cpu: "CPU"
+        memory: "Memory"
       config:
         title: "Configuration"
         config: "Configuration"

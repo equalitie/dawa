@@ -16,6 +16,7 @@ class ContainersController < ApplicationController
   end
 
   def show
+    fetch_stats
   end
 
   def restart
@@ -33,15 +34,22 @@ class ContainersController < ApplicationController
     @container = docker_client.containers.inspect_(params[:id])
   end
 
+  def fetch_stats
+    stats = docker_client.containers.stats(params[:id], stream: false)
+    @cpu_stats = stats.cpu_stats
+    @memory_stats = stats.memory_stats
+  rescue DockerEngineRuby::Errors::APIStatusError
+    # stats not available (container not running, etc.)
+  end
+
   def docker_client
     @docker_client ||= begin
       client_options = {
         max_retries: 2,
-        timeout: 60,
+        timeout: 10,
         base_url: Conf.docker_url
       }
       DockerEngineRuby::Client.new(**client_options)
     end
   end
-
 end
