@@ -1,12 +1,28 @@
 # frozen_string_literal: true
 
+#
+# OIDC `aud` claim handling.
+#
+# doorkeeper-openid_connect emits the `aud` claim in the ID token as a single string
+# (the client_id). Some OIDC client libraries (e.g. Go's oidc-tester-app, which decodes
+# `aud` as `[]string`) expect `aud` to be a JSON array. OIDC Core permits `aud` to be a
+# single string or an array of strings, so emitting it as a one-element array is the most
+# broadly compatible choice.
+#
+module OpenidConnectAudArray
+  def audience
+    Array(@access_token.application.try(:uid))
+  end
+end
+Doorkeeper::OpenidConnect::IdToken.prepend(OpenidConnectAudArray)
+
 Doorkeeper::OpenidConnect.configure do
   # The issuer is the absolute URL clients use for discovery and token validation. It MUST
   # be identical across every endpoint, otherwise strict clients reject mis-matched issuers.
   # We therefore derive it from the stable (per environment) public URL rather than the
   # per-request host, so the discovery document, authorize, and token endpoints all agree.
   # The OAuth provider is mounted at /oauth.
-  issuer "#{Conf.site_public_url}/oauth"
+  issuer "#{Conf.openid_provider_url}"
 
   signing_key File.read("config/oidc_signing_key.pem")
 
@@ -80,15 +96,16 @@ Doorkeeper::OpenidConnect.configure do
   end
 
   subject do |resource_owner, _application|
-    # Stable pairwise-independent subject: the user id. `sub` must be the same for this
-    # resource owner across all clients of Dawa's own authorization server (we do not use
-    # pairwise subject identifiers).
-    resource_owner.id
+    # Stable, opaque, globally-unique subject: the user's UUID. `sub` must be the same for
+    # this resource owner across all clients of Dawa's own authorization server (we do not
+    # use pairwise subject identifiers). A UUID is used rather than the integer primary key
+    # so it doesn't leak user counts/ordering and stays stable across DB changes.
+    resource_owner.uuid
   end
 
   # Protocol to use when generating URIs for the discovery endpoint (e.g. HTTPS in
-  # production). Derived from the stable public URL so the endpoints agree with the issuer.
-  protocol { URI.parse(Conf.site_public_url).scheme.to_sym }
+  # production). Derived from the provider URL (see `issuer`) so the endpoints agree with it.
+  protocol { URI.parse(Conf.openid_provider_url).scheme.to_sym }
 
   # Expiration time on or after which the ID Token MUST NOT be accepted for processing. (default 120 seconds).
   # expiration 600
@@ -135,11 +152,12 @@ Doorkeeper::OpenidConnect.configure do
   #   end_session_url
   # end
 
-  # Force every URL advertised in the discovery document to use the stable public host,
-  # protocol, and port (from Conf.site_public_url). This keeps authorization_endpoint,
-  # token_endpoint, userinfo_endpoint, and jwks_uri consistent with `issuer`, which strict
-  # OIDC clients require. Keyed by endpoint, with an `on`/`update`-style hash applied to all.
-  public_base = URI.parse(Conf.site_public_url)
+  # Force every URL advertised in the discovery document to use the provider host, protocol,
+  # and port (from Conf.openid_provider_url, the same value as `issuer`). This keeps
+  # authorization_endpoint, token_endpoint, userinfo_endpoint, and jwks_uri consistent with
+  # `issuer`, which strict OIDC clients require -- and reachable from the client (e.g. via
+  # host.docker.internal when the client runs in a container). Keyed by endpoint.
+  public_base = URI.parse(Conf.openid_provider_url)
   discovery_url_options do |_request|
     base = { host: public_base.host, protocol: public_base.scheme.to_sym }
     base[:port] = public_base.port if public_base.port != public_base.default_port

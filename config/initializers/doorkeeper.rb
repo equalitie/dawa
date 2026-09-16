@@ -37,6 +37,13 @@ Doorkeeper.configure do
     User.find_by(id: session[:user_id]) || redirect_to(Rails.application.routes.url_helpers.login_path)
   end
 
+  # Pre-authorize every requested scope: skip the interactive consent screen entirely and
+  # issue the authorization code immediately once the user is authenticated. The block
+  # receives `[resource_owner, client]`; returning true means "no consent needed".
+  skip_authorization do |_resource_owner, _client|
+    true
+  end
+
   # Dawa manages users itself and can only establish a resource owner through the WebAuthn
   # session above. Grant only the authorization code flow (with PKCE, which doorkeeper
   # enables by default for authorization_code). We deliberately do NOT enable the
@@ -48,7 +55,7 @@ Doorkeeper.configure do
   # request (see Doorkeeper::OpenidConnect); the rest are optional claims scopes. `profile`
   # gates the `is_admin` claim.
   default_scopes :openid
-  optional_scopes :username, :email, :profile
+  optional_scopes :username, :email, :profile, :groups
   # others -- :address, :phone, :offline_access
 
   # Restrict doorkeeper's web interface (oauth/applications) to Dawa admins. Dawa records

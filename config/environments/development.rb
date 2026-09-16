@@ -3,6 +3,11 @@ require "active_support/core_ext/integer/time"
 Rails.application.configure do
   # Settings specified here will take precedence over those in config/application.rb.
 
+  # allow containers to this app when it is running on host.
+  # requires `rails s -b 0.0.0.0` and that the container is started with
+  # `--add-host host.docker.internal:host-gateway`
+  config.hosts << "host.docker.internal"
+
   # Make code changes take effect immediately without server restart.
   config.enable_reloading = true
 

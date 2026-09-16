@@ -153,7 +153,9 @@ ActiveRecord::Schema[8.1].define(version: 2026_08_07_164346) do
     t.boolean "is_finalized", default: true
     t.datetime "updated_on"
     t.string "username", limit: 40
+    t.string "uuid", null: false
     t.index ["username"], name: "index_users_on_username", unique: true
+    t.index ["uuid"], name: "index_users_on_uuid", unique: true
   end
 
   add_foreign_key "active_storage_attachments", "active_storage_blobs", column: "blob_id"

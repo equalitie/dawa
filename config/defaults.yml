@@ -24,6 +24,11 @@ defaults:
   site_private_url: "${private_protocol}://dawa:3000"
   websocket_url: ws://localhost:1234/
 
+  # The URL clients use to reach the OIDC provider (and the issuer the discovery doc and
+  # id_tokens advertise). Defaults to site_public_url; override per environment when clients
+  # reach Dawa at a different address (e.g. host.docker.internal from a container).
+  openid_provider_url: "${site_public_url}"
+
   db_port: 5432
   db_host: localhost
   db_user: dawa
@@ -45,6 +50,7 @@ development:
   db_name: dawa_development
   db_password: my_db_password
   docker_url: "unix:///var/run/docker.sock"
+  openid_provider_url: http://host.docker.internal:3000
 
 test:
   demo: true

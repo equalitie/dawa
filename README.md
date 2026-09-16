@@ -28,10 +28,50 @@ To create a dummy container that simulates logs:
 docker run -d --name loggen kubetail/loggen:0.2.0
 ```
 
-OIDC testing:
+### OIDC testing
+
+The nature of OIDC is that the same hostname must resolve to the access the identity provider (Dawa in our case). If you are running Dawa on the host and a test OIDC client in a container, that can be a bit tricky. 
+
+First, edit host's `/etc/hosts` file:
+
+```
+127.0.0.1 host.docker.internal
+```
+
+Run rails in dev mode bound to 0.0.0.0:
 
 ```sh
-docker run -d --name oidc-client authelia/oidc-tester-app
+bin/rails s -b 0.0.0.0
+```
+
+Examine configuration:
+
+```sh
+curl http://localhost:3000/.well-known/openid-configuration
+```
+
+In Dawa, create an SSO app with redirect_uri set to `http://localhost:8080/oauth2/callback`. Then get the values for `client_id` and `client_secret` from Dawa for that app record you just created.
+
+Start a test app with those values:
+
+```sh
+docker run \
+  --rm \
+  --name oidc-client \
+  -p 8080:8080 \
+  --add-host host.docker.internal:host-gateway \
+  authelia/oidc-tester-app \
+  oidc-tester-app --issuer http://host.docker.internal:3000 \
+                  --id beb7fskOAnXD_urpsthwa0yrGMTqLwcsoleZd6rX76o \
+                  --secret khfwZSpfD3WDYv5FZWzAEzZDKjrBKqCZ5jBMJSC75LY
+```
+
+This will start a test relaying party / OIDC client at http://localhost:8080. Load http://localhost:8080 in your browser and click "login". You should be redirected to http://host.docker.internal:3000 (where Dawa is running), be presented with a login screen, then redirect back to http://localhost:8080 to show the authentication confirmation in the test OIDC client.
+
+For the available options:
+
+```sh
+docker run --rm authelia/oidc-tester-app oidc-tester-app --help
 ```
 
 ## Support

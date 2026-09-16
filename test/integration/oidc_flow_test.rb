@@ -26,7 +26,9 @@ class OidcFlowTest < ActionDispatch::IntegrationTest
     get "/.well-known/openid-configuration"
     assert_response :success
     body = JSON.parse(response.body)
-    assert_equal "#{host}/oauth", body["issuer"]
+    # The issuer is the bare provider URL (matches what clients are configured with);
+    # the endpoints are under /oauth.
+    assert_equal host, body["issuer"]
     assert_equal "#{host}/oauth/authorize", body["authorization_endpoint"]
     assert_equal "#{host}/oauth/token", body["token_endpoint"]
     assert_equal "#{host}/oauth/userinfo", body["userinfo_endpoint"]
@@ -50,13 +52,9 @@ class OidcFlowTest < ActionDispatch::IntegrationTest
     post "/demo/session", params: { username: @user.username }
     follow_redirect!
 
-    # Step 1: authorize (consent screen).
+    # Consent is skipped (skip_authorization), so authorizing immediately redirects to
+    # the client with an authorization code (no consent screen is shown).
     get "/oauth/authorize", params: authorize_params
-    assert_response :success
-
-    # Step 2: grant consent (POST to authorize). Doorkeeper will auto-issue an
-    # authorization code and redirect to the client callback.
-    post "/oauth/authorize", params: authorize_params
     assert_response :redirect
     location = URI.parse(response.location)
     assert_equal "https", location.scheme
@@ -67,7 +65,7 @@ class OidcFlowTest < ActionDispatch::IntegrationTest
     assert code.present?, "expected an authorization code, got: #{location.inspect}"
     assert_equal "xyz-state", query["state"]
 
-    # Step 3: exchange the code for tokens (PKCE S256).
+    # Exchange the code for tokens (PKCE S256).
     post "/oauth/token", as: :json, params: {
       grant_type: "authorization_code",
       code: code,
@@ -84,9 +82,9 @@ class OidcFlowTest < ActionDispatch::IntegrationTest
 
     # Step 4: decode and verify the id_token against the JWKS public key.
     id_token = verify_id_token(tokens["id_token"])
-    assert_equal "#{host}/oauth", id_token["iss"]
-    assert_equal @user.id.to_s, id_token["sub"]
-    assert_equal @client.uid, id_token["aud"]
+    assert_equal host, id_token["iss"]
+    assert_equal @user.uuid, id_token["sub"]
+    assert_equal [ @client.uid ], id_token["aud"]
     assert_equal @user.username, id_token["preferred_username"]
     assert id_token["exp"].to_i > Time.now.to_i
 
@@ -94,7 +92,7 @@ class OidcFlowTest < ActionDispatch::IntegrationTest
     get "/oauth/userinfo", headers: { "Authorization" => "Bearer #{tokens["access_token"]}" }
     assert_response :success
     info = JSON.parse(response.body)
-    assert_equal @user.id.to_s, info["sub"]
+    assert_equal @user.uuid, info["sub"]
     assert_equal @user.username, info["preferred_username"]
     assert_equal @user.email, info["email"]
   end
@@ -117,7 +115,9 @@ class OidcFlowTest < ActionDispatch::IntegrationTest
   private
 
   def host
-    Conf.site_public_url
+    # The discovery document / issuer are pinned to the provider URL (what clients reach
+    # Dawa at, e.g. host.docker.internal from a container), not Conf.site_public_url.
+    Conf.openid_provider_url
   end
 
   def authorize_params

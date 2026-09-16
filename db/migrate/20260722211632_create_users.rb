@@ -2,6 +2,7 @@ class CreateUsers < ActiveRecord::Migration[8.1]
   def change
 
     create_table "users" do |t|
+      t.string   "uuid",          null: false
       t.string   "username",      limit: 40
       t.string   "display_name"
       t.string   "email"
@@ -12,6 +13,7 @@ class CreateUsers < ActiveRecord::Migration[8.1]
       t.boolean  "is_finalized",  default: true
       t.json    "data",           default: {}
       t.index ["username"], name: "index_users_on_username", unique: true
+      t.index ["uuid"], name: "index_users_on_uuid", unique: true
     end
 
     create_table "user_credentials" do |t|
