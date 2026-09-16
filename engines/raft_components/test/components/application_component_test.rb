@@ -144,4 +144,13 @@ class ApplicationComponentTest < ActionView::TestCase
     end
     assert_includes html, "(1 header)"
   end
+
+  # ── table_row id ──────────────────────────────────────────────
+
+  def test_table_row_emits_id_attribute
+    html = render_inline(TableRowComponent.new(id: "row-42")) do |r|
+      r.with_cell { "cell content" }
+    end
+    assert_includes html, 'id="row-42"'
+  end
 end
