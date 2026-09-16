@@ -7,7 +7,8 @@
 #
 class MetricsController < BaseAdminController
   def show
-    @metrics_charts = helpers.metrics_charts
+    params[:window] ||= "day"
+    @metrics_charts = helpers.metrics_charts(params[:window])
     @metrics_poll_interval_ms = helpers.metrics_historical_interval_ms
   end
 

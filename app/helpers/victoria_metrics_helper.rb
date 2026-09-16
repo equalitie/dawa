@@ -42,7 +42,7 @@ module VictoriaMetricsHelper
     },
     {
       key: "disk", title: "Disk Usage", kind: :series, color_field: "series",
-      y_title: "GB", stack: false,
+      y_title: "GB", stack: false, mark: :line,
       series: [ [ "capacity", "#0dcaf0" ], [ "used", "#fd7e14" ], [ "free", "#198754" ] ],
       queries: [
         <<~PROM,
@@ -77,8 +77,25 @@ module VictoriaMetricsHelper
   end
 
   # Hash of chart key => Vega chart spec (initialized with empty data).
-  def metrics_charts
-    METRICS_CHARTS.to_h { |defn| [ defn[:key], metrics_chart_spec(defn, []) ] }
+  #
+  # The x-domain is fixed to the full requested window (window_param) so charts
+  # render the entire time range even when data doesn't extend that far back.
+  #
+  def metrics_charts(window_param = nil)
+    time_domain = metrics_time_domain(window_param)
+    METRICS_CHARTS.to_h { |defn| [ defn[:key], metrics_chart_spec(defn, [], time_domain: time_domain) ] }
+  end
+
+  #
+  # The x-domain (millisecond epoch [start, end]) for a given window param,
+  # used to pin every chart's x scale to the full requested window. The domain
+  # matches the same bounds the data endpoint queries (end - window .. end), so
+  # the axis spans the exact requested range regardless of how far back data goes.
+  #
+  def metrics_time_domain(window_param = nil)
+    window = metrics_window(window_param)
+    ends = Time.current
+    [ (ends - window).to_f * 1000, ends.to_f * 1000 ].map(&:to_i)
   end
 
   #
@@ -120,7 +137,15 @@ module VictoriaMetricsHelper
   # @return [ActiveSupport::Duration]
   #
   def metrics_window(window_param = nil)
-    requested = window_param.present? ? words_to_time(window_param.to_s) : DEFAULT_WINDOW
+    requested = if window_param.present?
+      window_param = window_param.to_s
+      if window_param !~ /[0-9]/
+        window_param = "1 " + window_param
+      end
+      words_to_time(window_param)
+    else
+      DEFAULT_WINDOW
+    end
     [ requested, metrics_historical_max_duration ].min
   end
 
@@ -138,8 +163,13 @@ module VictoriaMetricsHelper
   # Parses a human duration string like "1 minute" / "30 seconds" / "2 hours"
   # into an ActiveSupport::Duration. Raises ArgumentError for unsupported text.
   def words_to_time(str)
-    raise ArgumentError unless str =~ /\A[0-9]+ (seconds?|minutes?|hours?|days?|weeks?|months?|years?)\z/
-    str.split.inject { |count, unit| count.to_i.send(unit) }
+    raise ArgumentError unless str =~ /\A[0-9]+ (seconds?|minutes?|hours?|days?|weeks?|months?|quarters?|years?)\z/
+    count, unit = str.split
+    n = count.to_i
+    case unit
+    when "quarter", "quarters" then n.months * 3
+    else n.send(unit)
+    end
   end
 
   # Duration for a single historical poll, from Conf.metrics_historical_interval
@@ -162,7 +192,7 @@ module VictoriaMetricsHelper
     end
   end
 
-  def metrics_chart_spec(defn, points)
+  def metrics_chart_spec(defn, points, time_domain: nil)
     case defn[:kind]
     when :series
       vega_series_area_spec(points,
@@ -173,12 +203,14 @@ module VictoriaMetricsHelper
         domain: defn[:series].map(&:first),
         range: defn[:series].map(&:last),
         stack: defn.fetch(:stack, true),
+        mark: defn.fetch(:mark, :area),
         tooltip: [
-          { field: "time", type: "temporal", title: "Time", format: "%H:%M:%S" },
+          { field: "time", type: "temporal", title: "Time", format: "%b %d %H:%M" },
           { field: "series", type: "nominal", title: "Direction" },
           { field: "value", type: "quantitative", title: defn[:title], format: ".2f" }
         ],
-        data_name: defn[:key])
+        data_name: defn[:key],
+        time_domain: time_domain)
     else
       vega_area_spec(points,
         title: defn[:title],
@@ -186,10 +218,11 @@ module VictoriaMetricsHelper
         y_title: defn[:y_title],
         color: defn[:color],
         tooltip: [
-          { field: "time", type: "temporal", title: "Time", format: "%H:%M:%S" },
+          { field: "time", type: "temporal", title: "Time", format: "%b %d %H:%M" },
           { field: "value", type: "quantitative", title: defn[:title], format: ".2f" }
         ],
-        data_name: defn[:key])
+        data_name: defn[:key],
+        time_domain: time_domain)
     end
   end
 end

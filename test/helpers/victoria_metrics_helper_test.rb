@@ -110,6 +110,33 @@ class VictoriaMetricsHelperTest < ActiveSupport::TestCase
     assert_equal "series", spec.dig(:encoding, :color, :field)
   end
 
+  test "disk series render as lines while network series render as areas" do
+    disk = metrics_charts["disk"]
+    network = metrics_charts["network"]
+    assert_equal "line", disk.dig(:layer, 0, :mark, :type)
+    assert_equal "area", network.dig(:layer, 0, :mark, :type)
+  end
+
+  test "metrics_charts pins the x scale domain to the full requested window" do
+    before = Time.current
+    charts = metrics_charts("7 days")
+    after = Time.current
+    charts.each_value do |spec|
+      domain = spec.dig(:encoding, :x, :scale, :domain)
+      assert_equal 2, domain.size
+      # domain spans the full 7-day window ending around now
+      assert_in_delta before.to_f * 1000, domain.last, after.to_f * 1000
+      assert_in_delta (before - 7.days).to_f * 1000, domain.first, (after - 7.days).to_f * 1000
+    end
+  end
+
+  test "metrics_time_domain defaults to the day window" do
+    now = Time.current
+    start_ms, end_ms = metrics_time_domain
+    assert_in_delta now.to_f * 1000, end_ms, 10_000
+    assert_in_delta (now - 24.hours).to_f * 1000, start_ms, 10_000
+  end
+
   test "queries are scoped to the configured host instance" do
     stub_range_rows([])
     end_time = Time.current

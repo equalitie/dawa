@@ -17,7 +17,7 @@ module VegaChartHelper
   # optionally a `data_name` (default "chartdata") matching the dataset the
   # client streams via view.change(data_name, ...).
   #
-  def vega_area_spec(points, title:, y_field:, y_title:, color:, tooltip:, transform: nil, data_name: "chartdata")
+  def vega_area_spec(points, title:, y_field:, y_title:, color:, tooltip:, transform: nil, data_name: "chartdata", time_domain: nil)
     chart = Vega.lite
       .data(name: data_name, values: points)
       .width("container")
@@ -25,7 +25,7 @@ module VegaChartHelper
       .autosize(streaming_autosize)
       .title(title)
       .encoding(
-        x: { field: "time", type: "temporal", axis: { title: nil } },
+        x: x_encoding(time_domain),
         y: { field: y_field, type: "quantitative", title: y_title }
       )
     chart = chart.transform(transform) if transform
@@ -41,7 +41,7 @@ module VegaChartHelper
   # direction field to a friendly label (e.g. "datum.direction == 'net_rx' ? 'RX' : 'TX'").
   # Both a bytes->MB/s calculation and the direction label are applied internally.
   #
-  def vega_folded_area_spec(points, title:, fold:, label_calc:, y_title:, domain:, range:, tooltip:, data_name: "chartdata")
+  def vega_folded_area_spec(points, title:, fold:, label_calc:, y_title:, domain:, range:, tooltip:, data_name: "chartdata", time_domain: nil)
     fold_transform = { fold: fold, as: [ "direction", "bytes" ] }
     transforms = [
       { calculate: "datum.bytes / 1048576", as: "mbps" },
@@ -55,7 +55,7 @@ module VegaChartHelper
       .title(title)
       .transform([ fold_transform ] + transforms)
       .encoding(
-        x: { field: "time", type: "temporal", axis: { title: nil } },
+        x: x_encoding(time_domain),
         y: { field: "mbps", type: "quantitative", title: y_title },
         color: { field: "direction", type: "nominal", title: nil,
                  scale: { domain: domain, range: range },
@@ -73,7 +73,7 @@ module VegaChartHelper
   # "series") where each row is already tagged, rather than folded from two
   # fields. Used for charts that combine the results of multiple queries.
   #
-  def vega_series_area_spec(points, title:, y_field:, y_title:, color_field:, domain:, range:, tooltip:, data_name: "chartdata", opacity: 0.5, stack: true)
+  def vega_series_area_spec(points, title:, y_field:, y_title:, color_field:, domain:, range:, tooltip:, data_name: "chartdata", opacity: 0.5, stack: true, time_domain: nil, mark: :area)
     y_encoding = { field: y_field, type: "quantitative", title: y_title }
     y_encoding[:stack] = false unless stack
     Vega.lite
@@ -83,20 +83,44 @@ module VegaChartHelper
       .autosize(streaming_autosize)
       .title(title)
       .encoding(
-        x: { field: "time", type: "temporal", axis: { title: nil } },
+        x: x_encoding(time_domain),
         y: y_encoding,
         color: { field: color_field, type: "nominal", title: nil,
                  scale: { domain: domain, range: range },
                  legend: { orient: "top" } }
       )
-      .layer([
-        { mark: { type: "area", interpolate: "monotone", opacity: opacity } },
-        hover_tooltip_layer(tooltip)
-      ])
+      .layer([ series_mark(mark, opacity), hover_tooltip_layer(tooltip) ])
       .spec
   end
 
   private
+
+  #
+  # Shared time (x) axis encoding. An optional explicit time_domain ([start_ms,
+  # end_ms]) fixes the visible x extent to the full requested window, so a chart
+  # whose data only covers part of the window (e.g. metrics retained for one day
+  # but a one-month window requested) still spans the whole window. Without it,
+  # Vega derives the domain from the data and the chart shrinks to just the data.
+  #
+  def x_encoding(time_domain = nil)
+    enc = { field: "time", type: "temporal", axis: x_axis_config }
+    enc[:scale] = { domain: time_domain } if time_domain
+    enc
+  end
+
+  #
+  # Axis config for the shared time (x) axis. A fixed tickCount keeps the number
+  # of labels small even when the chart renders very wide (where Vega-Lite would
+  # otherwise add too many labels that crowd and bleed together), and
+  # labelOverlap:"greedy" guarantees no two labels ever collide, regardless of
+  # label width or chart width.
+  #
+  # labelOverlap uses Vega's axis label overlap handling:
+  # https://vega.github.io/vega/docs/axes/#labelOverlap
+  #
+  def x_axis_config
+    { title: nil, tickCount: 8, labelOverlap: "greedy" }
+  end
 
   #
   # With width: "container", Vega-Lite doesn't re-measure layout on every data
@@ -115,6 +139,20 @@ module VegaChartHelper
     [
       { mark: { type: "area", interpolate: interpolate, color: color, opacity: opacity } }
     ]
+  end
+
+  #
+  # The base series mark layer for multi-series charts. Defaults to filled area
+  # marks (monotone interpolation, optional opacity), but can render plain line
+  # marks (no fill) when :line, e.g. for disk capacity/used/free where stacked
+  # areas overlap and hide each other.
+  #
+  def series_mark(mark, opacity)
+    if mark.to_sym == :line
+      { mark: { type: "line", interpolate: "monotone" } }
+    else
+      { mark: { type: "area", interpolate: "monotone", opacity: opacity } }
+    end
   end
 
   #
