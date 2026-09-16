@@ -48,18 +48,18 @@ gem "image_processing", "~> 1.2"
 ## DAWA
 ##
 
+gem "docker-engine-ruby"               # docker engine API
 gem "haml-rails", "~> 2.1"             # haml templates
 gem "dartsass-rails", "~> 0.5"         # sass stylesheets
 gem "bootstrap", "~> 5.3.8"            # css framework
 
 gem "bootstrap_form", "~> 5.6.1"       # form builder with bootstrap styles
-gem "view_component", "~> 4.11.0"      # reusable view components
 gem "pagy", "~> 43.5.5"                # pagination
-gem "bootstrap-icons-helper", "~> 2.0" # inline svg icons
 
-gem "config_magic",   path: "gems/config_magic"
-gem "layout",         path: "engines/layout"
-gem "auth_app",       path: "engines/auth_app"
+gem "config_magic",    path: "gems/config_magic"
+gem "layout",          path: "engines/layout"
+gem "auth_app",        path: "engines/auth_app"
+gem "raft_components", path: "engines/raft_components"
 
 ##
 ## DEV & TEST
@@ -86,6 +86,6 @@ end
 
 group :test do
   # Use system testing [https://guides.rubyonrails.org/testing.html#system-testing]
-  gem "capybara"
-  gem "selenium-webdriver"
+  #gem "capybara"
+  #gem "selenium-webdriver"
 end
