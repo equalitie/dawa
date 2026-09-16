@@ -21,6 +21,7 @@ Rails.application.routes.draw do
   resources :containers, only: [ :index, :show ] do
     member do
       post :restart
+      get :stats
     end
   end
   resources :logs, only: :index

@@ -111,8 +111,8 @@ class ContainersControllerTest < ActionDispatch::IntegrationTest
     assert_select ".badge.bg-danger", text: "Exited (137)"
   end
 
-  def test_show_shows_cpu_and_memory_stats
-    container_id = "stats-test-1"
+  def test_show_has_turbo_frame_for_stats
+    container_id = "stats-frame-1"
     container = build_container_stub(container_id)
 
     stub_docker_inspect(container_id, container) do
@@ -121,8 +121,50 @@ class ContainersControllerTest < ActionDispatch::IntegrationTest
     end
 
     assert_response :success
+    assert_select "turbo-frame#container-stats"
+  end
+
+  def test_stats_returns_cpu_and_memory
+    container_id = "stats-test-1"
+    stats_obj = OpenStruct.new(
+      cpu_stats: OpenStruct.new(
+        online_cpus: 4,
+        system_cpu_usage: 1_000_000_000_000,
+        cpu_usage: OpenStruct.new(total_usage: 500_000_000_000)
+      ),
+      memory_stats: OpenStruct.new(
+        usage: 67_108_864,
+        limit: 134_217_728,
+        max_usage: 100_000_000
+      )
+    )
+
+    stub_docker_stats(container_id, stats_obj) do
+      sign_in
+      get stats_container_path(container_id)
+    end
+
+    assert_response :success
     assert_select ".progress-bar"
-    assert_select ".progress", count: 1
+  end
+
+  def test_stats_handles_unavailable
+    container_id = "stats-unavail"
+
+    ContainersController.define_method(:docker_client) do
+      Object.new.tap do |c|
+        c.define_singleton_method(:containers) do
+          Object.new.tap do |cc|
+            cc.define_singleton_method(:stats) { |id, **| raise DockerEngineRuby::Errors::APIConnectionError.new(url: URI.parse("http://localhost")) }
+          end
+        end
+      end
+    end
+
+    sign_in
+    get stats_container_path(container_id)
+
+    assert_response :success
   end
 
   private
@@ -142,23 +184,23 @@ class ContainersControllerTest < ActionDispatch::IntegrationTest
   end
 
   def stub_docker_inspect(container_id, container)
-    stats_obj = OpenStruct.new(
-      cpu_stats: OpenStruct.new(
-        online_cpus: 4,
-        system_cpu_usage: 1_000_000_000_000,
-        cpu_usage: OpenStruct.new(total_usage: 500_000_000_000)
-      ),
-      memory_stats: OpenStruct.new(
-        usage: 67_108_864,
-        limit: 134_217_728,
-        max_usage: 100_000_000
-      )
-    )
-
     client = Object.new
     client.define_singleton_method(:containers) do
       Object.new.tap do |c|
         c.define_singleton_method(:inspect_) { |id| container }
+      end
+    end
+
+    ContainersController.define_method(:docker_client) { client }
+    yield
+  ensure
+    ContainersController.send(:remove_method, :docker_client)
+  end
+
+  def stub_docker_stats(container_id, stats_obj)
+    client = Object.new
+    client.define_singleton_method(:containers) do
+      Object.new.tap do |c|
         c.define_singleton_method(:stats) { |id, **| stats_obj }
       end
     end

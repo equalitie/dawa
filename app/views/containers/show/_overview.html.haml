@@ -1,3 +1,16 @@
+%turbo-frame#container-stats{src: stats_container_path(@container.id), loading: :lazy}
+  .card.mb-3
+    .card-header= t("containers.show.stats.stats")
+    .card-body
+      %table.table.table-sm.mb-0
+        %tbody
+          %tr
+            %th.text-nowrap= t(".cpu")
+            %td.text-muted
+          %tr
+            %th.text-nowrap= t(".memory")
+            %td.text-muted
+
 .card.mb-3
   .card-header= t(".overview")
   .card-body
@@ -23,27 +36,6 @@
         %tr
           %th.text-nowrap= t(".restart_count")
           %td= @container.restart_count
-        - if @cpu_stats
-          %tr
-            %th.text-nowrap= t(".cpu")
-            %td
-              - if @cpu_stats.online_cpus && @cpu_stats.system_cpu_usage && @cpu_stats.cpu_usage&.total_usage
-                - cpu_pct = ([@cpu_stats.cpu_usage.total_usage.to_f / @cpu_stats.system_cpu_usage * @cpu_stats.online_cpus * 100, 0].max).round(1)
-                = number_to_percentage(cpu_pct, precision: 1)
-              - else
-                = @cpu_stats.cpu_usage&.total_usage
-        - if @memory_stats
-          %tr
-            %th.text-nowrap= t(".memory")
-            %td
-              - if @memory_stats.usage && @memory_stats.limit && @memory_stats.limit > 0
-                .d-flex.align-items-center.gap-2
-                  .progress.flex-grow-1{style: "height: 8px;"}
-                    - mem_pct = (@memory_stats.usage.to_f / @memory_stats.limit * 100).round(1)
-                    .progress-bar{role: "progressbar", style: "width: #{mem_pct}%;", aria: {valuenow: mem_pct, valuemin: 0, valuemax: 100}}
-                  %small.text-muted.text-nowrap= "#{number_to_human_size(@memory_stats.usage)} / #{number_to_human_size(@memory_stats.limit)}"
-              - elsif @memory_stats.usage
-                = number_to_human_size(@memory_stats.usage)
         - if @container.size_rw
           %tr
             %th.text-nowrap= t(".size_rw")

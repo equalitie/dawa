@@ -16,7 +16,6 @@ class ContainersController < ApplicationController
   end
 
   def show
-    fetch_stats
   end
 
   def restart
@@ -26,6 +25,13 @@ class ContainersController < ApplicationController
     redirect_to containers_path, alert: "Could not connect to Docker: #{e.cause}"
   rescue DockerEngineRuby::Errors::APIStatusError => e
     redirect_to container_path(params[:id]), alert: "Failed to restart container: #{e.message}"
+  end
+
+  def stats
+    fetch_stats
+    render partial: "containers/show/stats", locals: { cpu_stats: @cpu_stats, memory_stats: @memory_stats }
+  rescue DockerEngineRuby::Errors::Error
+    render partial: "containers/show/stats", locals: { cpu_stats: nil, memory_stats: nil }
   end
 
   private

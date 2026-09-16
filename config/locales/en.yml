@@ -176,6 +176,11 @@ en:
         log_path: "Log Path"
         back: "Back to Containers"
         restart: "Restart"
+        loading: "Loading..."
+        cpu: "CPU"
+        memory: "Memory"
+      stats:
+        stats: "Resource Usage"
         cpu: "CPU"
         memory: "Memory"
       config:
