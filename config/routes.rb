@@ -20,7 +20,7 @@ Rails.application.routes.draw do
   resources :users
   resources :apps, only: :index
   resources :backups, only: :index
-  resources :containers, only: [ :index, :show, :update ]
+  resources :containers
   get "containers/:id/stats", to: "container_stats#stats", as: :stats_container
   resources :logs, only: :index
   resource :metrics, only: :show

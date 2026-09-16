@@ -161,11 +161,14 @@ en:
       title: "Backups"
 
   containers:
+    destroyed: "Container deleted"
     action:
       restart: "Restart"
       start: "Start"
       stop: "Stop"
       suspend: "Suspend"
+      destroy: "Delete"
+      destroy_confirm: "Permanently delete this container?"
     status:
       running: "Running"
       paused: "Paused"
@@ -281,7 +284,6 @@ en:
     applications:
       scopes_help: "Select the scopes this client may request. Default scopes are always applied."
       title: "OAuth Applications"
-      new: "New Application"
       app_name: "App Name"
       redirect_uri: "Redirect URI"
       uri_help: |-

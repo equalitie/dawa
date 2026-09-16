@@ -138,6 +138,51 @@ class ContainersControllerTest < ActionDispatch::IntegrationTest
     assert_select "turbo-frame#container-stats"
   end
 
+  def test_destroy_removes_container
+    container_id = "destroy-test-1"
+    container = build_container_stub(container_id)
+    deleted = []
+
+    client = Object.new
+    client.define_singleton_method(:containers) do
+      Object.new.tap do |c|
+        c.define_singleton_method(:inspect_) { |id| container }
+        c.define_singleton_method(:delete) { |id| deleted << id; true }
+      end
+    end
+
+    ContainersController.define_method(:docker_client) { client }
+    login_as(@user)
+    delete container_path(container_id)
+  ensure
+    ContainersController.send(:remove_method, :docker_client)
+
+    assert_redirected_to containers_path
+    assert_equal [ container_id ], deleted
+  end
+
+  def test_destroy_handles_connection_error
+    container_id = "destroy-err-1"
+    container = build_container_stub(container_id)
+
+    client = Object.new
+    client.define_singleton_method(:containers) do
+      Object.new.tap do |c|
+        c.define_singleton_method(:inspect_) { |id| container }
+        c.define_singleton_method(:delete) { |id| raise DockerEngineRuby::Errors::APIConnectionError.new(url: URI.parse("http://localhost")) }
+      end
+    end
+
+    ContainersController.define_method(:docker_client) { client }
+    login_as(@user)
+    delete container_path(container_id)
+  ensure
+    ContainersController.send(:remove_method, :docker_client)
+
+    assert_redirected_to containers_path
+    assert_equal "Could not connect to Docker: ", flash[:alert]
+  end
+
   def test_stats_renders_charts_html
     container_id = "stats-test-1"
     stats_obj = build_stats_stub

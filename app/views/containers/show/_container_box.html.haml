@@ -47,3 +47,9 @@
     - else
       = v.button label: t("containers.action.restart"),
         icon: "arrow-clockwise", disabled: true
+
+    -# DESTROY BUTTON
+    = v.delete_button label: t("containers.action.destroy"),
+      icon: "trash", url: container_path(container.id),
+      confirm: t("containers.action.destroy_confirm"),
+      disabled: container.state.status != :exited
