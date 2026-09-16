@@ -1,0 +1,102 @@
+%p You have three options for creating and storing a passkey:
+
+.d-flex.flex-row.gap-2.mb-3
+  .d
+    = icon("usb-drive", size: 24)
+  .d
+    %b Security Key:
+    You can store passkeys on a physical device called a "security key" (or sometimes called a "hardware key"). This is the most secure method,
+    but is not backed up if you lose the physical device (you can add multiple passkeys).
+    We recommend the YubiKey 5C NFC ($30).
+
+.d-flex.flex-row.gap-2.mb-3
+  .d
+    = icon("window-sidebar", size: 24)
+  .d
+    %b Password Manager:
+    Password managers such as Bitwarden, 1Password, and NordPass can store passkeys,
+    back them up, and make them available across all your devices. You must install the
+    browser extension for these password managers in order to log in with a passkey.
+
+.d-flex.flex-row.gap-2.mb-3
+  .d
+    = icon("pc-display-horizontal", size: 24)
+  .d
+    %b Operating System:
+    .mb-2
+      Most operating systems will store a passkey, although this locks you into only using that operating system.
+      This method is not recommended, but possibly this is already enabled for your device and you can start
+      using passkeys right away.
+    .d-flex.flex-row.gap-2.mb-2
+      .d
+        = icon("apple")
+      .d
+        macOS & iOS 16+: Passkeys may be stored in your iCloud account using Apple Passwords. For macOS,
+        you can alternately store passkeys in the Keychain without an iCloud account, but then the
+        passkeys are not backed up.
+    .d-flex.flex-row.gap-2.mb-2
+      .d
+        = icon("windows")
+      .d
+        Windows 11: Passkeys may be stored by Windows 11 when Windows Hello is enabled. These passkeys are not
+        backed up or usable on other devices (and may be insecure depending on how Windows Hello is configured).
+        Passkeys stored with Windows Hello do not support automatic encryption, so you will need to manually
+        specify an encryption phrase.
+    .d-flex.flex-row.gap-2.mb-2
+      .d
+        = icon("android2")
+      .d
+        Android: Passkeys may be stored in the Google Password Manager if you have a Google account.
+%p
+  Passkeys are not portable: they cannot be moved from one storage mechanism to another. However, you can add
+  and remove passkeys from different sources under your <b>Authentication</b> settings of this website.
+%p
+  In your settings, you may also specify an optional recovery code, which will allow you to add a new passkey if you
+  have lost your existing ones.
+
+%h3 Compatibility
+
+%p
+  %table.table
+    %tr
+      %th
+      %th Passkey Support
+      %th Comments
+    %tr
+      %td(colspan=4) Security Keys
+    %tr
+      %td.ps-4 Yubico
+      %td.text-success= icon("check-circle")
+      %td Most compatible.
+    %tr
+      %td.ps-4 Nitrokey
+      %td.text-success= icon("check-circle")
+      %td Open source.
+    %tr
+      %td(colspan=4) Password Managers
+    %tr
+      %td.ps-4 Bitwarden
+      %td.text-success= icon("check-circle")
+      %td Free and open source. Works on any platform.
+    %tr
+      %td.ps-4 1Password
+      %td.text-success= icon("check-circle")
+      %td Popular commercial password manager.
+    %tr
+      %td.ps-4 NordPass
+      %td.text-success= icon("check-circle")
+      %td
+    %tr
+      %td.ps-4 Apple Passwords
+      %td.text-success= icon("check-circle")
+      %td
+        Free, secure, advanced. You can protect your credentials from Apple by enabling
+        = link_to("Advanced Data Protection", "https://support.apple.com/en-us/108756", target: "_new")
+    %tr
+      %td.ps-4 Google Password Manager
+      %td.text-success= icon("check-circle")
+      %td Free, requires Google Account. Google can access your credentials.
+    %tr
+      %td.ps-4 Windows Hello
+      %td.text-success= icon("check-circle")
+      %td Requires Windows 11. Avoid if possible.
