@@ -5,10 +5,11 @@
 - # insert alerts
 - #
 #alerts.d-flex.flex-column
-  %noscript
-    .m-3.alert.alert-danger
-      %h2 JavaScript Required
-      %p Please enable JavaScript in your browser settings.
+  - unless Rails.env.test?
+    %noscript
+      .m-3.alert.alert-danger
+        %h2 JavaScript Required
+        %p Please enable JavaScript in your browser settings.
   - flash.each do |name, items|
     - messages = flash_messages(items)
     - if messages
