@@ -49,7 +49,8 @@ export default class extends Controller {
     const scrollTop = Math.max(
       ...this.scrollerTargets.map((el) => el.scrollTop),
     );
-    const newHeight = Math.max(minHeight, maxHeight - scrollTop / 16);
+    var newHeight = Math.max(minHeight, maxHeight - scrollTop / 16);
+    newHeight = newHeight % 2 === 0 ? newHeight : newHeight + 1;
     document.documentElement.style.setProperty(
       "--shrink-header-height",
       `${newHeight}px`,
