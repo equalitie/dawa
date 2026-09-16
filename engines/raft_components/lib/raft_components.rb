@@ -11,6 +11,7 @@ module RaftComponents
   autoload :IconDefinitions, "raft_components/icon_definitions"
   autoload :BuilderHelper,   "raft_components/builder_helper"
   autoload :ColorUtil,       "raft_components/color_util"
+  autoload :InitialAvatar,   "raft_components/initial_avatar"
   autoload :AttachmentChangedCallback, "raft_components/attachment_changed_callback"
 
   def self.small_avatar_options

@@ -52,6 +52,10 @@ module RaftComponents
         avatar["name"] ||= record.display_name
       end
 
+      if record.respond_to?(:username)
+        avatar["name"] ||= record.username
+      end
+
       avatar["name"] ||= "unknown"
 
       return avatar
@@ -60,8 +64,8 @@ module RaftComponents
     #
     # generate a URL for an avatar of any type
     #
-    def avatar_url(avatar, size = RaftComponents::AVATAR_SMALL_SIZE)
-      avatar = normalize_avatar(avatar, size)
+    def avatar_url(record, size = RaftComponents::AVATAR_SMALL_SIZE)
+      avatar = normalize_avatar(record, size)
       if avatar["cache"]
         helper_context.main_app.workspace_send_blob_variant_path(
           avatar["cache"]["ws"],       # workspace id
@@ -72,12 +76,16 @@ module RaftComponents
       elsif avatar["seed"]
         dicebear_url(**avatar.slice("radius", "seed", "hair_color", "skin_color", "mouth", "hue", "bg_color").symbolize_keys)
       else
-        dicebear_url(**avatar.slice("name", "hue").symbolize_keys)
+        initials_url(name: avatar["name"], hue: avatar["hue"])
       end
     end
 
     def avatar_style(avatar, size = RaftComponents::AVATAR_SMALL_SIZE)
       "--avatar-url: url(%s); --avatar-size: %spx" % [avatar_url(avatar, size), size]
+    end
+
+    def initials_url(name:, hue: nil)
+      "/initials/#{ERB::Util.url_encode(name)}"
     end
 
     #
