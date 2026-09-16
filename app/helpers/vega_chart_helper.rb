@@ -17,7 +17,7 @@ module VegaChartHelper
   # optionally a `data_name` (default "chartdata") matching the dataset the
   # client streams via view.change(data_name, ...).
   #
-  def vega_area_spec(points, title:, y_field:, y_title:, color:, tooltip:, transform: nil, data_name: "chartdata", time_domain: nil)
+  def vega_area_spec(points, title:, y_field:, y_title:, color:, tooltip:, transform: nil, data_name: "chartdata", time_domain: nil, y_axis_format: nil)
     chart = Vega.lite
       .data(name: data_name, values: points)
       .width("container")
@@ -26,7 +26,7 @@ module VegaChartHelper
       .title(title)
       .encoding(
         x: x_encoding(time_domain),
-        y: { field: y_field, type: "quantitative", title: y_title }
+        y: y_encoding(y_field, y_title, y_axis_format)
       )
     chart = chart.transform(transform) if transform
     chart.layer(area_marks(interpolate: "monotone", color: color, opacity: 0.6).push(
@@ -41,7 +41,7 @@ module VegaChartHelper
   # direction field to a friendly label (e.g. "datum.direction == 'net_rx' ? 'RX' : 'TX'").
   # Both a bytes->MB/s calculation and the direction label are applied internally.
   #
-  def vega_folded_area_spec(points, title:, fold:, label_calc:, y_title:, domain:, range:, tooltip:, data_name: "chartdata", time_domain: nil)
+  def vega_folded_area_spec(points, title:, fold:, label_calc:, y_title:, domain:, range:, tooltip:, data_name: "chartdata", time_domain: nil, y_axis_format: nil)
     fold_transform = { fold: fold, as: [ "direction", "bytes" ] }
     transforms = [
       { calculate: "datum.bytes / 1048576", as: "mbps" },
@@ -56,7 +56,7 @@ module VegaChartHelper
       .transform([ fold_transform ] + transforms)
       .encoding(
         x: x_encoding(time_domain),
-        y: { field: "mbps", type: "quantitative", title: y_title },
+        y: y_encoding("mbps", y_title, y_axis_format),
         color: { field: "direction", type: "nominal", title: nil,
                  scale: { domain: domain, range: range },
                  legend: { orient: "top" } }
@@ -73,8 +73,8 @@ module VegaChartHelper
   # "series") where each row is already tagged, rather than folded from two
   # fields. Used for charts that combine the results of multiple queries.
   #
-  def vega_series_area_spec(points, title:, y_field:, y_title:, color_field:, domain:, range:, tooltip:, data_name: "chartdata", opacity: 0.5, stack: true, time_domain: nil, mark: :area)
-    y_encoding = { field: y_field, type: "quantitative", title: y_title }
+  def vega_series_area_spec(points, title:, y_field:, y_title:, color_field:, domain:, range:, tooltip:, data_name: "chartdata", opacity: 0.5, stack: true, time_domain: nil, mark: :area, y_axis_format: nil)
+    y_encoding = y_encoding(y_field, y_title, y_axis_format)
     # Make stacking explicit so the stacked y scale is shared by the series mark AND
     # the separate hover-circle layer. Relying on inference (no stack key) left the
     # hover circle at the unstacked position on the stacked charts.
@@ -97,6 +97,17 @@ module VegaChartHelper
   end
 
   private
+
+  #
+  # Quantitative y encoding for area charts. An optional y_axis_format sets the tick
+  # label format (a d3-format/Vega format string, e.g. "d" for integers, ".2f"). When
+  # blank/nil the default numeric format is left in place.
+  #
+  def y_encoding(field, title, y_axis_format = nil)
+    enc = { field: field, type: "quantitative", title: title }
+    enc[:axis] = { format: y_axis_format } if y_axis_format.present?
+    enc
+  end
 
   #
   # Shared time (x) axis encoding. An optional explicit time_domain ([start_ms,

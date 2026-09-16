@@ -52,15 +52,15 @@ class MetricsControllerTest < ActionDispatch::IntegrationTest
 
       expected_keys = %w[cpu memory disk network]
       assert_equal expected_keys, body.fetch("points").keys
-      assert_equal 2, body["points"]["cpu"].size
-      # disk combines three queries => 3x the rows of a single-series chart
-      assert_equal 4, body["points"]["disk"].size
-      # network combines two queries => 2x the rows of a single-series chart
-      assert_equal 4, body["points"]["network"].size
+
+      # The stub returns two rows per query. cpu has five mode-series => 5x, others two => 2x.
+      assert_equal 10, body["points"]["cpu"].size
+      assert_equal 4,  body["points"]["disk"].size
+      assert_equal 4,  body["points"]["network"].size
     end
   end
 
-  def test_data_defaults_to_24_hour_window
+  def test_data_defaults_to_24_hour_day_window
     recorded = []
     with_stubbed_service(record: recorded) do
       login_as(@user)
@@ -71,35 +71,35 @@ class MetricsControllerTest < ActionDispatch::IntegrationTest
     assert recorded.any?
     window = recorded.first[:end] - recorded.first[:start]
     assert_in_delta 86_400, window, 60
-    assert_equal "432s", recorded.first[:step]
+    assert_equal "300s", recorded.first[:step]
   end
 
-  def test_data_uses_window_param
+  def test_data_uses_week_window
     recorded = []
     with_stubbed_service(record: recorded) do
       login_as(@user)
-      get data_metrics_path(window: "7 days"), headers: { "Accept" => "application/json" }
+      get data_metrics_path(window: "week"), headers: { "Accept" => "application/json" }
       assert_response :success
     end
 
     assert recorded.any?
     window = recorded.first[:end] - recorded.first[:start]
     assert_in_delta 604_800, window, 60
-    assert_equal "3024s", recorded.first[:step]
+    assert_equal "1800s", recorded.first[:step]
   end
 
-  def test_data_clamps_window_to_historical_max
+  def test_data_clamps_month_and_quarter_by_retention
     recorded = []
     with_stubbed_service(record: recorded) do
       login_as(@user)
-      # 200 days exceeds the 90-day historical maximum, so it clamps.
-      get data_metrics_path(window: "200 days"), headers: { "Accept" => "application/json" }
+      get data_metrics_path(window: "quarter"), headers: { "Accept" => "application/json" }
       assert_response :success
     end
 
     assert recorded.any?
     window = recorded.first[:end] - recorded.first[:start]
+    # quarter resolves to 90 days (the 90-day retention cap) with a 6h range step
     assert_in_delta 7_776_000, window, 60
-    assert_equal "38880s", recorded.first[:step]
+    assert_equal "21600s", recorded.first[:step]
   end
 end

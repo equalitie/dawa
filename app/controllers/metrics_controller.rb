@@ -8,16 +8,19 @@
 class MetricsController < BaseAdminController
   def show
     params[:window] ||= "day"
-    @metrics_charts = helpers.metrics_charts(params[:window])
+    @window = params[:window]
+    @metrics_charts = helpers.metrics_charts(@window)
     @metrics_poll_interval_ms = helpers.metrics_historical_interval_ms
   end
 
   def data
+    window = params[:window] || "day"
+    rendered_window = helpers.metrics_window(window)
     end_time = Time.current
-    window = helpers.metrics_window(params[:window])
     render json: {
       points: helpers.metrics_points(
-        start_time: end_time - window,
+        window_token: window,
+        start_time: end_time - rendered_window,
         end_time: end_time,
         step: helpers.metrics_historical_step(window)
       )
