@@ -138,6 +138,53 @@ class ContainersControllerTest < ActionDispatch::IntegrationTest
     assert_select "turbo-frame#container-stats"
   end
 
+  def test_show_handles_nil_ports
+    # docker-engine-ruby's typed `.ports` accessor raises when the API returns a
+    # nil/odd ports value; the view must use the raw key accessor instead.
+    container_id = "nilports-1"
+    container = build_container_stub(container_id,
+      network_settings: OpenStruct.new(
+        networks: {
+          "bridge" => OpenStruct.new(ip_address: "172.17.0.2", ip_prefix_len: 16,
+            gateway: "172.17.0.1", mac_address: "02:42:ac:11:00:02", network_id: "net123")
+        },
+        ports: nil
+      )
+    )
+
+    stub_docker_inspect(container_id, container) do
+      login_as(@user)
+      get container_path(container_id, tab: "config")
+    end
+
+    assert_response :success
+    assert_no_match(/port_mappings|Port Mappings/, response.body) # no ports section rendered
+  end
+
+  def test_show_renders_raw_hash_port_bindings
+    # Match the shape docker-engine-ruby exposes via NetworkSettings[:ports]:
+    # a Hash of "port/proto" => [{"HostIp" => .., "HostPort" => ..}] (or nil).
+    container_id = "rawports-1"
+    container = build_container_stub(container_id,
+      network_settings: OpenStruct.new(
+        networks: {},
+        ports: {
+          "80/tcp" => [{ "HostIp" => "0.0.0.0", "HostPort" => "8080" }],
+          "443/tcp" => nil
+        }
+      )
+    )
+
+    stub_docker_inspect(container_id, container) do
+      login_as(@user)
+      get container_path(container_id, tab: "config")
+    end
+
+    assert_response :success
+    assert_select "td", text: "80/tcp"
+    assert_select "td", text: "0.0.0.0:8080"
+  end
+
   def test_destroy_removes_container
     container_id = "destroy-test-1"
     container = build_container_stub(container_id)
@@ -373,7 +420,7 @@ class ContainersControllerTest < ActionDispatch::IntegrationTest
     ContainerStatsController.send(:remove_method, :docker_client)
   end
 
-  def build_container_stub(id, status: :running, running: true, exit_code: 0, finished_at: nil)
+  def build_container_stub(id, status: :running, running: true, exit_code: 0, finished_at: nil, network_settings: nil)
     state = OpenStruct.new(
       status: status,
       running: running,
@@ -414,7 +461,7 @@ class ContainersControllerTest < ActionDispatch::IntegrationTest
       OpenStruct.new(type: "volume", source: "myvolume", destination: "/var/lib/data", driver: "local", mode: "z", name: "myvolume")
     ]
 
-    network_settings = OpenStruct.new(
+    network_settings ||= OpenStruct.new(
       networks: {
         "bridge" => OpenStruct.new(
           ip_address: "172.17.0.2",

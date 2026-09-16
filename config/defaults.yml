@@ -68,7 +68,8 @@ test:
   site_domain: localhost
   public_protocol: http
   site_public_url: http://localhost:3000
-  salt: "019f4f667b62e1df76051b373167abe6cea1c72648702f60f914acfdaba7f48d089d64a320184ed2e053055e8fd7950553d952bbe523cf976011fdacad04582b"
+  secret_key_base: facdcfc14eb28fa0ab28b74ca161c94ca437cff4a1b426017753d690447714bf9687360747aca81a5ce9e68f9a2c0ac3d030a51028c70d5aa035c99ab2b33b34
+  salt: 019f4f667b62e1df76051b373167abe6cea1c72648702f60f914acfdaba7f48d089d64a320184ed2e053055e8fd7950553d952bbe523cf976011fdacad04582b
   jwt_secret: my_jwt_secret
   db_name: dawa_test
   db_password: my_db_password

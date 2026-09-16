@@ -22,7 +22,7 @@
               %th= t(".network_id")
               %td
                 %code= net.network_id
-    - if @container.network_settings.ports&.any?
+    - if (ports = @container.network_settings[:ports])&.any?
       %h5.mt-4= t(".port_mappings")
       %table.table.table-sm.mb-0
         %thead
@@ -30,8 +30,11 @@
             %th= t(".container_port")
             %th= t(".host_port")
         %tbody
-          - @container.network_settings.ports.each do |container_port, bindings|
-            - [bindings].flatten.compact.each do |b|
+          - ports.each do |container_port, bindings|
+            - Array(bindings).flatten.compact.each do |b|
               %tr
                 %td= container_port
-                %td= b.host_ip.to_s + ":" + b.host_port.to_s
+                %td
+                  - host_ip = b.is_a?(Hash) ? b["HostIp"] : b&.host_ip
+                  - host_port = b.is_a?(Hash) ? b["HostPort"] : b&.host_port
+                  = host_ip.to_s + ":" + host_port.to_s
