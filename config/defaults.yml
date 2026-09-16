@@ -60,7 +60,14 @@ development:
   db_password: my_db_password
   docker_url: "unix:///var/run/docker.sock"
   openid_provider_url: http://host.docker.internal:3000
-  openid_private_key: "MIHcAgEBBEIBD+r2BD8nuN3yH27iHjnd4WE1laF2Ksn3FoTECrDWEUJ0lEDG8IOwWDze3wXdiUdD2X9oAFc7CUs0Tq2wwq24TUagBwYFK4EEACOhgYkDgYYABAHX7nzqp6gnHjKiQ0AJ3YJAhBW2rk+ajoeHBfxRsLfXQGnsh5ujgBNSzem0RmZ2P5PDw6CvPAaC5fxv1SbpeU5rSgGHtQ6sMcNC5sizpIj1uoLH8YAcOU7a+V9ePTIiRWhNM9gohWtQkwGHb67J6wdJqCQ7JCNt7tI8E9mVFMO2WQfBNQ=="
+  openid_private_key: |-
+    -----BEGIN EC PRIVATE KEY-----
+    MIHcAgEBBEIAeYSlQ3biOquBl9ZMZ3QwqYczkfRbFKOgnR366Ahsxz58ulLRnJB/
+    NilKvm9athqd0E8OwnIJsvowi7eE7ftkH1CgBwYFK4EEACOhgYkDgYYABAB2qPAT
+    Hj6yeagT02RC/mTZAebN/AmtnrJFV56bJsbUavbs2a5tskp7ojHueGBnL8LTQNXI
+    Ne0AaPBL0PI2jtw/KAHYqL+grfXafltQea3BHP7rBV4X3yHixJ/wMcCLVs6/0xNY
+    DkEtKFUIBHOF8h04rpp9s/Gf1SInPBwrQqSP1XrWSw==
+    -----END EC PRIVATE KEY-----
 
 test:
   demo: true

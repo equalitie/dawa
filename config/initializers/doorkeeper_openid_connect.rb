@@ -24,7 +24,18 @@ Doorkeeper::OpenidConnect.configure do
   # The OAuth provider is mounted at /oauth.
   issuer Conf.openid_provider_url
 
-  signing_key Conf.openid_private_key
+  # The configured key may be either a full gated PEM (e.g. from config/config.yml)
+  # or a single flat string without BEGIN/END or line breaks (e.g. from the
+  # OPENID_PRIVATE_KEY env var). Dawa::OidcKey.to_pem normalizes whichever form it
+  # is into a PEM that OpenSSL can parse.
+  signing_key Dawa::OidcKey.to_pem(Conf.openid_private_key)
+
+  # The signing algorithm for ID tokens and the `alg` advertised in JWKS. Must
+  # match the signing key's curve: es256 for P-256, es384 for P-384, es512 for
+  # P-521 (secp521r1), rs256 for RSA. Defaults to :rs256, which fails with
+  # `JWT::EncodeError ... has to be an OpenSSL::PKey::RSA` when signing with an
+  # EC key.
+  signing_algorithm :es512
 
   # `signing_key` also accepts an array for key rotation. The first entry is
   # the active key used to sign newly issued ID tokens; any remaining entries

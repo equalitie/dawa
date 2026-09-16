@@ -64,6 +64,8 @@ docker run \
 
 This will start a test relaying party / OIDC client at http://localhost:8080. Load http://localhost:8080 in your browser and click "login". You should be redirected to http://host.docker.internal:3000 (where Dawa is running), be presented with a login screen, then redirect back to http://localhost:8080 to show the authentication confirmation in the test OIDC client.
 
+If oidc-tester-app crashes, try clearing your browser's cookies for localhost:8080 and try again.
+
 For the available options:
 
 ```sh

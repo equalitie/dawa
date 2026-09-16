@@ -42,9 +42,9 @@ class OidcFlowTest < ActionDispatch::IntegrationTest
     assert_response :success
     keys = JSON.parse(response.body)["keys"]
     assert_equal 1, keys.length
-    assert_equal "RSA", keys.first["kty"]
-    assert keys.first["n"].present?
-    assert keys.first["e"].present?
+    assert_equal "EC", keys.first["kty"]
+    assert keys.first["x"].present?
+    assert keys.first["y"].present?
   end
 
   def test_authorization_code_flow_issues_id_token_and_access_token
@@ -133,20 +133,19 @@ class OidcFlowTest < ActionDispatch::IntegrationTest
   end
 
   #
-  # Verify the JWT id_token signature against Dawa's RSA signing key (the same key the
-  # JWKS endpoint publishes, read directly from the private key file). Returns the
-  # decoded payload.
+  # Verify the JWT id_token signature against Dawa's signing key (the same key the
+  # JWKS endpoint publishes). Uses the jwt gem's ES512 verification, which handles
+  # the raw R||S ECDSA signature encoding; returns the decoded payload.
   #
   def verify_id_token(id_token)
-    rsa_public = OpenSSL::PKey::RSA.new(File.read("config/oidc_signing_key.pem")).public_key
+    key = OpenSSL::PKey::EC.new(Dawa::OidcKey.to_pem(Conf.openid_private_key))
 
-    header, payload, signature = id_token.split(".")
-    signed_data = [ header, payload ].join(".")
-
-    signature_bytes = Base64.urlsafe_decode64(signature)
-    assert rsa_public.verify(OpenSSL::Digest::SHA256.new, signature_bytes, signed_data),
-           "id_token signature verification failed"
-
-    JSON.parse(Base64.urlsafe_decode64(payload))
+    payload, = JWT.decode(
+      id_token,
+      key,
+      true,
+      algorithm: "ES512"
+    )
+    payload
   end
 end
