@@ -167,6 +167,7 @@ class Conf
     #
     def _load_config(filepath)
       return unless File.exist?(filepath)
+      puts "Loading #{filepath}"
       hash = YAML.load_file(filepath, aliases: true)
       return unless hash
       if hash["variables"]
@@ -175,9 +176,17 @@ class Conf
       if hash["defaults"]
         @data.merge!(hash["defaults"])
       end
-      if hash[Rails.env]
-        @data.merge!(hash[Rails.env])
+      environment = begin
+        if defined?(Rails.env)
+          Rails.env
+        elsif ENV["RAILS_ENV"]
+          ENV["RAILS_ENV"]
+        else
+          puts "No Rails environment is defined."
+          exit 1
+        end
       end
+      @data.merge!(hash[environment])
     rescue Exception => exc
       puts "ERROR parsing configuration file '#{filepath}'."
       puts exc

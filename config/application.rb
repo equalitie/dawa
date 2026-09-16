@@ -1,5 +1,13 @@
 require_relative "boot"
 
+require "conf"
+Conf.load(
+  "config/defaults.yml",
+  "engines/*/config/defaults.yml",
+  "config/config.yml",
+  root: File.expand_path("..", __dir__)
+)
+
 require "rails/all"
 
 # Require the gems listed in Gemfile, including any gems
