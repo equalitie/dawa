@@ -63,6 +63,7 @@ module Auth
           bytes: RbNaCl::PrivateKey::BYTES
         )
       end
+      key_seed = key_seed.byteslice(0,RbNaCl::PrivateKey::BYTES)
       RbNaCl::PrivateKey.new(key_seed)
     end
 
@@ -97,7 +98,7 @@ module Auth
     # password based key derivation, suitable for user supplied passwords.
     #
     def derive_pb_key(secret, salt, bytes: DEFAULT_BYTES)
-      salt = salt[0..(pb_key_salt_bytes-1)]
+      salt = salt.byteslice(0, pb_key_salt_bytes)
       opslimit = 5
       memlimit = 1_073_741_824 # (1 gb) the maximum bytes used in memory
       RbNaCl::PasswordHash.argon2(

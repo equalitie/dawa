@@ -5,10 +5,10 @@ WebAuthn.configure do |config|
   # imply you MUST configure rp_id explicitly. If you need your credentials
   # to be bound to a single origin but you have more than one tenant,
   # please see [our Advanced Configuration section](https://github.com/cedarcode/webauthn-ruby/blob/master/docs/advanced_configuration.md) instead of adding multiple origins.
-  config.allowed_origins = [Conf.site_public_url]
+  #config.allowed_origins = [Conf.site_public_url]
 
   # Relying Party name for display purposes
-  config.rp_name = Conf.site_title
+  #config.rp_name = Conf.site_title
 
   # Optionally configure a client timeout hint, in milliseconds.
   # This hint specifies how long the browser should wait for any

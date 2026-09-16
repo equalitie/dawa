@@ -59,7 +59,7 @@ gem "bootstrap-icons-helper", "~> 2.0" # inline svg icons
 
 gem "config_magic",   path: "gems/config_magic"
 gem "layout",         path: "engines/layout"
-gem "app_auth",       path: "engines/app_auth"
+gem "auth_app",       path: "engines/auth_app"
 
 ##
 ## DEV & TEST
