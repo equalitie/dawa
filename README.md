@@ -75,7 +75,7 @@ docker run --rm authelia/oidc-tester-app oidc-tester-app --help
 Build container:
 
 ```sh
-docker build -t dawa .
+docker build --progress=plain -t dawa .
 ```
 
 Push image to registry: 
