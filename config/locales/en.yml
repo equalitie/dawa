@@ -157,8 +157,7 @@ en:
   users:
     active: "Active"
     inactive: "Disabled"
-    admin: "Admin"
-    normal: "Normal"
+    role: "Role"
     user: "User"
     date_joined: "Date Joined"
     index:
