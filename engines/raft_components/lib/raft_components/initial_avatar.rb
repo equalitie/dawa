@@ -6,7 +6,7 @@ module RaftComponents
     LIGHTNESS = "40%"
     LIMIT = 2
 
-    attr_reader :name, :initials, :shape, :size, :font_size, :fill
+    attr_reader :initials, :shape, :size, :font_size, :fill
 
     def initialize(name, hue: nil, shape: :circle, size: 32)
       @name = name.to_s.strip

@@ -4,6 +4,11 @@ class CredentialFormTest < ActiveSupport::TestCase
   def setup
     @user = User.create!(username: "tester")
     @credential = Auth::Credential::Webauthn.create!(user: @user, is_active: true)
+    Auth.encryption = true
+  end
+
+  def teardown
+    Auth.encryption = false
   end
 
   def test_encryption_is_setup_when_encrypted
