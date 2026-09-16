@@ -9,6 +9,8 @@ Conf.load(
   root: File.expand_path("..", __dir__)
 )
 
+require_relative "../lib/dawa"
+
 # Require the gems listed in Gemfile, including any gems
 # you've limited to :test, :development, or :production.
 Bundler.require(*Rails.groups)
