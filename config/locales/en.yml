@@ -96,9 +96,38 @@ en:
   sidebar:
     home: "Home"
     users: "Users"
+    containers: "Containers"
     apps: "Apps"
     logs: "Logs"
     metrics: "Metrics"
     troubleshoot: "Troubleshoot"
     settings: "Settings"
     authentication: "Authentication"
+
+  users:
+    index:
+      title: "Users"
+
+  containers:
+    index:
+      title: "Containers"
+
+  apps:
+    index:
+      title: "Apps"
+
+  logs:
+    index:
+      title: "Logs"
+
+  metrics:
+    show:
+      title: "Metrics"
+
+  troubleshoot:
+    show:
+      title: "Troubleshoot"
+
+  settings:
+    show:
+      title: "Settings"

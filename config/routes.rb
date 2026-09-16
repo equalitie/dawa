@@ -15,5 +15,13 @@ Rails.application.routes.draw do
 
   root "root#show"
 
+  resources :users, only: :index
+  resources :apps, only: :index
+  resources :containers, only: :index
+  resources :logs, only: :index
+  resource :metrics, only: :show
+  resource :troubleshoot, only: :show, controller: "troubleshoot"
+  resource :settings, only: :show
+
   get "initials/:name", to: "initials#show", as: :initials
 end

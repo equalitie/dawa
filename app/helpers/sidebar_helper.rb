@@ -17,37 +17,43 @@ module SidebarHelper
     sb[:users] = {
       label: t("sidebar.users"),
       icon: "people-fill",
-      path: "#", #main_app.workspaces_path,
+      path: main_app.users_path,
       active: active?(c: "users")
     }
     sb[:apps] = {
       label: t("sidebar.apps"),
       icon: "boxes",
-      path: "#", #main_app.workspace_files_path(@workspace),
+      path: main_app.apps_path,
       active: active?(c: "apps")
+    }
+    sb[:containers] = {
+      label: t("sidebar.containers"),
+      icon: "hdd-rack",
+      path: main_app.containers_path,
+      active: active?(c: "containers")
     }
     sb[:logs] = {
       label: t("sidebar.logs"),
       icon: "list-columns-reverse",
-      path: "#", # main_app.workspace_events_path(@workspace),
+      path: main_app.logs_path,
       active: active?(c: "logs")
     }
     sb[:metrics] = {
       label: t("sidebar.metrics"),
       icon: "speedometer",
-      path: "#", #main_app.profiles_path,
+      path: main_app.metrics_path,
       active: active?(c: "metrics")
     }
     sb[:troubleshoot] = {
       label: t("sidebar.troubleshoot"),
       icon: "life-preserver",
-      path: "#", #main_app.profiles_path,
+      path: main_app.troubleshoot_path,
       active: active?(c: "troubleshoot")
     }
     sb[:settings] = {
       label: t("sidebar.settings"),
       icon: "gear-fill",
-      path: "#", #auth.credentials_path,
+      path: main_app.settings_path,
       active: active?(c: "settings")
     }
     sb[:auth] = {
