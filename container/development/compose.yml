@@ -1,39 +1,76 @@
 ---
 name: "dcomms"
 services:
-  #
-  # node-exporter is used to gather metrics on the host.
-  # it needs the host's filesystem mounted to /host,
-  # and it needs access to the host's network.
-  #
-  node-exporter:
-    image: prom/node-exporter:latest
-    container_name: node-exporter
-    restart: unless-stopped
-    command:
-      - '--path.rootfs=/host'
-      - '--collector.filesystem.mount-points-exclude=^/(dev|proc|sys|run|var/lib/docker|host)($$|/)'
-    network_mode: host
-    pid: host
-    volumes:
-      - '/:/host:ro,rslave'
-    healthcheck:
-      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:9100/"]
-      interval: 30s
-      timeout: 5s
-      retries: 3
-      start_period: 10s
 
+  ##
+  ## DOCKER
+  ##
+
+  # Proxy for docker api access
+  # Services needing docker api should connect to tcp://docker-proxy:2375
+  # For rootless with podman, see: https://github.com/linuxserver/docker-socket-proxy
+  docker-proxy:
+    image: lscr.io/linuxserver/socket-proxy:latest
+    container_name: docker-proxy
+    labels:
+      - "dc_app=internal"
+    expose:
+      - 2375
+    environment:
+      CONTAINERS: 1
+      IMAGES: 1
+      POST: 1
+      DELETE: 1
+      INFO: 1
+      VERSION: 1
+      ALLOW_LOGS: 1
+      # debug, info, notice, warning, err, crit, alert and emerg. defaults to info.
+      LOG_LEVEL: info
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    read_only: true
+    tmpfs:
+      - /tmp
+      - /run
+    group_add:
+      - "${DOCKER_GID:-984}"
+
+  ##
+  ## METRICS
+  ##
+
+  # exports container metrics with support for labels
+  logporter:
+    image: lifailon/logporter:latest
+    container_name: logporter
+    labels:
+      - "dc_app=internal"
+    restart: always
+    expose:
+      - 9333
+    environment:
+      LOG_LEVEL: info
+      DOCKER_HOST: tcp://docker-proxy:2375
+      DOCKER_METRICS_PORT: 9333
+      DOCKER_METRICS_CUSTOM_LABELS: "dc_app,dc_version,dc_inst,dc_env"
+    depends_on:
+      - docker-proxy
+
+  # time series metrics database
   victoriametrics:
     image: victoriametrics/victoria-metrics:latest
     container_name: victoriametrics
+    labels:
+      - "dc_app=internal"
     restart: unless-stopped
-    extra_hosts:
-      host.docker.internal: host-gateway # allow access to host's ip
+    #extra_hosts:
+    #  host.docker.internal: host-gateway # allow access to host's ip
+    expose:
+      - 8428
     ports:
       - "8428:8428"
     volumes:
-      - victoriametrics_storage:/victoria-metrics-data
+      - metrics_storage:/victoria-metrics-data
       - ./promscrape.yml:/etc/vm/promscrape.yml:ro
     command:
       - '-storageDataPath=/victoria-metrics-data'
@@ -42,9 +79,6 @@ services:
       - '-httpListenAddr=:8428'
       - '-memory.allowedPercent=60'
       - '-search.maxQueryDuration=30s'
-    depends_on:
-      node-exporter:
-        condition: service_healthy
     healthcheck:
       test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://127.0.0.1:8428/health"]
       interval: 30s
@@ -52,5 +86,62 @@ services:
       retries: 3
       start_period: 30s
 
+  ##
+  ## LOGS
+  ##
+
+  # vector is an all-in-one log/metric/trace pipeline processor.
+  # we use it to feed logs to victorialogs and metrics to victoriametrics.
+  vector:
+    # image: timberio/vector:latest-alpine << if you need to debug with exec sh
+    image: timberio/vector:latest-distroless-static
+    container_name: vector
+    labels:
+      - "dc_app=internal"
+    volumes:
+      - ./vector.yml:/etc/vector/vector.yaml:ro
+      # To access Docker logs
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      # To access host logs
+      - /var/log:/var/log:ro
+      # Provides process and system statistics
+      - /proc:/host/proc:ro
+      # Provides device and driver information
+      - /sys:/host/sys:ro
+      # Provides the root filesystem for disk usage metrics
+      - /:/host:ro
+    depends_on:
+      - victorialogs
+      - victoriametrics
+      - logporter
+    restart: unless-stopped
+
+  # centralized log database
+  victorialogs:
+    image: victoriametrics/victoria-logs:latest
+    container_name: victorialogs
+    labels:
+      - "dc_app=internal"
+    expose:
+      - 9428
+    ports:
+      - "9428:9428"
+    volumes:
+      - log_storage:/victoria-logs-data
+    command:
+      - "-storageDataPath=/victoria-logs-data"
+      - "-retentionPeriod=14d"
+      - "-httpListenAddr=:9428"
+    restart: unless-stopped
+    # the default scratch-based image doesn't have curl or wget.
+    # if we want healthcheck, there is a victoriametrics/victoria-logs:alpine-latest image
+    # healthcheck:
+    #   test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://127.0.0.1:9428/insert/ready"]
+    #   interval: 30s
+    #   timeout: 5s
+    #   retries: 3
+    #   start_period: 30s
+
 volumes:
-  victoriametrics_storage:
+  log_storage:
+  metrics_storage:
