@@ -16,10 +16,6 @@ $font-family: "Roboto", sans-serif;
 );
 @use "fonts/roboto";
 
-@use "theme_colors";
-@use "typography";
-@use "bootstrap_tweaks";
-
 @use "layout/variables" with (
   $content-padding: $content_padding
 );
@@ -31,3 +27,7 @@ $font-family: "Roboto", sans-serif;
 @use "layout/responsive";
 
 @use "raft/components";
+
+@use "theme_colors";
+@use "typography";
+@use "bootstrap_tweaks";

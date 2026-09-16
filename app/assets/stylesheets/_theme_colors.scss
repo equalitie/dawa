@@ -1,6 +1,9 @@
 :root {
-  --header-bg: #b587f6;
-  --header-icon-bg: #6d5195;
+  --base-color: #b587f6;
+  --header-bg: var(--base-color);
+  --header-icon-bg: color-mix(in srgb, var(--base-color) 40%, black);
+  --breadcrumb-bg: color-mix(in srgb, var(--base-color) 70%, white);
+  --sidebar-active-highlight: var(--base-color);
   --header-icon-url: url(/dcomms-logo.svg);
 }
 
