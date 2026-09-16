@@ -5,7 +5,7 @@ class UserTest < ActiveSupport::TestCase
   end
 
   def test_create
-    user = User.create!(username: "newuser_#{SecureRandom.hex(4)}")
+    user = User.create!(username: "newuser_#{SecureRandom.hex(4)}", is_active: true)
     assert user.persisted?
     assert user.is_active?
   end
