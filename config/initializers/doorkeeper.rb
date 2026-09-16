@@ -34,7 +34,19 @@ Doorkeeper.configure do
   # so the route-helper-evaluating `helpers.evaluate_route(Auth.login_url)` idiom used by
   # Dawa controllers is unavailable here. We resolve the login URL from the router directly.
   resource_owner_authenticator do
-    User.find_by(id: session[:user_id]) || redirect_to(Rails.application.routes.url_helpers.login_path)
+    if (user = User.find_by(id: session[:user_id]))
+      user
+    else
+      # Remember the original OAuth authorize request so we can return to it after
+      # the user logs in. This mirrors Auth::SessionAuthentication#render_unauthenticated,
+      # which sets session[:redirect] for Dawa's own controllers; doorkeeper's authorize
+      # flow goes through this block instead, so we must record it here. After WebAuthn
+      # login, Auth::SessionsController#verify redirects to url_from(session[:redirect]),
+      # which completes the authorization_code / OIDC flow instead of stranding the user
+      # on Dawa's home page.
+      session[:redirect] = request.fullpath
+      redirect_to(Rails.application.routes.url_helpers.login_path)
+    end
   end
 
   # Pre-authorize every requested scope: skip the interactive consent screen entirely and

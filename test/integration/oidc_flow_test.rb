@@ -102,6 +102,34 @@ class OidcFlowTest < ActionDispatch::IntegrationTest
     assert_redirected_to "/login"
   end
 
+  #
+  # When the user is not yet logged in, /oauth/authorize must redirect to Dawa's
+  # login page but remember the original authorize request in session[:redirect] so
+  # that (after logging in) the user is returned to /oauth/authorize and the
+  # authorization_code OIDC flow completes instead of stranding them on Dawa's home
+  # page.
+  #
+  def test_authorization_code_flow_completes_after_login
+    get "/oauth/authorize", params: authorize_params
+    assert_redirected_to "/login"
+    assert session[:redirect], "expected session[:redirect] to be recorded"
+    assert_includes session[:redirect], "/oauth/authorize"
+
+    # Log in (demo login preserves :redirect and returns the user to it).
+    post "/demo/session", params: { username: @user.username }
+    assert_response :redirect
+    redirect_target = URI.parse(response.location)
+    assert_equal "/oauth/authorize", redirect_target.path
+
+    follow_redirect!
+    assert_response :redirect
+    location = URI.parse(response.location)
+    assert_equal @client.redirect_uri.split("//").last.split("/").first, location.host
+
+    query = Rack::Utils.parse_nested_query(location.query)
+    assert query["code"].present?, "expected an authorization code after login, got #{location.inspect}"
+  end
+
   def test_password_grant_is_rejected
     post "/oauth/token", as: :json, params: {
       grant_type: "password",

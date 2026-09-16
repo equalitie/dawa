@@ -21,10 +21,10 @@
           url: demo_session_path,
           class: "flex-fill",
           params: {username: "demo-admin", timezone: "", locale: ""},
-          form_data: {"login-locale-target" => "form"})
+          form_data: {"login-locale-target" => "form", "turbo" => false})
         = v.post_button(icon: "box-arrow-in-right",
           label: t("login.demo_user"),
           url: demo_session_path,
           class: "flex-fill",
           params: {username: "demo-user", timezone: "", locale: ""},
-          form_data: {"login-locale-target" => "form"})
+          form_data: {"login-locale-target" => "form", "turbo" => false})
