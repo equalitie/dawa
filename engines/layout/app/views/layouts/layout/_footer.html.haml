@@ -1,0 +1,10 @@
+- if theme.show_footer && theme.footer_items.present?
+  - if theme.show_sidebar
+    .sidebar-width
+  .container
+    .row
+      .col
+        %ul.nav.justify-content-center
+          - theme.footer_items.each do |name, entry|
+            %li.nav-item
+              = theme_sidebar_link(label: entry[:label], path: entry[:path], icon: entry[:icon], active: entry[:active]) if entry

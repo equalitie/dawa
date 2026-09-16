@@ -1,0 +1,97 @@
+---
+es:
+  nav:
+    next: "Siguiente"
+    prev: "Anterior"
+    finish: "Finalizar"
+    apply: "Aplicar"
+
+  auth:
+    logout: "Cerrar sesión"
+    log_in: "Iniciar sesión"
+    session_error: "Error de sesión"
+    session_error_details: |-
+      No se pudo cargar tu sesión actual. Para solucionarlo, recarga esta página e inténtalo de nuevo.
+      Si el problema persiste, asegúrate de tener las cookies de sesión habilitadas en tu navegador.
+
+    encryption_phrase_description: |-
+      Especifica un PIN de cifrado para tu cuenta. Este PIN no es una contraseña:
+      solo se usa para el cifrado, no para iniciar sesión.
+    encryption_phrase: PIN de cifrado
+    #
+    # Credenciales
+    #
+    credentials:
+      index:
+        log_in: "Credenciales de inicio de sesión"
+        add_passkey: "Agregar llave de acceso"
+        add_recovery: "Agregar código de recuperación"
+        active_sessions: "Sesiones activas"
+        auth_history: "Historial de autenticación"
+        created: "Creado"
+        last_seen: "Última vez"
+        credential: "Credencial"
+        user_agent: "Agente de usuario"
+        when: "Cuándo"
+        success: "Éxito"
+        failure: "Fallo"
+      list:
+        name: "Nombre"
+        registered: "Registrado"
+        encryption: "Cifrado"
+      edit:
+        title: "Agregar llave de acceso"
+        authentication: "Autenticación"
+      save: "Guardar"
+      cancel: "Cancelar"
+
+      # claves i18n de navegación movidas a nav.*
+      recovery_intro: |-
+        Anota el siguiente código de recuperación. No tendrás otra oportunidad de
+        ver este código. Con él, podrás acceder a tu cuenta incluso sin una llave de acceso o clave de seguridad.
+      encryption_prf_intro: |-
+        Tu llave de acceso admite cifrado automático. Cuando hagas clic en "Activar cifrado", se te pedirá
+        que valides tu llave de acceso una vez más.
+
+    #
+    # Sesiones
+    #
+    sessions:
+      phrase:
+        cancel: "Cancelar"
+        # claves i18n de navegación movidas a nav.*
+
+    #
+    # Errores
+    #
+    errors:
+      unauthorized: "No estás autorizado para realizar esa acción."
+      suspended: "Este usuario no puede autenticarse en este momento. Inténtalo de nuevo más tarde o comunícate con el equipo de soporte."
+
+    #
+    # Recuperación
+    #
+    recovery:
+      intro: "Ingresa tu código de recuperación. El código de recuperación no distingue entre mayúsculas y minúsculas. Los guiones y espacios se ignoran."
+      cancel: "Cancelar"
+      log_in: "Iniciar sesión"
+
+    #
+    # Configuración de usuario anónimo
+    #
+    anonymous:
+      title: "Configuración de usuario anónimo"
+      display_name: "Nombre para mostrar"
+      highlight_color: "Color de resaltado"
+      save: "Guardar"
+
+    #
+    # Cadenas de nivel de controlador
+    #
+    anonymous_name: "Anónimo"
+    invalid_recovery_code: "Código de recuperación inválido"
+    verify_passkey_failed: "No se pudo verificar la llave de acceso: %{error}"
+    wrong_encryption_phrase: "Frase de cifrado incorrecta. Intenta de nuevo."
+    logged_out: "Has cerrado sesión"
+    save_credential_failed: "No se pudo guardar tu credencial"
+    verification_failed: "Verificación fallida: %{error}"

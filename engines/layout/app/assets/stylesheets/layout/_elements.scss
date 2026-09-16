@@ -1,0 +1,29 @@
+.split {
+  background-color: black;
+  cursor: col-resize;
+  transition: outline 0.1s ease 0.1s; // delay is last value/
+  position: relative;
+  //grid-row: -1 / 1; // span all rows
+  //grid-column: 2;
+}
+
+.split:hover {
+  outline: 4px solid #3498db;
+}
+
+.split::after {
+  content: "";
+  position: absolute;
+  left: -4px;
+  right: -4px;
+  top: 0;
+  bottom: 0;
+}
+
+//
+// ALERTS live under #alerts, both for flash messages and javascript util.showMessage()
+//
+#alerts .alert {
+  margin: var(--content-padding);
+  margin-bottom: 0;
+}

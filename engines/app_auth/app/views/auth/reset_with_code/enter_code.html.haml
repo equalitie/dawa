@@ -1,0 +1,19 @@
+= render layout: 'layouts/auth/center' do
+  = render 'tabs'
+  = form_tag(reset_with_code_check_code_path, method: 'put') do
+    .mb-3
+      - if Auth.login_is_email
+        = label_tag 'recovery_login', t(:email), class: 'form-label'
+      - else
+        = label_tag 'recovery_login', t(:username_or_email), class: 'form-label'
+      = text_field_tag 'recovery_login', params[:recovery_login], class: 'form-control ' + is_invalid(@errors, :recovery_login)
+      = feedback(@errors, :recovery_login)
+    .mb-3
+      = label_tag 'recovery_code', t(:recovery_code), class: 'form-label'
+      = text_field_tag 'recovery_code', params[:recovery_code], class: 'form-control '  + is_invalid(@errors, :recovery_code)
+      = feedback(@errors, :recovery_code)
+    .btn-toolbar
+      = link_to app_root_url, class: 'btn btn-outline-secondary' do
+        - icon(:cancel, t(:cancel))
+      = button_tag class: 'btn btn-success', type: 'submit' do
+        - icon_after(:next, t(:next))

@@ -1,0 +1,4 @@
+- username = "@user#{rand(10000000)}"
+= v.avatar(avatar, label: username, size: 24)
+= form_with(url: "#", method: 'get') do
+  %button.btn{type: 'submit'} Logout

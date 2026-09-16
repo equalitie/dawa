@@ -1,0 +1,20 @@
+- #
+- # Flash name should be one of: success, info, warning, danger.
+- # ('error' is an alias for 'danger', 'notice' is an alias for 'success')
+- # The id #alerts is needed for when javascript wants to find a place to
+- # insert alerts
+- #
+#alerts.d-flex.flex-column
+  %noscript
+    .m-3.alert.alert-danger
+      %h2 JavaScript Required
+      %p Please enable JavaScript in your browser settings.
+  - flash.each do |name, items|
+    - messages = flash_messages(items)
+    - if messages
+      - name = 'danger' if name == 'error'
+      - name = 'success' if name == 'notice'
+      - name = 'danger' if name == 'alert'
+      .alert.alert-dismissible{class: "alert-#{name}", role: "alert"}
+        = messages
+        %button(type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close")

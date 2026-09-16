@@ -1,0 +1,11 @@
+.mb-4
+  = t("auth.recovery.intro")
+
+.mb-4
+  = bootstrap_form_with(url: recover_path, method: "post") do |f|
+    .bg-light.rounded.p-5
+      .font-monospace.text-center
+        = text_field_tag "recovery_code", params[:recovery_code], autofocus: true, class: "form-control form-control-lg"
+    .btn-toolbar.mt-4
+      = f.v.cancel_button_link(url: main_app.root_path)
+      = f.v.submit_button(label: t("auth.recovery.log_in"), icon: "check-circle")

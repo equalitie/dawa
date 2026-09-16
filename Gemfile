@@ -1,4 +1,8 @@
-source "https://rubygems.org"
+source "https://gem.coop"
+
+##
+## RAILS STANDARD
+##
 
 # Bundle edge Rails instead: gem "rails", github: "rails/rails", branch: "main"
 gem "rails", "~> 8.1.3"
@@ -32,13 +36,34 @@ gem "solid_cable"
 gem "bootsnap", require: false
 
 # Deploy this application anywhere as a Docker container [https://kamal-deploy.org]
-gem "kamal", require: false
+# gem "kamal", require: false
 
 # Add HTTP asset caching/compression and X-Sendfile acceleration to Puma [https://github.com/basecamp/thruster/]
 gem "thruster", require: false
 
 # Use Active Storage variants [https://guides.rubyonrails.org/active_storage_overview.html#transforming-images]
 gem "image_processing", "~> 1.2"
+
+##
+## DAWA
+##
+
+gem "haml-rails", "~> 2.1"             # haml templates
+gem "dartsass-rails", "~> 0.5"         # sass stylesheets
+gem "bootstrap", "~> 5.3.8"            # css framework
+
+gem "bootstrap_form", "~> 5.6.1"       # form builder with bootstrap styles
+gem "view_component", "~> 4.11.0"      # reusable view components
+gem "pagy", "~> 43.5.5"                # pagination
+gem "bootstrap-icons-helper", "~> 2.0" # inline svg icons
+
+gem "config_magic",   path: "gems/config_magic"
+gem "layout",         path: "engines/layout"
+gem "app_auth",       path: "engines/app_auth"
+
+##
+## DEV & TEST
+##
 
 group :development, :test do
   # See https://guides.rubyonrails.org/debugging_rails_applications.html#debugging-with-the-debug-gem

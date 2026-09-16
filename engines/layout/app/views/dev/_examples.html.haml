@@ -1,0 +1,42 @@
+%h1 Component Examples
+
+%h2#alerts Alerts
+
+= v.alert(:danger, icon: "") do
+  Oh no!
+
+= v.alert(icon: "spinner", size: :md) do
+  %p Integer laoreet erat ut ante tristique faucibus.
+  %p Nunc at lectus in diam malesuada porta. Nullam maximus tellus ac ante ultricies, ut tristique nisl posuere.
+
+= v.alert(:warning) do
+  %p Fusce at neque finibus, lobortis est sit amet, scelerisque nibh.
+  %ul
+    %li Quisque fermentum vulputate aliquet. Suspendisse potenti.
+    %li Aliquam ornare odio dolor, eget accumsan felis mattis in. Nulla volutpat non erat nec posuere. Phasellus a purus venenatis, rutrum lacus eget, ullamcorper ex.
+
+%h2#profiles Profiles
+
+%table.table
+  %tr
+    %td size: "lg"
+    %td= v.profile(@profile, size: "lg")
+  %tr
+    %td size: "md"
+    %td= v.profile(@profile, size: "md")
+  %tr
+    %td size: "sm"
+    %td= v.profile(@profile, size: "sm")
+  %tr
+    %td size: "md"<br>with content
+    %td
+      = v.profile(@profile, url: "#", size: "md") do
+        Created on #{Time.now}
+  %tr
+    %td size: "sm"<br>with content
+    %td
+      = v.profile(@profile, url: "#", size: "sm") do
+        Created on #{Time.now}
+  %tr
+    %td Workspace
+    %td= v.profile(@userspace)

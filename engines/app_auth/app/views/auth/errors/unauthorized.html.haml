@@ -1,0 +1,11 @@
+-#
+-# currently, this is used for both turbo_stream responses and
+-# html response.
+-#
+.alert.alert-danger(role="alert")
+  .d-flex.flex-row.gap-3.justify-content-start.align-items-center
+    .d= icon("exclamation-octagon", size: 36, plain: true)
+    .fs-4
+      = t("auth.errors.unauthorized")
+    .flex-grow-1.text-end
+      %button(type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close")

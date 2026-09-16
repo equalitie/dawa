@@ -1,0 +1,130 @@
+html,
+body {
+  height: 100%;
+  overflow: hidden;
+}
+
+//
+// GRID LAYOUT
+//
+body {
+  min-height: 100vh;
+  grid-template-columns: var(--sidebar-actual-width) 0.5px auto;
+  grid-template-rows: auto auto 1fr;
+}
+body.with-breadcrumbs {
+  display: grid;
+  grid-template-areas:
+    "icon    split header"
+    "sb-top  split breadcrumbs"
+    "sidebar split content";
+}
+body.without-breadcrumbs {
+  display: grid;
+  grid-template-areas:
+    "icon    split header"
+    "sb-top  split content"
+    "sidebar split content";
+}
+.header-icon {
+  grid-area: icon;
+}
+.split {
+  grid-area: split;
+}
+.header {
+  grid-area: header;
+  //flex-shrink: 1;
+  display: flex;
+}
+.sidebar-top {
+  grid-area: sb-top;
+}
+.breadcrumbs {
+  grid-area: breadcrumbs;
+}
+.sidebar-middle {
+  grid-area: sidebar;
+}
+
+.content {
+  grid-area: content; // when grid
+  flex-direction: column; // when not grid
+  background: var(--content-bg);
+}
+
+article {
+  padding: var(--content-padding);
+  flex-direction: column;
+}
+
+//
+// INSET LAYOUT
+//
+body.inset {
+  main {
+    height: 100vh;
+    padding: 6em;
+  }
+  article {
+    padding: calc(2 * var(--content-padding));
+  }
+}
+
+//
+// LOCAL SCROLLING
+//
+// window scrolling is entirely disabled. by default, we allow local scroll
+// on %article. However, we can switch local scrolling to another element, like so:
+//
+// %article
+//   .my-div.local-scroll-parent
+//     .my-other-div.local-scroll
+//        = @very_tall_content
+//
+
+body.with-local-scroll {
+  // every ancestor div for local scroll must have min-height: 0 and display flex.
+  article,
+  .content {
+    min-height: 0;
+    display: flex;
+  }
+
+  // this must be the immediate parent of the local scroll element
+  .local-scroll-parent {
+    display: flex;
+    flex-direction: column;
+    flex-grow: 1;
+    min-height: 0;
+    overflow: hidden;
+  }
+
+  // apply this to the element that should be scrollable.
+  .local-scroll {
+    //height: 100%;
+    flex-grow: 1;
+    overflow-y: auto;
+  }
+}
+
+//
+// MIDDLEBOX
+// centers inner content vertically and horizontally.
+//
+.middlebox {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-direction: column;
+  height: 100%;
+}
+
+// shorthand for d-flex flex-column align-items-center justify-content-center flex-grow-1
+.middleflex {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-direction: column;
+  flex: 1;
+}

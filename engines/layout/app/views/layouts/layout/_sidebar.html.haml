@@ -1,0 +1,11 @@
+- if theme.sidebar_items.present?
+  %nav.flex-grow-1.local-scroll
+    %ul.nav.flex-column
+      - theme.sidebar_items.each do |name, entry|
+        %li.nav-item
+          - if entry.is_a?(Hash)
+            = sidebar_link(**entry.to_options)
+          - else
+            = entry
+.sidebar-bottom
+  = yield :sidebar_bottom

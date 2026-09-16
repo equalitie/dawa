@@ -1,0 +1,28 @@
+- has_breadcrumbs = content_for?(:breadcrumbs) ? "with-breadcrumbs" : "without-breadcrumbs"
+- body_data.add("controller" => "scroll")
+!!!
+%html
+  %head
+    = render 'layouts/layout/head'
+  %body.with-local-scroll{"class" => has_breadcrumbs, **body_data.to_h}
+    .header-icon
+      .icon
+    .split(data-controller="split" data-turbo-permanent id="split-handle")
+    .header
+      = render 'layouts/layout/header'
+    - if content_for?(:sidebar_top) || content_for?(:breadcrumbs)
+      .sidebar.sidebar-top
+        = yield :sidebar_top if content_for?(:sidebar_top)
+    - if content_for?(:breadcrumbs)
+      .breadcrumbs
+        = yield(:breadcrumbs)
+    .sidebar.sidebar-middle.local-scroll-parent(id="sidebar")
+      = render 'layouts/layout/sidebar'
+    .content.local-scroll-parent
+      = render 'layouts/layout/flash'
+      %article.local-scroll(data-scroll-target="scroller")
+        = content_for?(:content) ? yield(:content) : yield
+    %turbo-frame#modal-frame
+    - if content_for?(:hidden_content)
+      %div.hidden_content
+        = yield(:hidden_content)

@@ -1,0 +1,107 @@
+@use "bootstrap";
+
+.header {
+  container-type: size;
+  container-name: header;
+}
+
+.sidebar {
+  container-type: inline-size;
+  container-name: sidebar;
+}
+
+@container header (height > 1px) {
+  .header-text {
+    font-size: clamp(1rem, 60cqh, 2rem);
+  }
+  /* .header-status {
+    & a,
+    & button {
+      font-size: clamp(0.9rem, 20cqh, 1rem);
+    }
+  } */
+}
+
+// MEDIUM
+@include bootstrap.media-breakpoint-down(lg) {
+  :root {
+    --sidebar-width: var(--sidebar-mid-width);
+    --header-height: var(--header-mid-height);
+    //--header-font-size: 1.5rem;
+  }
+  body.inset main {
+    padding: 3em;
+  }
+}
+
+// SMALL
+@include bootstrap.media-breakpoint-down(md) {
+  :root {
+    --sidebar-width: var(--sidebar-min-width);
+    --header-height: var(--header-min-height);
+    //--header-font-size: 1rem;
+  }
+  body.inset main {
+    padding: 1em;
+  }
+
+  // a little utility to make things very small on small screens
+  .shrink-1 {
+    width: 1em !important;
+  }
+}
+
+// SHORT
+@media (max-height: 600px) {
+  :root {
+    --sidebar-width: var(--sidebar-min-width);
+    --header-height: var(--header-min-height);
+  }
+  body.inset main {
+    padding: 1em;
+  }
+  .shrink-1 {
+    width: 1em !important;
+  }
+}
+
+@container sidebar (max-width: 100px) {
+  .sidebar {
+    .nav-link span,
+    .section span,
+    .section svg {
+      display: none;
+    } // hide sidebar text
+    .section {
+      opacity: 0;
+    }
+  }
+  .sidebar .indent-1 {
+    padding: var(--bs-nav-link-padding-y) var(--bs-nav-link-padding-x) !important;
+  }
+
+  //
+  // hide the text when sidebar is narrow.
+  //
+  .sidebar .btn-shrink {
+    &::after {
+      // remove dropdown caret, if any.
+      display: none;
+    }
+    & span {
+      // remove label
+      display: none;
+    }
+    & svg.bi {
+      // nudge icon
+      margin-right: -2px;
+    }
+  }
+
+  //
+  // stack buttons when narrow
+  //
+  .sidebar .sidebar-bottom {
+    flex-direction: column;
+  }
+}

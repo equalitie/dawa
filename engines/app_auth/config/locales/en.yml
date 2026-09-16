@@ -1,0 +1,84 @@
+---
+en:
+  auth:
+    logout: "Logout"
+    log_in: "Log In"
+    session_error: "Session Error"
+    session_error_details: |-
+      We could not load your current session. To fix this, reload this page and try again.
+      If the problem persists, make sure you have session cookies enabled in your browser.
+
+    encryption_phrase_description: |-
+      Please specify an encryption PIN for your account. This PIN is not a password:
+      it is used only for encryption, not for logging in.
+    encryption_phrase: Encryption PIN
+    #
+    # Credentials
+    #
+    credentials:
+      index:
+        log_in: "Log In Credentials"
+        add_passkey: "Add Passkey"
+        add_recovery: "Add Recovery Code"
+        active_sessions: "Active Sessions"
+        auth_history: "Authentication History"
+        created: "Created"
+        last_seen: "Last Seen"
+        credential: "Credential"
+        user_agent: "User Agent"
+        when: "When"
+        success: "Success"
+        failure: "Failure"
+      list:
+        name: "Name"
+        registered: "Registered"
+        encryption: "Encryption"
+      edit:
+        title: "Add Passkey"
+        authentication: "Authentication"
+
+      # all i18n keys for navigation moved to nav.*
+      recovery_intro: |-
+        Please write down the following recovery code. You will not have another chance to
+        see this code. With it, you can gain access to your account even without a passkey or security key.
+      encryption_prf_intro: |-
+        Your passkey supports automatic encryption. When you click "Enable Encryption" you will be asked
+        to validate your passkey one more time.
+
+    #
+    # Sessions
+    #
+    sessions:
+
+    #
+    # Errors
+    #
+    errors:
+      unauthorized: "You are not authorized to perform that action."
+      suspended: "This user is currently unable to authenticate. Please try again later or contact help support."
+
+    #
+    # Recovery
+    #
+    recovery:
+      intro: "Enter your recovery code. The recovery code is case insensitive. Dashes and spaces are ignored."
+      cancel: "Cancel"
+      log_in: "Log In"
+
+    #
+    # Anonymous user settings
+    #
+    anonymous:
+      title: "Anonymous User Settings"
+      display_name: "Display Name"
+
+    #
+    # Controller-level strings
+    #
+    anonymous_name: "Anonymous"
+    invalid_recovery_code: "Invalid recovery code"
+    verify_passkey_failed: "Could not verify the passkey: %{error}"
+    wrong_encryption_phrase: "Wrong encryption phrase. Try again."
+    logged_out: "You have been logged out"
+    save_credential_failed: "Couldn't save your credential"
+    verification_failed: "Verification failed: %{error}"

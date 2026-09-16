@@ -1,0 +1,84 @@
+---
+pt:
+  auth:
+    logout: "Sair"
+    log_in: "Entrar"
+    session_error: "Erro de Sessão"
+    session_error_details: |-
+      Não foi possível carregar sua sessão atual. Para corrigir, recarregue esta página e tente novamente.
+      Se o problema persistir, verifique se os cookies de sessão estão habilitados no seu navegador.
+
+    encryption_phrase_description: |-
+      Especifique um PIN de criptografia para sua conta. Este PIN não é uma senha:
+      ele é usado apenas para criptografia, não para login.
+    encryption_phrase: PIN de Criptografia
+    #
+    # Credentials
+    #
+    credentials:
+      index:
+        log_in: "Credenciais de Login"
+        add_passkey: "Adicionar Chave de Acesso"
+        add_recovery: "Adicionar Código de Recuperação"
+        active_sessions: "Sessões Ativas"
+        auth_history: "Histórico de Autenticação"
+        created: "Criado"
+        last_seen: "Última Visualização"
+        credential: "Credencial"
+        user_agent: "Agente do Usuário"
+        when: "Quando"
+        success: "Sucesso"
+        failure: "Falha"
+      list:
+        name: "Nome"
+        registered: "Registrado"
+        encryption: "Criptografia"
+      edit:
+        title: "Adicionar Chave de Acesso"
+        authentication: "Autenticação"
+
+      # all i18n keys for navigation moved to nav.*
+      recovery_intro: |-
+        Anote o seguinte código de recuperação. Você não terá outra chance de
+        ver este código. Com ele, você pode acessar sua conta mesmo sem uma chave de acesso ou chave de segurança.
+      encryption_prf_intro: |-
+        Sua chave de acesso oferece suporte a criptografia automática. Ao clicar em "Ativar Criptografia", será solicitado
+        que você valide sua chave de acesso mais uma vez.
+
+    #
+    # Sessions
+    #
+    sessions:
+
+    #
+    # Errors
+    #
+    errors:
+      unauthorized: "Você não está autorizado a executar esta ação."
+      suspended: "Este usuário não pode autenticar no momento. Tente novamente mais tarde ou contate o suporte."
+
+    #
+    # Recovery
+    #
+    recovery:
+      intro: "Insira seu código de recuperação. O código de recuperação não diferencia maiúsculas de minúsculas. Traços e espaços são ignorados."
+      cancel: "Cancelar"
+      log_in: "Entrar"
+
+    #
+    # Anonymous user settings
+    #
+    anonymous:
+      title: "Configurações de Usuário Anônimo"
+      display_name: "Nome de Exibição"
+
+    #
+    # Controller-level strings
+    #
+    anonymous_name: "Anônimo"
+    invalid_recovery_code: "Código de recuperação inválido"
+    verify_passkey_failed: "Não foi possível verificar a chave de acesso: %{error}"
+    wrong_encryption_phrase: "Frase de criptografia incorreta. Tente novamente."
+    logged_out: "Você saiu"
+    save_credential_failed: "Não foi possível salvar sua credencial"
+    verification_failed: "Verificação falhou: %{error}"

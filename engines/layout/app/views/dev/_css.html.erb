@@ -1,0 +1,26 @@
+<style nonce="<%= content_security_policy_nonce %>" data-turbo-track="dynamic">
+  <% if params[:borders].present? %>
+
+  .header {
+    border: 6px solid tomato;
+  }
+  middle {
+    border: 6px solid gold;
+  }
+  main {
+    border: 6px solid lightgreen;
+  }
+  article {
+    border: 6px solid turquoise;
+  }
+  footer {
+    border: 6px solid purple;
+  }
+  .sidebar {
+    border: 6px solid tan;
+  }
+  .local-scroll-parent {
+    border: 3px solid #ccc;
+  }
+  <% end %>
+</style>

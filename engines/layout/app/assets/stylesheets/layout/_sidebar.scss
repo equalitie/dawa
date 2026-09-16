@@ -1,0 +1,100 @@
+.sidebar {
+  background-color: var(--sidebar-bg);
+  color: var(--sidebar-fg);
+  display: flex;
+}
+
+.sidebar-top {
+  border-bottom: var(--divider);
+}
+
+.sidebar-middle {
+  min-width: var(--sidebar-actual-width);
+  max-width: var(--sidebar-actual-width);
+  --bs-nav-link-padding-x: var(--content-padding) !important;
+
+  // height: 100%;
+  flex-direction: column;
+
+  // wrap a sidebar element in this for proper padding if it is not in the nav
+  .sidebar-section {
+    padding: var(--content-padding);
+  }
+
+  .nav-link {
+    --bs-nav-link-padding-x: var(--content-padding) !important;
+    overflow-wrap: normal;
+    white-space: nowrap;
+  }
+  nav {
+    overflow-x: hidden;
+    padding-bottom: var(--content-padding);
+
+    .nav-link {
+      color: var(--sidebar-fg);
+      &:hover {
+        color: var(--sidebar-hover-fg);
+        background: var(--sidebar-hover-bg);
+      }
+      svg.bi {
+        margin-right: 8px !important;
+        width: var(--sidebar-icon-size);
+        height: var(--sidebar-icon-size);
+      }
+      &.indent-1 {
+        padding-left: calc(2 * var(--content-padding));
+      }
+    }
+    .nav-link.active {
+      color: var(--sidebar-active-fg);
+      background-color: var(--sidebar-active-bg);
+      border-left: 8px solid var(--sidebar-active-highlight);
+      padding-left: calc(var(--content-padding) - 8px);
+      &.indent-1 {
+        padding-left: calc((2 * var(--content-padding)) - 8px);
+      }
+      &:hover {
+        color: var(--sidebar-active-hover-fg);
+        background-color: var(--sidebar-active-hover-bg);
+      }
+    }
+
+    // yeah, sometimes sidebar links are sneaky buttons.
+    button.nav-link {
+      width: 100%;
+      border-radius: 0;
+      text-align: left;
+    }
+
+    // adjust the scrollbar to match the sidebar colors
+    scrollbar-color: color-mix(in srgb, var(--sidebar-bg), white 30%)
+      var(--sidebar-bg);
+    scrollbar-width: thin;
+  }
+}
+
+// for now, we have only one bottom button,
+// so make it fill the full sidebar width.
+.sidebar-bottom {
+  border-top: var(--divider);
+  display: flex;
+  flex-shrink: 1;
+}
+
+// make button fill .sidebar-top
+.sidebar-top,
+.sidebar-bottom {
+  .dropdown {
+    flex-grow: 1;
+    display: flex;
+  }
+  .btn {
+    flex-grow: 1;
+  }
+}
+
+.sidebar-top .btn:hover,
+.sidebar-bottom .btn:hover {
+  color: var(--sidebar-hover-fg);
+  background-color: var(--sidebar-hover-bg);
+}

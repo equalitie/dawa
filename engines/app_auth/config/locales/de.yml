@@ -1,0 +1,84 @@
+---
+de:
+  auth:
+    logout: "Abmelden"
+    log_in: "Anmelden"
+    session_error: "Sitzungsfehler"
+    session_error_details: |-
+      Ihre aktuelle Sitzung konnte nicht geladen werden. Laden Sie diese Seite neu und versuchen Sie es erneut.
+      Wenn das Problem weiterhin besteht, stellen Sie sicher, dass Sitzungs-Cookies in Ihrem Browser aktiviert sind.
+
+    encryption_phrase_description: |-
+      Bitte geben Sie eine Verschlüsselungs-PIN für Ihr Konto an. Diese PIN ist kein Passwort:
+      sie wird nur für die Verschlüsselung verwendet, nicht für die Anmeldung.
+    encryption_phrase: Verschlüsselungs-PIN
+    #
+    # Credentials
+    #
+    credentials:
+      index:
+        log_in: "Anmeldedaten"
+        add_passkey: "Passkey hinzufügen"
+        add_recovery: "Wiederherstellungscode hinzufügen"
+        active_sessions: "Aktive Sitzungen"
+        auth_history: "Authentifizierungsverlauf"
+        created: "Erstellt"
+        last_seen: "Zuletzt gesehen"
+        credential: "Anmeldedaten"
+        user_agent: "Benutzeragent"
+        when: "Wann"
+        success: "Erfolg"
+        failure: "Fehlschlag"
+      list:
+        name: "Name"
+        registered: "Registriert"
+        encryption: "Verschlüsselung"
+      edit:
+        title: "Passkey hinzufügen"
+        authentication: "Authentifizierung"
+
+      # all i18n keys for navigation moved to nav.*
+      recovery_intro: |-
+        Bitte notieren Sie den folgenden Wiederherstellungscode. Sie werden keine weitere Gelegenheit haben,
+        diesen Code zu sehen. Damit können Sie auf Ihr Konto zugreifen, auch ohne Passkey oder Sicherheitsschlüssel.
+      encryption_prf_intro: |-
+        Ihr Passkey unterstützt automatische Verschlüsselung. Wenn Sie auf "Verschlüsselung aktivieren" klicken,
+        werden Sie aufgefordert, Ihren Passkey erneut zu bestätigen.
+
+    #
+    # Sessions
+    #
+    sessions:
+
+    #
+    # Errors
+    #
+    errors:
+      unauthorized: "Sie sind nicht autorisiert, diese Aktion auszuführen."
+      suspended: "Dieser Benutzer kann sich derzeit nicht authentifizieren. Bitte versuchen Sie es später erneut oder wenden Sie sich an den Support."
+
+    #
+    # Recovery
+    #
+    recovery:
+      intro: "Geben Sie Ihren Wiederherstellungscode ein. Der Wiederherstellungscode unterscheidet nicht zwischen Groß- und Kleinschreibung. Bindestriche und Leerzeichen werden ignoriert."
+      cancel: "Abbrechen"
+      log_in: "Anmelden"
+
+    #
+    # Anonymous user settings
+    #
+    anonymous:
+      title: "Einstellungen für anonyme Benutzer"
+      display_name: "Anzeigename"
+
+    #
+    # Controller-level strings
+    #
+    anonymous_name: "Anonym"
+    invalid_recovery_code: "Ungültiger Wiederherstellungscode"
+    verify_passkey_failed: "Der Passkey konnte nicht verifiziert werden: %{error}"
+    wrong_encryption_phrase: "Falsche Verschlüsselungs-PIN. Versuchen Sie es erneut."
+    logged_out: "Sie wurden abgemeldet"
+    save_credential_failed: "Ihre Anmeldedaten konnten nicht gespeichert werden"
+    verification_failed: "Verifizierung fehlgeschlagen: %{error}"

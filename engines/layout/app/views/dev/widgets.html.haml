@@ -1,0 +1,17 @@
+%h3 Autocomplete
+
+.d(style="height: 20em")
+  .d-flex.h-100
+    .d-flex.w-50.h-50.align-items-start.justify-content-start
+      = form_with(url: dev_submit_form_path) do
+        = v.autocomplete_button("owner_id", label: "Top Left", url: dev_autocomplete_list_path)
+    .d-flex.w-50.h-50.align-items-start.justify-content-end
+      = form_with(url: dev_submit_form_path) do
+        = v.autocomplete_button("owner_id", label: "Top Right", url: dev_autocomplete_list_path)
+  .d-flex.h-100
+    .d-flex.w-50.h-50.align-items-end.justify-content-start
+      = form_with(url: dev_submit_form_path) do
+        = v.autocomplete_button("owner_id", label: "Bottom Left", url: dev_autocomplete_list_path)
+    .d-flex.w-50.h-50.align-items-end.justify-content-end
+      = form_with(url: dev_submit_form_path) do
+        = v.autocomplete_button("owner_id", label: "Bottom Right", url: dev_autocomplete_list_path)

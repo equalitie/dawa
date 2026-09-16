@@ -1,0 +1,175 @@
+:ruby
+  theme.show_sidebar = true
+  theme.sidebar_items = {
+    tables: {
+      label: "Tables",
+      path: "#tables",
+      icon: "table"
+    },
+    alert: {
+      label: "Alerts",
+      path: "#alerts",
+      icon: "exclamation-triangle"
+    },
+    profiles: {
+      label: "Profiles",
+      path: "#profiles",
+      icon: "person"
+    },
+    buttons: {
+      label: "Buttons",
+      path: "#buttons",
+      icon: "hand-index"
+    },
+    icons: {
+      label: "Icons",
+      path: "#icons",
+      icon: "boxes"
+    }
+  }
+
+- content_for :breadcrumbs do
+  = v.breadcrumbs do |bc|
+    - bc.with_home("#")
+    - bc.with_crumb { link_to("Path", "#") }
+    - bc.with_crumb { link_to("To", "#") }
+    - bc.with_crumb { link_to("Something", "#") }
+    - bc.with_button { v.button(icon: "radioactive", override: {class: "nav-link hover-bg-highlight"}) }
+
+%h2#tables Tables
+
+= v.table do |t|
+  - t.column(:shrink, :hide_sm, label: "Icon")
+  - t.column(:grow, label: "Filename")
+  - t.column(:shrink, :hide_md, :end, label: "Actions")
+  = t.with_row do |r|
+    = r.with_cell do
+      = icon("file-earmark")
+    = r.with_cell do
+      = t.link_to("Darkness Brings the Dawn.txt", "#")
+    = r.with_cell do
+      = v.button(icon: "star")
+  = t.with_row do |r|
+    = r.with_cell do
+      = icon("file-earmark")
+    = r.with_cell do
+      = t.link_to("This is an incredibly long filename that will certainly be too long to fit into a single line in the table and should get truncated if there is any justice in the world.txt", "#")
+    = r.with_cell do
+      = v.button(icon: "umbrella")
+
+%h2#alerts Alerts
+
+= v.alert(:danger, icon: "") do
+  Oh no!
+
+= v.alert(icon: "spinner", size: :sm) do
+  %p Integer laoreet erat ut ante tristique faucibus.
+  %p Nunc at lectus in diam malesuada porta. Nullam maximus tellus ac ante ultricies, ut tristique nisl posuere.
+
+= v.alert(icon: "spinner", size: :md) do
+  %p Integer laoreet erat ut ante tristique faucibus.
+  %p Nunc at lectus in diam malesuada porta. Nullam maximus tellus ac ante ultricies, ut tristique nisl posuere.
+
+= v.alert(icon: "spinner", size: :lg) do
+  %p Integer laoreet erat ut ante tristique faucibus.
+  %p Nunc at lectus in diam malesuada porta. Nullam maximus tellus ac ante ultricies, ut tristique nisl posuere.
+
+= v.alert(:success, size: :sm) do
+  %ul
+    %li Quisque fermentum vulputate aliquet. Suspendisse potenti.
+    %li Aliquam ornare odio dolor, eget accumsan felis mattis in. Nulla volutpat non erat nec posuere. Phasellus a purus venenatis, rutrum lacus eget, ullamcorper ex.
+
+= v.alert(:success, size: :md) do
+  %p Fusce at neque finibus, lobortis est sit amet, scelerisque nibh.
+  %ul
+    %li Quisque fermentum vulputate aliquet. Suspendisse potenti.
+    %li Aliquam ornare odio dolor, eget accumsan felis mattis in. Nulla volutpat non erat nec posuere. Phasellus a purus venenatis, rutrum lacus eget, ullamcorper ex.
+
+= v.alert(:success, size: :lg) do
+  %p Fusce at neque finibus, lobortis est sit amet, scelerisque nibh.
+  %ul
+    %li Quisque fermentum vulputate aliquet. Suspendisse potenti.
+    %li Aliquam ornare odio dolor, eget accumsan felis mattis in. Nulla volutpat non erat nec posuere. Phasellus a purus venenatis, rutrum lacus eget, ullamcorper ex.
+
+= v.box(icon: "house", size: "md") do
+  %p This text is vertically aligned to
+  %p the top of the box,
+  %p delightful
+
+= v.box(icon: "trash3", size: "md") do |box|
+  This text is vertically aligned to the center. At small width, buttons will stack vertically.
+  - box.with_buttons do
+    = v.button(label: "Empty Trash", icon: "fire", color: "dark")
+
+%h2#Avatars Avatars
+
+%p
+  An inline
+  = v.avatar({"seed" => "2291", "hue" => "200"}, label: "Lilah", size: "24px")
+  avatar
+
+%p
+  %span.badge.text-bg-light Cool
+  = v.avatar({"seed" => "9382", "hue" => "40"}, label: "Lilah", size: "36px")
+  did a super amazing thing.
+
+%p
+  = v.button do
+    = v.avatar({"seed" => "4828", "hue" => "100"}, size: "36px", label: "This is a button")
+
+%h2#profiles Profiles
+
+%table.table
+  %tr
+    %td size: "lg"
+    %td= v.profile(@profile, size: "lg")
+  %tr
+    %td size: "md"
+    %td= v.profile(@profile, size: "md")
+  %tr
+    %td size: "sm"
+    %td= v.profile(@profile, size: "sm")
+  %tr
+    %td size: "md"<br>with content
+    %td
+      = v.profile(@profile, url: "#", size: "md") do
+        Created on #{Time.now}
+  %tr
+    %td size: "sm"<br>with content
+    %td
+      = v.profile(@profile, url: "#", size: "sm") do
+        Created on #{Time.now}
+  %tr
+    %td Workspace
+    %td= v.profile(@userspace)
+
+%h2#buttons Buttons
+
+.btn-toolbar.mb-3
+  = v.post_button label: "Post Button",
+    icon: "cloud-lightning",
+    url: dev_button_action_path, params: { seed: rand(100) }
+  = v.post_button label: "Spin Button",
+    icon: "bell-fill",
+    url: dev_button_action_path,
+    spin: true
+
+.mb-3
+  .mb-3= v.button(label: "Spinner In Button", icon: "spinner", style: "width: 20em")
+  .border.p-3{style: "width: 20em"}= icon("spin-270-ring", "Spinner Not In Button")
+
+%p
+  = v.button(icon: "trash", label: "Trash", size: "sm")
+
+.border.bg-light.rounded.p-4
+  = v.button(label: "Add Box", icon: "box2", size: "lg", class: "btn-white")
+
+%h2.mt-3#icons Icons
+
+%p Not sure yet how to handle large icons and text. Currently, we do nothing.
+
+- icon_list = %w(cake cassette cloud-rain dice-5 magic moon-stars radioactive snow speaker star terminal virus yin-yang usb-symbol umbrella truck server)
+- ["sm", "md", "lg"].each do |size|
+  .border.p-3.mb-3.d-flex.flex-wrap.gap-3
+    - icon_list.each do |icon_name|
+      %div= icon(icon_name, icon_name.humanize, size: size)

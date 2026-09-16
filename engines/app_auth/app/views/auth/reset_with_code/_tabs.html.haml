@@ -1,0 +1,8 @@
+%h3= t("auth.reset_password")
+
+.small
+  = markdown t(:recovery_code_description)
+
+.nav.nav-tabs.mb-3
+  = nav_tab t(:recovery_email), reset_with_email_path, active(controller: 'auth/reset_with_email')
+  = nav_tab t(:recovery_code), reset_with_code_path, active(controller: 'auth/reset_with_code')

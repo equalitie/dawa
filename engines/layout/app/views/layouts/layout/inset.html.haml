@@ -1,0 +1,15 @@
+!!!
+%html
+  %head
+    = render 'layouts/layout/head'
+  %body.inset.with-local-scroll
+    %main.bg-secondary-subtle.local-scroll-parent
+      .content.rounded.flex-grow-1
+        .flex-shrink-1
+          = render 'layouts/layout/flash'
+        %article.flex-grow-1.local-scroll
+          = content_for?(:content) ? yield(:content) : yield
+    %turbo-frame#modal-frame
+    - if content_for?(:hidden_content)
+      %div.hidden_content
+        = yield(:hidden_content)

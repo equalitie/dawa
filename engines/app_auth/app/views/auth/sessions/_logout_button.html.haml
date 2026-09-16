@@ -1,0 +1,3 @@
+- if current_user
+  = form_with(url: auth.session_url, method: 'delete') do
+    %button.btn{type: 'submit'}= t("auth.logout")

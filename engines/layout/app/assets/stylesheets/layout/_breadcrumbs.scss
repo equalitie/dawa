@@ -1,0 +1,54 @@
+// BREADCRUMBS
+
+.breadcrumbs {
+  border-bottom: var(--divider);
+  background: var(--breadcrumb-bg);
+  color: var(--breadcrumb-fg);
+}
+
+.breadcrumb-item {
+  font-weight: bold;
+  a {
+    text-decoration: none;
+    color: RGBA(
+      var(--bs-emphasis-color-rgb),
+      var(--bs-link-opacity, 1)
+    ) !important;
+  }
+  a:hover {
+    text-decoration: underline;
+  }
+}
+
+.breadcrumb-bar {
+  display: flex;
+  align-items: stretch;
+  nav {
+    flex-grow: 1;
+    display: flex;
+    overflow: auto;
+    scrollbar-width: none; // allow scrolling, but hide scrollbar
+    padding: calc(0.5 * var(--content-padding)) var(--content-padding);
+    & ol.breadcrumb {
+      // this is the bootstrap element, which is already display:flex
+      align-items: center;
+    }
+  }
+  .nav-link {
+    flex-shrink: 1;
+    display: flex;
+    align-items: center;
+    text-decoration: none;
+    padding: 0 0.75rem;
+    border-left: 1px solid rgba(255, 255, 255, 0.7);
+    svg {
+      margin: 0;
+    }
+  }
+
+  // dropdown buttons are wrapped in .dropdown,
+  // and they don't look right in the breadcrumbs unless flexified.
+  .dropdown {
+    display: flex;
+  }
+}

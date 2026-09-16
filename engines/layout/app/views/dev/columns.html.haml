@@ -1,0 +1,38 @@
+:ruby
+  containers = ["container", "container-fluid"]
+  sizes = ["", "sm", "md", "lg", "xl", "xxl"]
+  columns = 11
+
+:css
+  .viz {
+    outline: 1px solid lightgreen;
+  }
+  .col-sm-1, .col-sm-2, .col-sm-3, .col-sm-4, .col-sm-5, .col-sm-6 {
+    outline: 1px solid lightgreen;
+  }
+  .ruler {
+    position: fixed;
+    top: 0;
+    bottom: 0;
+    width: 1px;
+    padding-left: 2px;
+    color red;
+    border-left: 1px red dotted;
+  }
+
+- sizes.each do |size|
+  .ruler{style: "left: var(--bs-breakpoint-#{size})"}
+    = size
+
+- containers.each do |container|
+  .bg-secondary-subtle{class: container}
+    - sizes.each do |size|
+      - columns.times do |i|
+        - col = i+1
+        .row
+          - first_row_class = size.present? ? "col-#{size}-#{12-col}" : "col-#{12-col}"
+          - second_row_class = size.present? ? "col-#{size}-#{col}" : "col-#{col}"
+          %div{class: "viz #{first_row_class}"}
+            = first_row_class
+          %div{class: "viz #{second_row_class}"}
+            = second_row_class

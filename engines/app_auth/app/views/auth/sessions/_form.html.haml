@@ -1,0 +1,22 @@
+- # locals: (append_to_form: nil, form_data: nil)
+- # this is how we check if cookies are enabled without
+- # relying on javascript. the login form should always
+- # try to set this flag in the session. if it is not set
+- # in the login post, then we know cookies are not enabled
+- session[:cookies_are_enabled] = true
+
+%div{"data-controller": "session"}
+  = form_with(data: {action: "submit->session#login", **form_data}) do
+    -# I really want to force the password manager to not suggest values for the username
+    -# field. this seems to do that, but is weird.
+    = text_field_tag("", "", tabindex: "-1", disabled: true, class: "hide-input")
+    .input-group.focus-ring
+      = text_field_tag("please-dont-save-this-value", "",
+        class: "form-control border-dark",
+        autofocus: true,
+        autocomplete: "off",
+        data: {"session-target": "username"})
+      = button_tag(type: 'submit', class:'btn btn-dark border-dark') do
+        = t("auth.log_in")
+    - if append_to_form
+      = append_to_form

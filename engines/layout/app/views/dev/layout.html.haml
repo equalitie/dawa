@@ -1,0 +1,40 @@
+- content_for :sidebar_top do
+  .btn.text-light.rounded-0.btn-shrink
+    = icon("plus-circle", "<span>top button</span>".html_safe)
+- content_for :sidebar_bottom do
+  .btn.text-light.rounded-0.btn-shrink
+    = icon("gear", "<span>bottom botton</span>".html_safe)
+
+- if params[:breadcrumbs].present?
+  - content_for :breadcrumbs do
+    = v.breadcrumbs do |bc|
+      - bc.with_crumb { link_to("Path", "#") }
+      - bc.with_crumb { link_to("To", "#") }
+      - bc.with_crumb { link_to("Something", "#") }
+      - bc.with_button { v.button(icon: "radioactive", override: {class: "nav-link hover-bg-highlight"}) }
+      - if params[:breadcrumbs_long].present?
+        - 20.times do
+          - bc.with_crumb { (0...8).map { ('a'..'z').to_a.sample }.join }
+- content_for :head do
+  = render "css"
+
+.btn-toolbar.mb-3
+  = toggle_button :tall
+  = toggle_button :long_line
+  = toggle_button :sidebar_tall
+  = toggle_button :breadcrumbs
+  = toggle_button :breadcrumbs_long
+  = toggle_button :borders
+  = toggle_button :flash
+  = toggle_button :card
+  = toggle_button :inset
+  = toggle_button :dialog
+
+- if params[:dialog].present?
+  = v.modal("Test Modal", scroll: :local) do
+    .local-scroll-parent
+      .mb-3 TOP CONTENT
+      .local-scroll= @content
+      .mt-3 BOTTOM CONTENT
+- else
+  = @content

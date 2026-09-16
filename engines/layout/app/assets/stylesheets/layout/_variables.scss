@@ -1,0 +1,98 @@
+$content-padding: 1rem !default;
+
+:root {
+  --divider: 1px solid black;
+
+  //
+  // COLORS
+  //
+
+  //--color-gray-dark: #{$color-gray-dark};
+  //--color-gray-mid: #{$color-gray-mid};
+  //--color-gray-light: #{$color-gray-light};
+  --hover-bg: var(--bs-primary-bg-subtle);
+  --hover-border-color: var(--bs-border-color);
+
+  //
+  // HEAD
+  //
+  //--favicon-url: url(/assets/theme/favicon.png);
+  //--header-bg: #7CAB2B !default !default;
+  //--navbar-bg: #6d9326 !default;
+  //--site-icon: asset-url('/assets/theme/site-icon.svg') !default;
+  //--header-image: asset-url('/assets/theme/admin-header.svg') !default;
+
+  //
+  // CONTENT
+  //
+  --content-bg: #fff;
+  --content-padding: #{$content-padding};
+
+  //
+  // HEADER
+  //
+  --header-font-size: 2rem;
+  --header-height: 90px;
+  --header-max-height: 90px;
+  --header-mid-height: 60px;
+  --header-min-height: 30px;
+
+  /* --header-text: New Site;
+  --header-bg: #ae99d1;
+  --header-fg: #fff;
+  --header-icon-bg: #9679c3;
+  --header-icon-url: url(/theme/site-icon.svg);
+  --header-icon-position: center center;
+  --header-max-height: 80px;
+  --header-mid-height: 50px;
+  --header-min-height: 30px; */
+
+  //
+  // SIDEBAR
+  //
+  --sidebar-bg: #555;
+  --sidebar-fg: #fff;
+  --sidebar-icon-size: 20px;
+  --sidebar-hover-bg: #000;
+  --sidebar-hover-fg: #ccc;
+  --sidebar-active-bg: hsl(0, 0%, 22%);
+  --sidebar-active-fg: #fff;
+  --sidebar-active-highlight: var(--header-icon-bg);
+  --sidebar-active-hover-bg: hsl(0, 0%, 40%);
+  --sidebar-active-hover-fg: #fff;
+  --sidebar-section-fg: #fffc;
+  --sidebar-section-rule: 1px solid #fff5;
+  --sidebar-max-width: 500px;
+  --sidebar-mid-width: 170px;
+  --sidebar-min-width: calc(
+    2 * var(--content-padding) + var(--sidebar-icon-size)
+  );
+  --sidebar-width: 250px;
+  --sidebar-actual-width: clamp(
+    var(--sidebar-min-width),
+    var(--sidebar-width),
+    var(--sidebar-max-width)
+  );
+
+  //
+  // BREADCRUMBS
+  //
+  --breadcrumb-bg: #fff;
+  --breadcrumb-fg: #000;
+
+  //
+  // TOOLBAR
+  //
+  //--toolbar-height: 30px;
+  //--toolbar-bg-dark: #444;
+  //--toolbar-bg-light: #eee;
+  //--content-bg: #fff !default;
+  //--site-icon-bg: darken(--header-bg, 7%) !default;
+
+  //
+  // FOOTER
+  //
+  //--footer-bg: #eee;
+  //--footer-sidebar-bg: #444;
+  //--footer-fg: #333;
+}

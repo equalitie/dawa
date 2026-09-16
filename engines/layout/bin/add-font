@@ -1,0 +1,95 @@
+#!/bin/env ruby
+
+require "net/http"
+require "open-uri"
+require "fileutils"
+
+HOME = File.expand_path('../..', __FILE__)
+CSS_HOME = File.join(HOME, 'app', 'assets', 'stylesheets', 'fonts')
+FONT_HOME = File.join(HOME, 'app', 'assets', 'fonts')
+
+def main
+  args = parse_args
+  unless args['url']
+    print_usage
+  end
+
+  old_css = Net::HTTP.get(URI(args['url']), {"User-Agent" => "Mozilla/5.0 Firefox/127.0"})
+
+  font_face_regex = /@font-face\s*{[^}]+}/
+  property_regex = /([a-z-]+):\s*([^;]+);/
+
+  fonts = {}
+  family = nil
+  family_index = nil
+  font_faces = old_css.scan(font_face_regex)
+  font_faces.each do |font|
+    properties = font.scan(property_regex).to_h
+    font_index = font_key(properties)
+    if family
+      if family != properties["font-family"].delete("'")
+        puts "error: multiple fonts in once css file"
+      end
+    else
+      family = properties["font-family"].delete("'")
+      family_index = family.downcase.gsub(' ', '-')
+    end
+    fonts[font_index] = {
+      family: family,
+      style: properties["font-style"],
+      weight: properties["font-weight"],
+      src: "url(#{family_index}/#{font_index}.woff2) format('woff2')",
+      url: properties["src"].sub(/^url\((.*?)\).*$/, '\1')
+    }
+  end
+
+  new_css = ""
+  template = "@font-face { font-family: '%{family}'; font-style: %{style}; font-weight: %{weight}; src: %{src}; font-display: swap}\n"
+  fonts.each do |key, props|
+    new_css << template % props
+  end
+
+  css_path = File.join(CSS_HOME, family_index + ".css")
+  puts "Saving CSS to #{css_path}"
+  File.open(css_path, 'w') {|f| f.write new_css }
+
+  puts "Downloading Font Files"
+  fonts.each do |key, props|
+    URI.open(props[:url]) do |font_binary|
+      FileUtils.mkdir_p(File.join(FONT_HOME, family_index))
+      font_filename = File.join(FONT_HOME, family_index, key + '.woff2')
+      puts "Saving #{font_filename}"
+      File.open(font_filename, 'wb') do |file|
+        file.write(font_binary.read)
+      end
+    end
+  end
+
+  puts "DONE"
+end
+
+def font_key(props)
+  props["font-family"].delete("'").downcase + "-" + props["font-style"] + "-" + props["font-weight"]
+end
+
+def print_usage
+  puts(%[
+Converts a web-loaded font css file into a local-loaded font css file, and saves
+the local fonts and css into app/assets/fonts and app/assets/stylesheets
+
+USAGE: add-font --url URL
+
+URL -- a stylesheet URL from fonts.googleapis.com
+])
+  exit
+end
+
+def parse_args
+  args = {}
+  ARGV.each_with_index do |arg, i|
+    args[arg.sub('--','')] = ARGV[i+1] if arg =~ /\-\-/
+  end
+  return args
+end
+
+main

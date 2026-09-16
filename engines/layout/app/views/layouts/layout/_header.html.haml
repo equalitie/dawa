@@ -1,0 +1,7 @@
+- if theme.context_url
+  %a.header-text{href: theme.context_url}= theme.header_text
+- else
+  .header-text= theme.header_text
+- if theme.header_status_partial
+  .header-status.d-flex.align-items-center.pe-2
+    = render theme.header_status_partial

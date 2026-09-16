@@ -1,0 +1,45 @@
+.header,
+.header-icon {
+  background-color: var(--header-bg);
+  border-bottom: var(--divider);
+  display: flex;
+  min-height: var(--shrink-header-height, var(--header-height)) !important;
+  height: var(--shrink-header-height, var(--header-height)) !important;
+  align-items: center;
+}
+
+.header {
+  justify-content: space-between;
+  .header-text {
+    padding: var(--content-padding);
+    color: var(--header-fg);
+    font-weight: bold;
+    line-height: 1em;
+    text-decoration: none;
+    overflow: hidden;
+    white-space: nowrap;
+  }
+  a.header-text:hover {
+    text-decoration: underline;
+  }
+}
+
+.header-icon {
+  background-color: var(--header-icon-bg);
+  justify-content: center;
+  padding: 6px;
+  .icon {
+    aspect-ratio: 1 / 1;
+    height: 100%;
+    max-height: 96px;
+    min-height: 24px;
+    background-image: var(--header-icon-url);
+    background-size: contain;
+    border-radius: 100%;
+    border: 1px solid white;
+  }
+}
+
+.header-status {
+  --bs-btn-hover-bg: rgba(255, 255, 255, 0.4);
+}

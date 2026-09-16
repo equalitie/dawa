@@ -1,0 +1,15 @@
+%meta{charset: "utf-8"}
+%meta{name: "viewport", content: "width=device-width, initial-scale=1.0, shrink-to-fit=no"}
+%meta{name: "mobile-web-app-capable", content: "yes"}
+%title= theme.title
+= csrf_meta_tags
+= csp_meta_tag
+- theme.stylesheets.each do |sheet|
+  %link(rel="preload" href="#{stylesheet_path(sheet)}" as="style")
+  = stylesheet_link_tag sheet, "data-turbo-track" => "reload", "media" => "all"
+= javascript_importmap_tags
+%style{"nonce" => content_security_policy_nonce, "data-turbo-track" => "dynamic"}
+  = theme.css_variables
+= favicon_link_tag(theme.favicon_url)
+- if content_for?(:head)
+  = yield :head

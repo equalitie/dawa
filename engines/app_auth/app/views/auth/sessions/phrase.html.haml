@@ -1,0 +1,5 @@
+= bootstrap_form_with(url: phrase_session_path, method: "post") do |f|
+  = render "auth/credentials/phrase_form", form: f, error: @error
+  .btn-toolbar
+    = f.v.delete_button(label: t("nav.cancel"), icon: "x-lg", url: auth.session_url)
+    = f.v.submit_button(label: t("nav.finish"), icon: "check-circle")

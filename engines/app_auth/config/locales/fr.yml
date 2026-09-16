@@ -1,0 +1,84 @@
+---
+fr:
+  auth:
+    logout: "Déconnexion"
+    log_in: "Connexion"
+    session_error: "Erreur de session"
+    session_error_details: |-
+      Nous n'avons pas pu charger votre session actuelle. Pour résoudre ce problème, rechargez cette page et réessayez.
+      Si le problème persiste, assurez-vous que les cookies de session sont activés dans votre navigateur.
+
+    encryption_phrase_description: |-
+      Veuillez spécifier un NIP de chiffrement pour votre compte. Ce NIP n'est pas un mot de passe :
+      il est utilisé uniquement pour le chiffrement, pas pour la connexion.
+    encryption_phrase: NIP de chiffrement
+    #
+    # Identifiants
+    #
+    credentials:
+      index:
+        log_in: "Identifiants de connexion"
+        add_passkey: "Ajouter une clé d'accès"
+        add_recovery: "Ajouter un code de récupération"
+        active_sessions: "Sessions actives"
+        auth_history: "Historique d'authentification"
+        created: "Créé"
+        last_seen: "Dernière visite"
+        credential: "Identifiant"
+        user_agent: "Agent utilisateur"
+        when: "Quand"
+        success: "Succès"
+        failure: "Échec"
+      list:
+        name: "Nom"
+        registered: "Enregistré"
+        encryption: "Chiffrement"
+      edit:
+        title: "Ajouter une clé d'accès"
+        authentication: "Authentification"
+
+      # toutes les clés i18n pour la navigation ont été déplacées vers nav.*
+      recovery_intro: |-
+        Veuillez noter le code de récupération suivant. Vous n'aurez pas d'autre occasion de
+        voir ce code. Avec celui-ci, vous pouvez accéder à votre compte même sans clé d'accès ou clé de sécurité.
+      encryption_prf_intro: |-
+        Votre clé d'accès prend en charge le chiffrement automatique. Lorsque vous cliquez sur « Activer le chiffrement », il vous sera demandé
+        de valider votre clé d'accès une fois de plus.
+
+    #
+    # Sessions
+    #
+    sessions:
+
+    #
+    # Erreurs
+    #
+    errors:
+      unauthorized: "Vous n'êtes pas autorisé à effectuer cette action."
+      suspended: "Cet utilisateur ne peut actuellement pas s'authentifier. Veuillez réessayer plus tard ou contacter le support."
+
+    #
+    # Récupération
+    #
+    recovery:
+      intro: "Saisissez votre code de récupération. Le code de récupération est insensible à la casse. Les tirets et les espaces sont ignorés."
+      cancel: "Annuler"
+      log_in: "Connexion"
+
+    #
+    # Paramètres utilisateur anonyme
+    #
+    anonymous:
+      title: "Paramètres utilisateur anonyme"
+      display_name: "Nom d'affichage"
+
+    #
+    # Chaînes au niveau du contrôleur
+    #
+    anonymous_name: "Anonyme"
+    invalid_recovery_code: "Code de récupération invalide"
+    verify_passkey_failed: "Impossible de vérifier la clé d'accès : %{error}"
+    wrong_encryption_phrase: "NIP de chiffrement incorrect. Réessayez."
+    logged_out: "Vous avez été déconnecté"
+    save_credential_failed: "Impossible d'enregistrer votre identifiant"
+    verification_failed: "La vérification a échoué : %{error}"

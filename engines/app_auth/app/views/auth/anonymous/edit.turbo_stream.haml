@@ -1,0 +1,15 @@
+= turbo_stream.update("modal-frame") do
+  = v.modal(t("auth.anonymous.title"), close_button: false) do |modal|
+    = bootstrap_form_with(url: anonymous_path, method: :put) do |f|
+      = hidden_field_tag :return_path, params[:return_path]
+      .row.mb-3
+        .col
+          = label_tag :display_name, t("auth.anonymous.display_name")
+          = text_field_tag :display_name, session[:link_display_name], class: "form-control"
+      .row.mb-3
+        .col
+          = label_tag :hue, t("auth.anonymous.highlight_color")
+          = v.hue_swatches("hue", value: session[:link_hue])
+      .btn-toolbar
+        = modal.close_button
+        = v.submit_button label: t("nav.save"), icon: "save"
