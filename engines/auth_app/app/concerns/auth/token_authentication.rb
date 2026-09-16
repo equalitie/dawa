@@ -37,7 +37,7 @@ module Auth
     end
 
     def load_session_by_id(public_session_id)
-      session = Auth::Session.find_by_public_id(public_session_id)
+      session = Auth::SessionSecure.find_by_public_id(public_session_id)
       if session
         @current_vault = Auth::SessionVault.new(session)
         if session.link_id

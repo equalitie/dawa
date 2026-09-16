@@ -19,9 +19,11 @@ module Auth
     end
 
     def key_from_secret(user_supplied_secret)
-      Auth.key_provider.pb_key(
-        secret: secret,
-        salt: self.salt
+      super(
+        Auth.key_provider.pb_key(
+          secret: user_supplied_secret,
+          salt: self.salt
+        )
       )
     end
   end

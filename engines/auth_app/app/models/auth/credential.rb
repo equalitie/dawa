@@ -69,10 +69,8 @@ module Auth
     #   or from a user supplied encryption phrase.
     #
     def vault_private_key(secret)
-      key = key_from_secret(secret)
-      return nil unless key
-
-      private_key = RbNaCl::PrivateKey.new(key)
+      private_key = key_from_secret(secret)
+      return nil unless private_key
       if self.vault_public_key
         if self.vault_public_key != private_key.public_key
           raise ArgumentError, "Incorrect secret used to generate private key"
@@ -138,10 +136,7 @@ module Auth
     # key requirements.
     #
     def key_from_secret(secret)
-      Auth.key_provider.private_key(
-        secret: secret,
-        salt: Auth.salt
-      )
+      Auth.key_provider.private_key(secret, salt: Auth.salt)
     end
   end
 end

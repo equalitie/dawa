@@ -7,8 +7,21 @@ module Auth
 
     included do
       store_accessor :data, :webauthn_id
-      has_many :credentials, class_name: "Auth::Credential", dependent: :destroy
       has_many :attempts, class_name: "Auth::Attempt", dependent: :destroy
+
+      has_many :credentials, class_name: "Auth::Credential", dependent: :destroy do
+        def update_vaults(vault_hash)
+          self.each do |cred|
+            cred.update_vault(vault_hash)
+          end
+        end
+        def update_vaults!(vault_hash)
+          self.each do |cred|
+            cred.update_vault!(vault_hash)
+          end
+        end
+      end
+
     end
   end
 end

@@ -32,8 +32,8 @@ module Auth
     #
     def key(secret:, salt:, bytes: DEFAULT_BYTES)
       derive_key(
-        to_binary(secret, bytes: bytes),
-        to_binary(salt, bytes: bytes),
+        to_binary(secret),
+        to_binary(salt),
         bytes: bytes
       )
     end
@@ -67,16 +67,20 @@ module Auth
       RbNaCl::PrivateKey.new(key_seed)
     end
 
-    def to_binary(str, bytes: DEFAULT_BYTES)
+    def to_binary(str, bytes: nil)
       if str.nil? || str == ""
         raise ArgumentError, "Secret is empty"
       end
       if str.encoding != Encoding::BINARY || str.downcase =~ /\A[a-f0-9]+\z/
-        bin = [str[0..((bytes*2)-1)]].pack("H*")
+        if bytes
+          bin = [str[0..((bytes*2)-1)]].pack("H*")
+        else
+          bin = [str].pack("H*")
+        end
       else
         bin = str
       end
-      if bin.length < bytes
+      if bytes && bin.length < bytes
         raise ArgumentError, "Secrets must be at least #{bytes} bytes (or string of hex chars [0-F]+, >=#{bytes * 2} length). Received: #{str.inspect}"
       end
       bin

@@ -2,7 +2,6 @@ require_relative "../test_helper"
 
 class SessionTest < ActiveSupport::TestCase
   def setup
-    creator.setup_encryption
   end
 
   # session ids must be:
@@ -24,12 +23,12 @@ class SessionTest < ActiveSupport::TestCase
     assert_equal 1, Auth::Session.where("updated_at < ?", 1.minute.ago).count
     assert_equal 3, Auth::Session.count
 
-    Conf.tmp(user_session_idle_timeout: "1 minute") do
+    Auth.stub(:user_session_idle_timeout, "1 minute") do
       Auth::SessionJob.perform_now
       assert_nil Auth::Session.find_by_session_id(idle.session_id)
     end
 
-    Conf.tmp(user_session_max_lifetime: "2 hours") do
+    Auth.stub(:user_session_max_lifetime, "2 hours") do
       Auth::SessionJob.perform_now
       assert_nil Auth::Session.find_by_session_id(old.session_id)
     end

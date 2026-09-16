@@ -1,6 +1,5 @@
 module Auth
   class CredentialsController < ApplicationController
-    include UserspaceContext
     require_authentication
     before_action :permit_current_user!
     before_action :fetch_credential, only: [:edit, :update, :destroy]

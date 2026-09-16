@@ -2,8 +2,8 @@ class Auth::SessionJob < ApplicationJob
   def perform()
     Auth::Session.where(
       "updated_at < ? OR created_at < ?",
-      words_to_time(Conf.user_session_idle_timeout),
-      words_to_time(Conf.user_session_max_lifetime)
+      words_to_time(Auth.user_session_idle_timeout),
+      words_to_time(Auth.user_session_max_lifetime)
     ).delete_all
   end
 

@@ -1,5 +1,6 @@
 require "active_record/session_store"
 require "webauthn"
+require "browser/browser"
 require_relative "auth/engine"
 
 module Auth

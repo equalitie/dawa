@@ -21,5 +21,50 @@ require "rails/test_help"
 ## Test Helpers
 ##
 
-class ActiveSupport::TestCase
+module AuthenticationHelper
+  # All-purpose login helper that works in different test contexts
+  def login_as(user=User.first)
+    if defined?(@request)
+      # Controller tests
+      @request.session[:user_id] = user.id
+    elsif defined?(session)
+      # Integration tests
+      session[:user_id] = user.id
+    elsif defined?(page)
+      # System tests
+      page.driver.browser.set_cookie("user_id=#{user.id}")
+    end
+    user
+  end
+
+  def logout
+    if defined?(@request)
+      @request.session[:user_id] = nil
+    elsif defined?(session)
+      session[:user_id] = nil
+    elsif defined?(page)
+      page.driver.browser.clear_cookies
+    end
+  end
 end
+
+class ActiveSupport::TestCase
+  include AuthenticationHelper
+end
+
+class ActionController::TestCase
+  include AuthenticationHelper
+end
+
+class ActionDispatch::IntegrationTest
+  include AuthenticationHelper
+
+  def login_as(user=User.first)
+    post test_session_path, params: { username: user.username }
+    follow_redirect!
+  end
+end
+
+#class ActionDispatch::SystemTestCase
+#  include AuthenticationHelper
+#end

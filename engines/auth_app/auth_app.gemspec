@@ -10,8 +10,15 @@ Gem::Specification.new do |spec|
 
   spec.add_dependency "activerecord-session_store"
   spec.add_dependency "webauthn", ">= 3.4.3"
-  spec.add_dependency "jwt"
   spec.add_dependency "json"
+
+  # crypto
+  spec.add_dependency "jwt"
   spec.add_dependency "rbnacl"
   spec.add_dependency "openssl"
+
+  # views
+  spec.add_dependency "browser" # parse browser's user-agent string
+  spec.add_dependency "haml-rails" # haml view templates
+  spec.add_dependency "turbo-rails" # support turbo stream responses
 end

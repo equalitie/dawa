@@ -5,8 +5,11 @@ This engine manages authentication, authorization, key management, account recov
 ## Features
 
 * webauthn authentication
-* encrypted session data is sql database
 * authorization framework
+* anonymous authentication via capabilities links
+* optional integration with Raft::Encryption, if available:
+  * encrypted session data is sql database
+  * per-user encrypted vaults
 
 ## Configuration
 
@@ -38,6 +41,19 @@ In your User class:
 class User < ApplicationRecord
   include Auth::UserUsername
   include Auth::UserAuthentication
+
+  ##
+  ## These methods must be implemented:
+  ##
+   
+  def self.find_by_login(login)
+    User.where(username: login).take
+  end
+
+  def anon?
+    false
+  end
+
 end
 ```
 
@@ -106,6 +122,13 @@ rake test
 view docs: `bundle exec yard server`
 
 ## The Future
+
+TODO:
+
+* Encrypt the join between user and session records, so that only when the user has
+  unlocked their vault can they find the list of associated sessions.
+* Instead of having a duplicate vault for each credential, replace with a single vault
+  and each credential encrypts the key to unlock the vault.
 
 This engine stores sessions in SQL. This has two benefits:
 

@@ -6,4 +6,7 @@ class User < ApplicationRecord
     User.where(username: login).take
   end
 
+  def anon?
+    false
+  end
 end

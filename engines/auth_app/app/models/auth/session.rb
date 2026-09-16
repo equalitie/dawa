@@ -9,7 +9,10 @@
 
 module Auth
   class Session < ActiveRecord::Base
+    singleton_class.prepend(Auth::SessionFinder)
     self.table_name = "sessions"
+
+    attr_accessor :session_key
 
     belongs_to :user, optional: true
     belongs_to :link, optional: true
@@ -17,6 +20,17 @@ module Auth
 
     serialize :data, coder: JSON, default: {}
     before_save :touch_session, :set_nonce, :copy_user_id
+
+    def initialize(args)
+      args[:session_id], self.session_key = Auth::Session.split_session_id(args[:session_id])
+      super
+    end
+
+    #def generate_sid
+    #  # Generate a longer, more random session ID.
+    #  # SecureRandom.hex(16) is the Rails default; let's make it longer.
+    #  SecureRandom.hex(32)
+    #end
 
     private
 
