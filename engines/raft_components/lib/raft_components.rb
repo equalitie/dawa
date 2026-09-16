@@ -1,3 +1,5 @@
+require "view_component"
+
 module RaftComponents
   AVATAR_SMALL_SIZE = 64
   AVATAR_LARGE_SIZE = 256
