@@ -1,0 +1,24 @@
+:ruby
+  hidden_fields = safe_join([
+    hidden_field_tag(:timezone, "", id: nil),
+    hidden_field_tag(:locale, "", id: nil)
+  ])
+.middleflex
+  .text-center.mb-3{style: "max-width: 30em"}
+    = image_tag theme.favicon_url, height: "96px", width: "96px"
+  = v.controller("login-locale", supportedLocales: I18n.available_locales) do
+    = render "auth/sessions/form", form_data: {"login-locale-target" => "form"}, append_to_form: hidden_fields
+    -#.mt-2.btn-toolbar
+      = render "settings/timezone_button", mode: "frontpage"
+      = render "settings/locale_button", mode: "frontpage"
+    .mt-4.btn-toolbar
+      = v.post_button(label: t("login.create_account"), icon: "person-add", url: start_enroll_path, class: "flex-fill")
+      = v.link_button(label: t("login.restore_account"), icon: "person-up", url: auth.recover_path, class: "flex-fill")
+    -# if Conf.demo
+      .mt-2.d-flex
+        = v.post_button(icon: "box-arrow-in-right",
+          label: t("login.login_demo"),
+          url: demo_session_path,
+          class: "flex-fill",
+          params: {username: "demo", timezone: "", locale: ""},
+          form_data: {"login-locale-target" => "form"})

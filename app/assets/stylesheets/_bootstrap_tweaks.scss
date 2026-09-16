@@ -1,0 +1,347 @@
+//
+// A bunch of little tweaks to Bootstrap 5
+//
+@use "bootstrap";
+
+//
+// COLORS
+//
+
+// the default border is very light. we choose a darker default border,
+// but the darker border looks bad for list & table rows. here, we lighten the
+// list & table rows so they don't look too strong.
+
+:root {
+  --lighter-border-color: color-mix(in srgb, var(--bs-border-color), white 40%);
+}
+.list-group-item {
+  --bs-list-group-border-color: var(--lighter-border-color);
+}
+.table tr {
+  border-color: var(--lighter-border-color);
+}
+
+.placeholder {
+  opacity: 0.25;
+}
+
+//
+// LINKS
+//
+
+// shorthand for: link-body-emphasis link-underline link-offset-1-hover link-underline-opacity-0 link-underline-opacity-50-hover
+
+a.hover-link {
+  --bs-link-color: var(--bs-emphasis-color);
+  --bs-link-underline-opacity: 0;
+  text-underline-offset: 0.125em;
+  color: var(--bs-link-color) !important;
+  text-decoration-color: color-mix(
+    in srgb,
+    var(--bs-link-color),
+    transparent calc(100% - var(--bs-link-underline-opacity, 1) * 100%)
+  ) !important;
+  &:hover {
+    --bs-link-color: color-mix(in srgb, var(--bs-primary), black 20%);
+    --bs-link-underline-opacity: 0.5;
+  }
+}
+
+//
+// FORMS
+//
+
+// add to .invalid-feedback to make it always visible.
+.always-visible {
+  display: block !important;
+}
+
+//
+// allow input groups to have a focus ring around the whole group instead
+// just the one element.
+//
+.input-group.focus-ring:focus-within {
+  outline: 0;
+  box-shadow: var(--bs-focus-ring-x, 0) var(--bs-focus-ring-y, 0)
+    var(--bs-focus-ring-blur, 0) var(--bs-focus-ring-width)
+    var(--bs-focus-ring-color);
+  border-radius: 0.375em;
+  & .form-control {
+    box-shadow: none;
+  }
+}
+
+//
+// BUTTONS
+//
+
+// bootstrap gives badges in buttons relative position and top: -1px.
+// I don't know why, and I think it looks bad.
+.btn .badge {
+  top: 0;
+}
+
+.dropdown-menu {
+  --bs-dropdown-zindex: 1100; // default is 1000. Changed so dropdown layers over toasts (z-index 1090)
+}
+
+// allow grouping of dropdowns.
+// this assumes that the dropdown comes last in the group.
+// this could be done using the dropdown split markup, but that is more complicated.
+.btn-group > .dropdown > .btn {
+  border-radius: 0 var(--bs-border-radius) var(--bs-border-radius) 0;
+}
+
+// this fixes a btn-group border bug that bootstrap refuses to fix
+// https://github.com/twbs/bootstrap/issues/25888
+.btn-group > .btn:not(:last-child) {
+  border-right: none;
+}
+
+// allow buttons to have 'is-invalid' to show an error
+// in the state of the button. It forces the button to appear as
+// btn-outline-danger
+.btn.is-invalid {
+  border-color: var(--danger);
+  color: var(--danger);
+  &:hover {
+    background-color: var(--danger);
+    color: white;
+  }
+}
+
+//
+// by default, bootstrap buttons are wrappable. I don't like this, and I think it always looks bad.
+//
+.btn {
+  white-space: nowrap;
+}
+
+.btn-toolbar {
+  gap: 0.5rem;
+}
+
+// add .btn-white to elements with a non-white background
+// to make all child buttons have a nice contrasting white
+// background
+.btn-white {
+  &,
+  .btn-outline-secondary,
+  .btn-outline-primary,
+  .btn-outline-success,
+  .btn-outline-danger,
+  .btn-outline-dark {
+    --bs-btn-bg: white;
+  }
+}
+
+.btn-xs {
+  height: 24px;
+  width: 24px;
+  min-height: 24px;
+  min-width: 24px;
+  border-radius: 100%;
+  padding: 0;
+}
+
+//
+// ICONS
+//
+
+// this seems like the right offset for 1em icons.
+svg.bi {
+  vertical-align: -0.125em;
+  --bi-label-gap: 4px;
+}
+
+// disable vertical align offset
+.icon-middle svg.bi {
+  vertical-align: middle;
+}
+
+.nav-link svg.bi {
+  vertical-align: -0.25em;
+}
+.btn-sm svg.bi {
+  vertical-align: -0.2em;
+}
+.btn-lg svg.bi {
+  vertical-align: -0.7em;
+  --bi-label-gap: 12px;
+}
+svg.bi.with-end-label {
+  margin-right: var(--bi-label-gap);
+}
+svg.bi.with-start-label {
+  margin-left: var(--bi-label-gap);
+}
+
+//
+// TABLES
+//
+
+// bootstrap tables look silly when there is no header
+.table-headerless {
+  border-top-width: 1px;
+  border-top-style: solid;
+}
+
+// make a table td as small as it can for its content
+.table .fit {
+  width: 1%;
+  white-space: nowrap;
+  .btn-toolbar {
+    flex-wrap: nowrap;
+  }
+}
+
+// specify a single column to shrink as much
+// as needed, hiding its overflow
+.table-shrink {
+  .truncate-auto {
+    // beause of `max-width: 0` the truncate column can shrink
+    // and truncate, while other columns maintain their natural width
+    max-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+}
+
+//
+// A simple row, but draw vertical dividers between the columns
+// (unless the display is small)
+//
+.row-with-vr {
+  @include bootstrap.media-breakpoint-up(md) {
+    > [class*="col-"]:not(:last-child) {
+      position: relative;
+      &::after {
+        content: "";
+        position: absolute;
+        right: -0.5rem;
+        top: 0;
+        bottom: 0;
+        width: 1px;
+        background-color: var(--bs-border-color);
+      }
+    }
+  }
+}
+
+//
+// Tables with compound rows (tbody wrapped around multiple tr)
+// The second tr looks like it is part of the one above.
+//
+// currently disabled. this was used for search results, but now we
+// don't support search highlight. it might be useful again some day.
+/* tr.has-sub {
+  --bs-border-width: 0px;
+  td {
+    padding-bottom: 0px;
+  }
+}
+tr.sub {
+  td {
+    padding-top: 0px;
+  }
+}
+// like bootstrap .table-hover, except that it works for tbody instead of tr
+.table-tbody-hover > tbody:hover > * {
+  --bs-table-color-state: var(--bs-table-hover-color);
+  --bs-table-bg-state: var(--bs-table-hover-bg);
+} */
+
+//
+// NORMAL
+// secondary is too faded, dark is too dark, light is too light.
+// introducing "normal"
+//
+
+.alert-normal {
+  --bs-alert-color: var(--bs-light-text-emphasis);
+  --bs-alert-bg: var(--bs-tertiary-bg);
+  --bs-alert-border-color: var(--bs-secondary-border-subtle);
+  --bs-alert-link-color: var(--bs-light-text-emphasis);
+}
+
+.text-bg-normal {
+  background-color: var(--bs-tertiary-bg);
+}
+
+// make the first line have no extra leading, which makes it
+// line up with the icon. 0.2em is usually about what the top
+// leading works out to be.
+.alert-body.align-self-start {
+  & > div:first-child,
+  & > ul:first-child > li:first-child,
+  & > p:first-child {
+    margin-top: -0.2em;
+  }
+}
+
+//
+// bootstrap as a general `.alert ul` with a lot of padding
+// that messes up dropdown-menu inside alerts.
+//
+.alert ul.dropdown-menu {
+  padding-inline-start: 0;
+}
+
+//
+// MODAL
+//
+
+//
+// for some inexplicable reason, the default in bootstrap is for
+// lg and xl modals to lose their wider width at media breakpoints
+// below lg. this looks horrible, so we give it a better width.
+//
+@include bootstrap.media-breakpoint-down(lg) {
+  .modal-lg,
+  .modal-xl {
+    --bs-modal-width: 80%;
+  }
+}
+
+//
+// Bootstrap has a class .modal-dialog-scrollable that allows
+// the whole .modal-body to be scrollable. This is often not
+// what we want.
+//
+// Instead add .modal-dialog-body-scrollable to .modal-dialog
+// to allow some a local part of the dialog to scroll, instead
+// of the whole .modal-body. The, follow the normal usage
+// of .local-scroll
+//
+// Two acceptable structures:
+//
+// ```haml
+// .modal
+//   .modal-dialog.modal-dialog-scrollable
+//     .modal-content
+//       .modal-body
+//         everything here is scrollable
+// ```
+//
+// Or, with local scrolling
+//
+// ```haml
+// .modal
+//   .modal-dialog.modal-dialog-body-scrollable
+//     .modal-content
+//       .modal-body.local-scroll-parent
+//         .d FIXED
+//         .local-scroll SCROLLABLE
+//         .d FIXED
+// ```
+
+// this must be added to .modal-dialog
+// it constrains the dialog height, similar to .modal-dialog-scrollable
+.modal-dialog-body-scrollable {
+  height: calc(100% - var(--bs-modal-margin) * 2);
+
+  .modal-content {
+    max-height: 100%;
+  }
+}

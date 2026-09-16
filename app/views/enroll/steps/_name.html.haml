@@ -1,0 +1,14 @@
+= bootstrap_form_with(model: @user, url: enroll_path) do |f|
+  = hidden_field_tag :step, "name"
+  = f.text_field :username,
+    maxlength: 40,
+    minlength: 2,
+    pattern: "[a-z][a-z0-9]+",
+    prepend: "@",
+    help: t("enroll.step_name.username_help"),
+    class: "rounded-end" # the invalid-feedback div messes up the rounded end unless explicit
+  = f.text_field :display_name,
+    help: t("enroll.step_name.display_name_help")
+  .btn-toolbar.mt-4
+    = f.v.delete_button(label: t("nav.cancel"), icon: "x-lg", url: enroll_path)
+    = f.v.submit_button(label: t("nav.next"), icon: "chevron-right")

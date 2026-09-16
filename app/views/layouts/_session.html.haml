@@ -1,0 +1,4 @@
+- if current_user
+  = v.link_button(url: main_app.home_path, border: false, color: "dark", class: "d-flex align-items-center gap-2") do
+    = v.avatar(current_user, label: true, size: 24)
+= logout_button

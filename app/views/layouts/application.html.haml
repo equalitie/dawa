@@ -1,4 +1,9 @@
 :ruby
   theme.title = Conf.site_title
   theme.header_text = "dComms Web Admin"
+  if current_user
+    theme.header_status_partial = 'layouts/session'
+    theme.sidebar_items = nil #sidebar_items
+    theme.show_sidebar = true
+  end
 = render template: 'layouts/layout/application'

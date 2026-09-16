@@ -1,0 +1,7 @@
+= render "enroll/header"
+- if params[:step] == "name"
+  = render "enroll/steps/name"
+- elsif params[:step] == "avatar"
+  = render "enroll/steps/avatar"
+- elsif params[:step] == "credential"
+  = render "enroll/steps/credential"

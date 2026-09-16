@@ -1,31 +1,94 @@
-# Files in the config/locales directory are used for internationalization and
-# are automatically loaded by Rails. If you want to use locales other than
-# English, add the necessary files in this directory.
-#
-# To use the locales, use `I18n.t`:
-#
-#     I18n.t "hello"
-#
-# In views, this is aliased to just `t`:
-#
-#     <%= t("hello") %>
-#
-# To use a different locale, set it with `I18n.locale`:
-#
-#     I18n.locale = :es
-#
-# This would use the information in config/locales/es.yml.
-#
-# To learn more about the API, please read the Rails Internationalization guide
-# at https://guides.rubyonrails.org/i18n.html.
-#
-# Be aware that YAML interprets the following case-insensitive strings as
-# booleans: `true`, `false`, `on`, `off`, `yes`, `no`. Therefore, these strings
-# must be quoted to be interpreted as strings. For example:
-#
-#     en:
-#       "yes": yup
-#       enabled: "ON"
-
 en:
-  hello: "Hello world"
+  #
+  # shorten the distance of time in words
+  #
+  datetime:
+    distance_in_words:
+      about_x_hours:
+        one: ~ %{count}h
+        other: ~ %{count}h
+      about_x_months:
+        one: ~ %{count}mo
+        other: ~ %{count}mo
+      about_x_years:
+        one: ~ %{count}y
+        other: ~ %{count}y
+      almost_x_years:
+        one: ~ %{count}y
+        other: ~ %{count}y
+      half_a_minute: < 1m
+      less_than_x_seconds:
+        one: < %{count}s
+        other: < %{count}s
+      less_than_x_minutes:
+        one: < 1m
+        other: < %{count}m
+      over_x_years:
+        one: "> %{count}y"
+        other: "> %{count}y"
+      x_seconds:
+        one: "%{count}s"
+        other: "%{count}s"
+      x_minutes:
+        one: "%{count}m"
+        other: "%{count}m"
+      x_days:
+        one: "%{count}d"
+        other: "%{count}d"
+      x_months:
+        one: "%{count}mo"
+        other: "%{count}mo"
+      x_years:
+        one: "%{count}y"
+        other: "%{count}y"
+
+  timezones:
+    africa: "Africa"
+    america: "America"
+    antarctica: "Antarctica"
+    arctic: "Arctic"
+    asia: "Asia"
+    atlantic: "Atlantic"
+    australia: "Australia"
+    europe: "Europe"
+    indian: "Indian"
+    pacific: "Pacific"
+
+  #
+  # Common Strings
+  #
+  attr:
+    color: "Color"
+    highlight_color: "Highlight Color"
+  nav:
+    next: "Next"
+    prev: "Prev"
+    finish: "Finish"
+    apply: "Apply"
+    cancel: "Cancel"
+    save: "Save"
+    close: "Close"
+    destroy: "Destroy"
+    create: "Create"
+    back: "Back"
+    delete: "Delete"
+    abort: "Abort"
+    download: "Download"
+
+  #
+  # Active Record attribute labels
+  #
+  activerecord:
+    attributes:
+      user:
+        username: "Username"
+        display_name: "Display Name"
+
+  enroll:
+    title: "Register a new user"
+    username_help: "Your unique identifier."
+    display_name_help: "How your name is displayed."
+    passkey_intro: "A **passkey** is required to log in. Passkeys are a secure alternative to passwords."
+
+  profiles:
+    remove_image: Remove Image

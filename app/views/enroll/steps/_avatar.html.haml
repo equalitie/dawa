@@ -1,0 +1,15 @@
+= bootstrap_form_with(model: @user, url: enroll_path) do |f|
+  = hidden_field_tag :step, "avatar"
+  .mb-3
+    - if @user.avatar_img.attached?
+      = v.avatar(@user, size: 100)
+    - else
+      .avatar-initials{style: "--avatar-size: 100px"}
+        %span
+          XX
+  .row.mb-3
+    .col
+      = f.file_field :avatar_img, hide_label: true
+  .btn-toolbar
+    = f.v.link_button(label: t("nav.prev"), icon: "chevron-left", url: enroll_path(step: "name"))
+    = f.v.submit_button(label: t("nav.next"), icon: "chevron-right")
