@@ -101,6 +101,40 @@ class VictoriaMetricsTest < ActiveSupport::TestCase
     end
   end
 
+  test "vector returns the raw series list from an instant query" do
+    payload = {
+      "resultType" => "vector",
+      "result" => [
+        { "metric" => { "instance" => "host-a", "job" => "node" }, "value" => [ 1_787_518_080.0, "1" ] },
+        { "metric" => { "instance" => "host-b", "job" => "node" }, "value" => [ 1_787_518_080.0, "0" ] }
+      ]
+    }
+    with_client(fake_client(query: payload)) do
+      series = @service.vector("up")
+      assert_equal 2, series.size
+      assert_equal "host-a", series[0]["metric"]["instance"]
+      assert_equal [ 1_787_518_080.0, "1" ], series[0]["value"]
+    end
+  end
+
+  test "vector returns empty when the instant query has no result" do
+    with_client(fake_client(query: { "resultType" => "vector", "result" => [] })) do
+      assert_equal [], @service.vector("up")
+    end
+  end
+
+  test "vector raises when VictoriaMetrics is unreachable" do
+    raising = Object.new
+    raising.define_singleton_method(:query) do |**_kwargs|
+      raise Prometheus::ApiClient::Client::RequestError, "connection refused"
+    end
+    with_client(raising) do
+      assert_raises(Prometheus::ApiClient::Client::RequestError) do
+        @service.vector("up")
+      end
+    end
+  end
+
   test "default value key is 'value' and can be overridden" do
     assert_equal "value", VictoriaMetrics.new.value_key
     custom = VictoriaMetrics.new(value_key: "mem_mb")

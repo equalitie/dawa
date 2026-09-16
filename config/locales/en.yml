@@ -83,6 +83,7 @@ en:
     updated: "Updated"
     no: "No"
     yes: "Yes"
+    none: "None"
   notice:
     saved: "Changes Saved"
     created: "Record Created"
@@ -321,12 +322,15 @@ en:
       title: "Logs"
 
   metrics:
-    show:
-      title: "Metrics"
+    title: "Metrics"
+    providers: "Metrics Providers"
 
   troubleshoot:
-    show:
-      title: "Troubleshoot"
+    connected: "Connected"
+    unreachable: "Unreachable"
+    up: "up"
+    down: "down"
+    error_unknown: "Error Unknown"
 
   settings:
     show:

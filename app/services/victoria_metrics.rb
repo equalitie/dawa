@@ -66,6 +66,21 @@ class VictoriaMetrics
     nil
   end
 
+  #
+  # Run an instant query and return the raw series list. Unlike #current, which
+  # collapses to a single Float, this preserves every series and its metric labels,
+  # which is what diagnostics need (e.g. the list of instances a `up` query reports).
+  # Raises on connection/timeout errors so callers can distinguish "unreachable"
+  # from "reached but no result".
+  #
+  # @return [Array<Hash>] the vector's "result" array, e.g.
+  #   [ { "metric" => { "instance" => "host:9100", "job" => "node" }, "value" => [ts, "1"] }, ... ]
+  #
+  def vector(query, time: nil)
+    data = client.query(query: query, time: (ts(time) if time))
+    data.fetch("result", [])
+  end
+
   private
 
   def client
