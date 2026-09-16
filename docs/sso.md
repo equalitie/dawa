@@ -353,7 +353,7 @@ OIDC supports three families of signing keypairs (`id_token_signing_alg_values_s
 - `RS256`, `RS384`, `RS512` -- RSA + PKCS#1 v1.5 (`RS256` is the near-universal default).
 
 **EC (Elliptic Curve) family** -- this is the realistic alternative to RSA today
-- `ES256` (P-256), `ES384` (P-384), `ES512` (P-521) -- ECDSA. Much smaller keys, faster verification, increasingly the modern default.
+- `ES256` (P-256), `ES384` (P-384), `ES512` (P-512) -- ECDSA. Much smaller keys, faster verification, increasingly the modern default.
 
 **EdDSA**
 - `EdDSA` / `Ed25519` -- used by some newer providers; compact and fast.

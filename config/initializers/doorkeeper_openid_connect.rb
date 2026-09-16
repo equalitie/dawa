@@ -22,9 +22,9 @@ Doorkeeper::OpenidConnect.configure do
   # We therefore derive it from the stable (per environment) public URL rather than the
   # per-request host, so the discovery document, authorize, and token endpoints all agree.
   # The OAuth provider is mounted at /oauth.
-  issuer "#{Conf.openid_provider_url}"
+  issuer Conf.openid_provider_url
 
-  signing_key File.read("config/oidc_signing_key.pem")
+  signing_key Conf.openid_private_key
 
   # `signing_key` also accepts an array for key rotation. The first entry is
   # the active key used to sign newly issued ID tokens; any remaining entries
