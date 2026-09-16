@@ -1,0 +1,16 @@
+global:
+  scrape_interval: 15s
+  scrape_timeout: 10s
+
+scrape_configs:
+  - job_name: 'node'
+    static_configs:
+      - targets: ['host.docker.internal:9100']
+    scrape_interval: 30s  # Override for less frequent CPU-intensive scraping
+    scrape_timeout: 10s
+    honor_labels: true
+    # If node-exporter has many metrics, use metric_relabel_configs:
+    # metric_relabel_configs:
+    #   - source_labels: [__name__]
+    #     regex: 'node_(cpu|memory|filesystem)_.*'
+    #     action: keep  # Only keep CPU, memory, and filesystem metrics

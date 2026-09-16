@@ -19,4 +19,8 @@ Dawa is the web interface for managing:
 
 ## Contributing
 
+## Links
+
+* Node Exporter: used to gather statistics for the host. https://github.com/prometheus/node_exporter
+
 ## License
