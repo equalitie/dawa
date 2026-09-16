@@ -1,12 +1,3 @@
-# syntax=docker/dockerfile:1
-# check=error=true
-
-# This Dockerfile is designed for production, not development. Use with Kamal or build'n'run by hand:
-# docker build -t dawa .
-# docker run -d -p 80:80 -e RAILS_MASTER_KEY=<value from config/master.key> --name dawa dawa
-
-# For a containerized dev environment, see Dev Containers: https://guides.rubyonrails.org/getting_started_with_devcontainer.html
-
 # Make sure RUBY_VERSION matches the Ruby version in .ruby-version
 ARG RUBY_VERSION=3.4.4
 FROM docker.io/library/ruby:$RUBY_VERSION-slim AS base
@@ -16,7 +7,17 @@ WORKDIR /rails
 
 # Install base packages
 RUN apt-get update -qq && \
-    apt-get install --no-install-recommends -y curl libjemalloc2 libvips sqlite3 && \
+    apt-get install --no-install-recommends -y \
+      # for healthcheck:
+      curl \
+      # better memory management:
+      libjemalloc2 \
+      # image processing
+      libvips \
+      # for nacl gem:
+      libsodium23 \
+      # maybe not needed:
+      sqlite3 && \
     ln -s /usr/lib/$(uname -m)-linux-gnu/libjemalloc.so.2 /usr/local/lib/libjemalloc.so && \
     rm -rf /var/lib/apt/lists /var/cache/apt/archives
 
@@ -32,30 +33,37 @@ FROM base AS build
 
 # Install packages needed to build gems
 RUN apt-get update -qq && \
-    apt-get install --no-install-recommends -y build-essential git libvips libyaml-dev pkg-config && \
+    apt-get install --no-install-recommends -y build-essential git libssl-dev libvips libyaml-dev pkg-config && \
     rm -rf /var/lib/apt/lists /var/cache/apt/archives
 
-# Install application gems
-COPY vendor/* ./vendor/
+# Install gems
 COPY Gemfile Gemfile.lock ./
+COPY gems/ ./gems/
+COPY engines/ ./engines/
 
-RUN bundle install && \
-    rm -rf ~/.bundle/ "${BUNDLE_PATH}"/ruby/*/cache "${BUNDLE_PATH}"/ruby/*/bundler/gems/*/.git && \
-    # -j 1 disable parallel compilation to avoid a QEMU bug: https://github.com/rails/bootsnap/issues/495
-    bundle exec bootsnap precompile -j 1 --gemfile
+RUN BUNDLER_VERSION=$(grep -A 1 "BUNDLED WITH" Gemfile.lock | tail -1 | tr -d ' ') && \
+    gem install bundler -v "$BUNDLER_VERSION"
 
-# Copy application code
+RUN bundle install --jobs=4 --retry=3 && \
+    # Generate binstubs for all executables
+    bundle binstubs --all && \
+    # Add the binstubs directory to PATH
+    echo 'export PATH="./bin:$PATH"' >> ~/.bashrc && \
+    # remove cache files
+    rm -rf ~/.bundle/ "${BUNDLE_PATH}"/ruby/*/cache "${BUNDLE_PATH}"/ruby/*/bundler/gems/*/.git
+
+# make system rake match Gemfile rake
+RUN RAKE_VERSION=$(bundle exec rake --version | cut -d' ' -f3) && \
+    gem install rake -v "$RAKE_VERSION" --no-document
+
+# Install all source code
 COPY . .
 
 # Precompile bootsnap code for faster boot times.
-# -j 1 disable parallel compilation to avoid a QEMU bug: https://github.com/rails/bootsnap/issues/495
-RUN bundle exec bootsnap precompile -j 1 app/ lib/
+RUN bundle exec bootsnap precompile --gemfile app/ lib/ gems/ engines/
 
-# Precompiling assets for production without requiring secret RAILS_MASTER_KEY
-RUN SECRET_KEY_BASE_DUMMY=1 ./bin/rails assets:precompile
-
-
-
+# build static assets
+RUN rake dawa:precompile
 
 # Final stage for app image
 FROM base
@@ -73,5 +81,6 @@ COPY --chown=rails:rails --from=build /rails /rails
 ENTRYPOINT ["/rails/bin/docker-entrypoint"]
 
 # Start server via Thruster by default, this can be overwritten at runtime
-EXPOSE 80
+EXPOSE 8080
+ENV THRUSTER_HTTP_PORT=8080
 CMD ["./bin/thrust", "./bin/rails", "server"]

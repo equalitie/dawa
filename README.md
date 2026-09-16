@@ -6,13 +6,9 @@ Dawa is the web interface for managing:
 
 * Users and groups
 * Deploying & maintaining containerized applications
+* Backups and upgrades
 * Server metrics and logging
-* SSO 
-
-## Installation
-
-## Usage
-
+* OpenID Connect Provider / SSO 
 
 ## Dummy Data
 
@@ -28,7 +24,7 @@ To create a dummy container that simulates logs:
 docker run -d --name loggen kubetail/loggen:0.2.0
 ```
 
-### OIDC testing
+## OIDC testing
 
 The nature of OIDC is that the same hostname must resolve to the access the identity provider (Dawa in our case). If you are running Dawa on the host and a test OIDC client in a container, that can be a bit tricky. 
 
@@ -74,11 +70,40 @@ For the available options:
 docker run --rm authelia/oidc-tester-app oidc-tester-app --help
 ```
 
-## Support
+## Building as a Container
 
-## Roadmap
+Build container:
 
-## Contributing
+```sh
+docker build -t dawa .
+```
+
+Push image to registry: 
+
+```sh
+docker login gitlab.equalit.ie
+docker tag dawa git.equalit.ie/dcomms/dawa:latest
+docker push git.equalit.ie/dcomms/dawa:latest
+```
+
+## Running Demo
+
+Set up `.env` file:
+
+```sh
+cd container/demo
+# generate required env vars:
+docker run --rm dawa rake dawa:required > .env
+# ensure docker proxy runs with the right group id
+echo "DOCKER_GID=`getent group docker | cut -d: -f3`" >> .env
+```
+
+Run Dawa:
+
+```sh
+cd container/demo
+docker-compose up -d
+```
 
 ## Links
 

@@ -36,3 +36,4 @@
 /config/*.pem
 
 TODO.md
+.env

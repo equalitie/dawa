@@ -8,8 +8,10 @@
 variables:
   site_title: string required
   site_domain: domain required
+  openid_private_key: string required
   salt: hex required
-  db_password: string required
+  secret_key_base: hex required
+  #db_password: string required
 
 #
 # common default settings for all environments
@@ -17,6 +19,9 @@ variables:
 defaults:
   public_protocol: https
   private_protocol: http
+  demo: false
+  salt: ~
+  secret_key_base: ~
 
   site_title: ~
   site_domain: ~
@@ -24,10 +29,13 @@ defaults:
   site_private_url: "${private_protocol}://dawa:3000"
   websocket_url: ws://localhost:1234/
 
+  docker_url: ~
+
   # The URL clients use to reach the OIDC provider (and the issuer the discovery doc and
   # id_tokens advertise). Defaults to site_public_url; override per environment when clients
   # reach Dawa at a different address (e.g. host.docker.internal from a container).
   openid_provider_url: "${site_public_url}"
+  openid_private_key: ~
 
   db_port: 5432
   db_host: localhost
@@ -51,6 +59,7 @@ development:
   db_password: my_db_password
   docker_url: "unix:///var/run/docker.sock"
   openid_provider_url: http://host.docker.internal:3000
+  openid_private_key: "MIHcAgEBBEIBD+r2BD8nuN3yH27iHjnd4WE1laF2Ksn3FoTECrDWEUJ0lEDG8IOwWDze3wXdiUdD2X9oAFc7CUs0Tq2wwq24TUagBwYFK4EEACOhgYkDgYYABAHX7nzqp6gnHjKiQ0AJ3YJAhBW2rk+ajoeHBfxRsLfXQGnsh5ujgBNSzem0RmZ2P5PDw6CvPAaC5fxv1SbpeU5rSgGHtQ6sMcNC5sizpIj1uoLH8YAcOU7a+V9ePTIiRWhNM9gohWtQkwGHb67J6wdJqCQ7JCNt7tI8E9mVFMO2WQfBNQ=="
 
 test:
   demo: true
@@ -62,6 +71,7 @@ test:
   jwt_secret: my_jwt_secret
   db_name: dawa_test
   db_password: my_db_password
+  openid_private_key: "MIHcAgEBBEIBD+r2BD8nuN3yH27iHjnd4WE1laF2Ksn3FoTECrDWEUJ0lEDG8IOwWDze3wXdiUdD2X9oAFc7CUs0Tq2wwq24TUagBwYFK4EEACOhgYkDgYYABAHX7nzqp6gnHjKiQ0AJ3YJAhBW2rk+ajoeHBfxRsLfXQGnsh5ujgBNSzem0RmZ2P5PDw6CvPAaC5fxv1SbpeU5rSgGHtQ6sMcNC5sizpIj1uoLH8YAcOU7a+V9ePTIiRWhNM9gohWtQkwGHb67J6wdJqCQ7JCNt7tI8E9mVFMO2WQfBNQ=="
 
 production:
   site_public_url: "${public_protocol}://${site_domain}"
