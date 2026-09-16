@@ -20,7 +20,7 @@ module Auth
     #
     def initiate
       user = User.find_by_login(params[:login])
-      raise ErrorMessage, "No such user" unless user
+      raise StandardError, "No such user" unless user
 
       permit! { current_user.nil? || current_user == user }
 

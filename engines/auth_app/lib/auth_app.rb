@@ -83,13 +83,11 @@ module Auth
   mattr_accessor :jwt_expiry, default: "1 hour"
   mattr_accessor :secret_key_base
 
-  class Error < StandardError; end
-  class InvalidConfiguration < Error; end
-  class UnauthenticatedRequest < Error; end
-  class UnauthorizedRequest < Error; end
-  class SuspendedRequest < Error; end
-  class ForbiddenRequest < Error; end
-  class PasswordUpdateError < Error
+  class UnauthenticatedRequest < Exception; end
+  class UnauthorizedRequest < Exception; end
+  class SuspendedRequest < Exception; end
+  class ForbiddenRequest < Exception; end
+  class PasswordUpdateError < Exception
     attr_reader :errors
     def initialize(errors)
       @errors = errors
