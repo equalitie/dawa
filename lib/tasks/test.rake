@@ -20,13 +20,21 @@ end
 def run_rake_test(engine)
   print_command("cd #{engine} && RAILS_ENV=test rake test")
   Dir.chdir(engine) do
-    return system(
-      {
-        "RAILS_ENV" => "test",
-        "BUNDLE_GEMFILE" => File.expand_path("Gemfile")
-      },
-      "rake", "test"
-    )
+    # with_unbundled_env strips the parent (root app) bundler's RUBYOPT / BUNDLE_*
+    # so the engine's rake test boots against ITS OWN Gemfile.lock, not a leaked
+    # root context that would otherwise rewrite a lockfile in the wrong place.
+    return Bundler.with_unbundled_env do
+      system(
+        {
+          "RAILS_ENV" => "test",
+          "BUNDLE_GEMFILE" => File.expand_path("Gemfile"),
+          # Freeze the engine's bundle so its tests can never rewrite or regenerate a
+          # Gemfile.lock. This keeps `rake test:all` from polluting any lockfile.
+          "BUNDLE_FROZEN" => "true"
+        },
+        "rake", "test"
+      )
+    end
   end
 end
 
