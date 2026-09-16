@@ -14,6 +14,15 @@ class ApplicationController < ActionController::Base
   stale_when_importmap_changes
 
   def permit_admin!
-    permit! { current_user.is_admin? }
+    permit! { current_user&.is_admin? }
+  end
+
+  include Pagy::Method
+  def paginate(relation = nil, mode = :offset, &block)
+    if relation.nil? && block_given?
+      relation = yield
+    end
+    @pagy, records = pagy(mode, relation)
+    records
   end
 end

@@ -13,17 +13,23 @@
 .btn-toolbar.mb-3
   = v.link_button label: t(".new"), icon: "plus-lg", url: new_user_path
 
-= v.table do |t|
-  - t.column(:grow)
-  - t.column(:grow)
-  - t.column(:shrink)
-  - @users.each do |user|
-    - t.with_row do |r|
-      - r.with_cell do
-        = t.link_to v.avatar(user, label: user.display_name, size: 24), user
-        = t.link_to "@"+user.username, user
-        = v.state_badge(user, field: :is_admin, map: admin_badges)
-      - r.with_cell do
-        = t.link_to(user.email||" ", user)
-      - r.with_cell do
-        = v.state_badge(user, field: :is_active, map: active_badges)
+= v.tab_bar do |tabs|
+  - tabs.with_tab(label: t(".active"), url: users_path, active: params[:tab].nil?)
+  - tabs.with_tab(label: t(".inactive"), url: users_path(tab: "inactive"), active: params[:tab] == "inactive")
+  - tabs.with_tab(label: t(".admin"), url: users_path(tab: "admin"), active: params[:tab] == "admin")
+
+= v.paginate do
+  = v.table do |t|
+    - t.column(:grow)
+    - t.column(:grow)
+    - t.column(:shrink)
+    - @users.each do |user|
+      - t.with_row do |r|
+        - r.with_cell do
+          = t.link_to v.avatar(user, label: user.display_name, size: 24), user
+          = t.link_to "@"+user.username, user
+          = v.state_badge(user, field: :is_admin, map: admin_badges)
+        - r.with_cell do
+          = t.link_to(user.email||" ", user)
+        - r.with_cell do
+          = v.state_badge(user, field: :is_active, map: active_badges)

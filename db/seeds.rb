@@ -19,7 +19,7 @@ User.create!(username: "demo", display_name: "Demo Admin") do |user|
   user.is_admin = true
 end
 
-20.times do
+40.times do
   first_name = Faker::Name.first_name
   display_name = [first_name, Faker::Name.last_name].join(" ")
   username = first_name.downcase + rand(100..999).to_s

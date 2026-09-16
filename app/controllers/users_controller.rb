@@ -5,6 +5,14 @@ class UsersController < ApplicationController
 
   def index
     @users = User.order(:username)
+    if params[:tab].nil?
+      @users = @users.where(is_active: true)
+    elsif params[:tab] == "inactive"
+      @users = @users.where(is_active: false)
+    elsif params[:tab] == "admin"
+      @users = @users.where(is_admin: true)
+    end
+    @users = paginate(@users)
   end
 
   def show
