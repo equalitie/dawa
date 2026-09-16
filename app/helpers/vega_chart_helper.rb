@@ -62,7 +62,7 @@ module VegaChartHelper
                  legend: { orient: "top" } }
       )
       .layer([
-        { mark: { type: "area", interpolate: "monotone", opacity: 0.5 } },
+        { mark: clipped_mark({ type: "area", interpolate: "monotone", opacity: 0.5 }) },
         hover_tooltip_layer(tooltip)
       ])
       .spec
@@ -118,7 +118,13 @@ module VegaChartHelper
   #
   def x_encoding(time_domain = nil)
     enc = { field: "time", type: "temporal", axis: x_axis_config }
-    enc[:scale] = { domain: time_domain } if time_domain
+    # Disable nice/rounding on the x scale so the drawn extent always equals the data we
+    # provide (or the explicit domain we pin), keeping the first/last sample flush against
+    # the frame edges instead of letting Vega pad them outward to friendly boundaries.
+    enc[:scale] = { nice: false }
+    # When an explicit window is pinned (e.g. to show a full requested range even when
+    # data doesn't reach back that far), give the scale exactly that domain.
+    enc[:scale][:domain] = time_domain if time_domain
     enc
   end
 
@@ -148,10 +154,14 @@ module VegaChartHelper
 
   #
   # The base area mark layer (used where encoding is shared across layers).
+  # `clip: true` keeps the fill from ever spilling past the plot frame (the x/y axes)
+  # when the latest streamed points fall at/just beyond the edges of the requested
+  # (pinned) window; without it a drift between the axis domain and the newest data can
+  # render the series visibly overflowing the left/right axis lines.
   #
   def area_marks(interpolate:, color:, opacity:)
     [
-      { mark: { type: "area", interpolate: interpolate, color: color, opacity: opacity } }
+      { mark: clipped_mark({ type: "area", interpolate: interpolate, color: color, opacity: opacity }) }
     ]
   end
 
@@ -163,10 +173,17 @@ module VegaChartHelper
   #
   def series_mark(mark, opacity)
     if mark.to_sym == :line
-      { mark: { type: "line", interpolate: "monotone" } }
+      { mark: clipped_mark({ type: "line", interpolate: "monotone" }) }
     else
-      { mark: { type: "area", interpolate: "monotone", opacity: opacity } }
+      { mark: clipped_mark({ type: "area", interpolate: "monotone", opacity: opacity }) }
     end
+  end
+
+  # Marks default to drawing wherever their (possibly interpolated) geometry lands,
+  # extending outside the visible plot area when data drifts past the axis domain.
+  # Clipping them to the plot frame keeps that from spilling over the axes.
+  def clipped_mark(mark)
+    mark.merge(clip: true)
   end
 
   #
@@ -192,7 +209,7 @@ module VegaChartHelper
           }
         }
       ],
-      mark: { type: "circle", size: 80 },
+      mark: { type: "circle", size: 80, clip: true },
       encoding: {
         opacity: {
           condition: { test: { param: "hover", empty: false }, value: 1 },

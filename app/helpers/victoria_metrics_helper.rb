@@ -23,21 +23,37 @@ module VictoriaMetricsHelper
     HOST_CHARTS
   end
 
-  # Hash of chart key => Vega chart spec (empty data), with the x-domain pinned to the
-  # whole requested window so the axis spans the range even if data doesn't reach back
-  # that far. window_token selects both the time range and the per-point aggregation range.
+  # Hash of chart key => Vega chart spec (empty data). The x-axis is NOT pinned: the active
+  # window's data is the whole requested range, so Vega derives the domain from whatever
+  # points we stream, which makes the axis creep forward as each poll returns a newer "now"
+  # (live dashboard). window_token selects both the time range and the per-point aggregation
+  # range for the queries this page will run.
   def metrics_charts(window_token = DEFAULT_WINDOW)
     token = normalize_window_token(window_token)
-    time_domain = metrics_time_domain(token)
-    dashboard_charts.to_h { |key, defn| [ key, metrics_chart_spec(key, defn, [], range: window_range(token), time_domain: time_domain) ] }
+    dashboard_charts.to_h { |key, defn|
+      [ key, metrics_chart_spec(key, defn, [], range: window_range(token)) ]
+    }
   end
 
   # Millisecond-epoch x-domain [start, end] for the window denoted by window_token.
-  def metrics_time_domain(window_token = DEFAULT_WINDOW)
-    token = normalize_window_token(window_token)
-    window = window_duration(token)
-    ends = Time.current
-    [ (ends - window).to_f * 1000, ends.to_f * 1000 ].map(&:to_i)
+  # Both edges snap to the per-point sample grid (the window spans a whole number of
+  # steps), so the first and newest streamed samples land flush against the frame edges.
+  # This is the same reference `data` queries against, keeping the axis and cells aligned.
+  def metrics_time_domain(window_token = DEFAULT_WINDOW, now: Time.current)
+    start_s, end_s = metrics_sample_window(normalize_window_token(window_token), now: now)
+    [ start_s * 1000, end_s * 1000 ]
+  end
+
+  #
+  # Epoch-second [start, end] bounds (as Times) for window_token, grid-aligned to whole
+  # sample steps ending at the newest completed step at/before `now`. The data endpoint
+  # passes these straight to the VictoriaMetrics query so the latest returned sample lands
+  # exactly on the chart's right-hand axis edge (with no variable-width trailing gap from
+  # a window that ends mid-step on wall-clock "now").
+  #
+  def metrics_query_bounds(window_token = DEFAULT_WINDOW, now: Time.current)
+    start_s, end_s = metrics_sample_window(normalize_window_token(window_token), now: now)
+    [ Time.at(start_s), Time.at(end_s) ]
   end
 
   #
@@ -49,13 +65,14 @@ module VictoriaMetricsHelper
     token = normalize_window_token(window_token)
     range = window_range(token)
     step ||= "#{range_to_seconds(range)}s"
+    step_seconds = range_to_seconds(range) # per-point bucket width, authoritative for tiling
     dashboard_charts.to_h do |key, defn|
       rows = if multi_series?(defn)
         multi_series_rows(defn, range: range, start_time: start_time, end_time: end_time, step: step)
       else
         service.range(render_query(defn[:query], range), start_time: start_time, end_time: end_time, step: step)
       end
-      [ key, rows ]
+      [ key, pad_missing_points(rows, start_time: start_time, end_time: end_time, step_seconds: step_seconds) ]
     end
   end
 
@@ -93,6 +110,26 @@ module VictoriaMetricsHelper
     when "quarter" then 90.days
     else 24.hours
     end
+  end
+
+  #
+  # Integer epoch-seconds [start, end] of the window for token, aligned so the width is
+  # a whole number of per-point sample steps and `end` is the most recent completed step
+  # at/before `now`. Returns integer seconds (not ms) sorted for the query/domain math.
+  #
+  # @private
+  def metrics_sample_window(token, now:)
+    step_s  = range_to_seconds(window_range(token))
+    win_s   = effective_window_seconds(token)
+    n_steps = (win_s.to_f / step_s).round
+    end_s   = (now.to_i / step_s) * step_s
+    [ end_s - n_steps * step_s, end_s ]
+  end
+
+  # Effective window width in seconds, clamped to the retention max (so the tiled domain
+  # width always matches what the data endpoint actually queries).
+  def effective_window_seconds(token)
+    metrics_window(token).to_i
   end
 
   def normalize_window_token(token)
@@ -173,6 +210,35 @@ module VictoriaMetricsHelper
     defn[:series].each_with_index.flat_map do |(label, _color), i|
       service.range(render_query(defn[:queries][i], range), start_time: start_time, end_time: end_time, step: step)
               .map { |row| row.merge("series" => label) }
+    end
+  end
+
+  #
+  # Ensure every sampled slot of the requested window is present in the rows, substituting
+  # a null value for slots the backend had no sample for (rather than silently connecting the
+  # line/area across a gap). A slot is [..] the window tiled at step_seconds. For multi-series
+  # rows (tagged "series") each series is padded independently, since gaps can differ per series.
+  #
+  # @return [Array<Hash>] rows with complete, ascending coverage; missing slots carry
+  #   value_key ("value") = nil so Vega leaves a visible gap instead of interpolating.
+  #
+  def pad_missing_points(rows, start_time:, end_time:, step_seconds:)
+    start_ms = start_time.to_i * 1000
+    step_ms  = step_seconds * 1000
+    timeline = (0..((end_time.to_i * 1000 - start_ms) / step_ms.to_f).round)
+               .map { |i| start_ms + i * step_ms }
+    slot = ->(t_any) { (t_any.to_i - start_ms) / step_ms }
+    groups = rows.empty? ? { nil => [] } : rows.group_by { |row| row["series"] }
+
+    groups.flat_map do |group, group_rows|
+      by_point = group_rows.index_by { |row| slot.call(row["time"]) }
+      timeline.map do |t_ms|
+        row = by_point[slot.call(t_ms)]
+        next row if row
+        cursor = { "time" => t_ms, "value" => nil }
+        cursor["series"] = group unless group.nil?
+        cursor
+      end
     end
   end
 

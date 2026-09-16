@@ -1,6 +1,8 @@
 require_relative "../test_helper"
 
 class MetricsControllerTest < ActionDispatch::IntegrationTest
+  include VictoriaMetricsHelper
+
   def setup
     @user = User.create!(username: "metrics-test-#{SecureRandom.hex(4)}", is_admin: true, is_active: true)
   end
@@ -42,7 +44,7 @@ class MetricsControllerTest < ActionDispatch::IntegrationTest
     assert_redirected_to login_path
   end
 
-  def test_data_responds_success_with_expected_chart_keys
+  def test_data_responds_success_with_padded_full_grid_rows
     with_stubbed_service do
       login_as(@user)
       get data_metrics_path, headers: { "Accept" => "application/json" }
@@ -53,10 +55,18 @@ class MetricsControllerTest < ActionDispatch::IntegrationTest
       expected_keys = %w[cpu memory disk network]
       assert_equal expected_keys, body.fetch("points").keys
 
-      # The stub returns two rows per query. cpu has five mode-series => 5x, others two => 2x.
-      assert_equal 10, body["points"]["cpu"].size
-      assert_equal 4,  body["points"]["disk"].size
-      assert_equal 4,  body["points"]["network"].size
+      # Each stacked chart is padded to a full grid for its number of series (cpu = the 5
+      # cpu modes; the others have 2 series), with null value rows standing in where a sample
+      # is missing so Vega draws a gap instead of bridging it.
+      expected_series = { "cpu" => 5, "memory" => 2, "disk" => 2, "network" => 2 }
+      expected_series.each do |key, series_count|
+        rows = body["points"][key]
+        assert_equal series_count, rows.group_by { |row| row["series"] }.size, "series count for #{key}"
+        rows.each do |row|
+          assert row.key?("time"), "#{key} row missing time"
+          assert row.key?("value"), "#{key} row missing value (nil for gaps)"
+        end
+      end
     end
   end
 
@@ -101,5 +111,24 @@ class MetricsControllerTest < ActionDispatch::IntegrationTest
     # quarter resolves to 90 days (the 90-day retention cap) with a 6h range step
     assert_in_delta 7_776_000, window, 60
     assert_equal "21600s", recorded.first[:step]
+  end
+
+  def test_data_uses_the_most_recent_advancing_window
+    # The data endpoint should query the newest completed grid window (starting from now-ish),
+    # so fresh points creep in on each poll and feed the auto-derived live axis.
+    before = Time.current
+    recorded = []
+    with_stubbed_service(record: recorded) do
+      login_as(@user)
+      get data_metrics_path(window: "day"), headers: { "Accept" => "application/json" }
+      assert_response :success
+    end
+
+    assert recorded.any?
+    start_t, end_t = recorded.first[:start], recorded.first[:end]
+    # end is the newest completed 5m step at/before the request
+    assert_operator end_t, :<=, before.to_i
+    assert_equal 0, end_t % 300
+    assert_in_delta 24.hours.to_i, end_t - start_t, 1
   end
 end

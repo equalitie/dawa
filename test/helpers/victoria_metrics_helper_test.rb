@@ -93,6 +93,17 @@ class VictoriaMetricsHelperTest < ActiveSupport::TestCase
     assert_nil disk.dig(:encoding, :y, :axis), "no axis key should be added when format is blank"
   end
 
+  test "chart marks are clipped to the plot frame so data never spills past the axes" do
+    %w[cpu memory disk network].each do |key|
+      spec = metrics_charts("day")[key]
+      # every layer's mark must clip to the plot area
+      spec[:layer].each do |l|
+        mark = l[:mark]
+        assert_equal true, mark[:clip], "#{key} layer #{l.inspect} should clip"
+      end
+    end
+  end
+
   # The tooltip lives in the hover-circle layer (the last layer) of each chart spec.
   def chart_tooltip_encoding(spec)
     spec.dig(:layer, -1, :encoding, :tooltip)
@@ -130,22 +141,77 @@ class VictoriaMetricsHelperTest < ActiveSupport::TestCase
     end
   end
 
-  test "metrics_charts pins the x scale domain to the full requested window" do
-    before = Time.current
+  test "metrics_charts do not pin an x domain so the axis creeps with live data" do
     charts = metrics_charts("week")
-    after = Time.current
     charts.each_value do |spec|
-      domain = spec.dig(:encoding, :x, :scale, :domain)
-      assert_equal 2, domain.size
-      assert_in_delta before.to_f * 1000, domain.last, after.to_f * 1000
-      assert_in_delta (before - 7.days).to_f * 1000, domain.first, (after - 7.days).to_f * 1000
+      scale = spec.dig(:encoding, :x, :scale)
+      # auto domain: no explicit extent, so Vega derives it from the streamed points each
+      # poll and the newest data marches into the right edge (live creeping)
+      refute scale.key?(:domain), "x scale should not pin a domain (got #{scale.inspect})"
+      # nice disabled keeps the auto extent flush against the frame instead of puffing out
+      # to friendly time boundaries on either side
+      assert_equal false, scale[:nice]
     end
   end
 
-  test "metrics_time_domain defaults to the day window" do
-    now = Time.current
+  test "metrics_time_domain returns an aligned 24h day window" do
+    step_ms = 300 * 1000  # 5m per point for a day
     start_ms, end_ms = metrics_time_domain
-    assert_in_delta now.to_f * 1000, end_ms, 10_000
-    assert_in_delta (now - 24.hours).to_f * 1000, start_ms, 10_000
+    assert_equal 24.hours.to_i * 1000, end_ms - start_ms
+    assert_equal 0, end_ms % step_ms
+  end
+
+  test "metrics_query_bounds returns a grid-aligned advancing window" do
+    ref = Time.current
+    start_t, end_t = metrics_query_bounds("day", now: ref)
+    # grid aligned: end is a whole 5m step at/before the reference
+    assert_equal 0, end_t.to_i % 300
+    assert_in_delta 24.hours.to_i, (end_t - start_t).to_i, 1
+    assert_operator end_t.to_i, :<=, ref.to_i
+  end
+
+  test "pad_missing_points fills absent slots with null values on the step grid" do
+    step_s = 300
+    base = Time.at(1_700_000_000).to_i # arbitrary wall-clock second that is a multiple of step
+    start_ms = base * 1000
+    present = [
+      { "time" => start_ms, "value" => 1.0 },
+      # middle slot deliberately absent -> should become a nil gap
+      { "time" => (base + 2 * step_s) * 1000, "value" => 3.0 }
+    ]
+
+    padded = send(:pad_missing_points, present,
+                  start_time: Time.at(base), end_time: Time.at(base + 2 * step_s),
+                  step_seconds: step_s)
+
+    assert_equal 3, padded.size
+    times = padded.map { |row| row["time"] }
+    assert_equal [ start_ms, (base + step_s) * 1000, (base + 2 * step_s) * 1000 ], times
+    assert_equal 1.0, padded[0]["value"]
+    assert_nil padded[1]["value"], "missing middle slot should carry a null value (gap)"
+    assert_equal 3.0, padded[2]["value"]
+  end
+
+  test "pad_missing_points pads each stacked series independently" do
+    step_s = 60
+    base = Time.at(1_700_000_000).to_i
+    start_ms = base * 1000
+    end_ms   = (base + step_s) * 1000
+    rows = [
+      { "time" => start_ms, "value" => 2.0, "series" => "a" },        # series a at slot 0
+      { "time" => end_ms,   "value" => 5.0, "series" => "a" },        # series a at slot 1
+      { "time" => start_ms, "value" => 9.0, "series" => "b" }        # series b missing slot 1
+    ]
+
+    padded = send(:pad_missing_points, rows,
+                  start_time: Time.at(base), end_time: Time.at(base + step_s),
+                  step_seconds: step_s)
+
+    a = padded.select { |row| row["series"] == "a" }
+    b = padded.select { |row| row["series"] == "b" }
+    assert_equal 2, a.size
+    assert_equal [ 2.0, 5.0 ], a.map { |row| row["value"] }
+    assert_equal 2, b.size
+    assert_equal [ 9.0, nil ], b.map { |row| row["value"] }, "series b's gap at slot 1 stays null"
   end
 end
