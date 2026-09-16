@@ -14,3 +14,10 @@ module ActiveSupport
     # Add more helper methods to be used by all tests here...
   end
 end
+
+class ActionDispatch::IntegrationTest
+  def login_as(user)
+    post demo_session_path, params: { username: user.username }
+    follow_redirect!
+  end
+end

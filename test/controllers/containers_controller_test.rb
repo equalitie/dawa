@@ -3,14 +3,14 @@ require "docker_engine_ruby"
 
 class ContainersControllerTest < ActionDispatch::IntegrationTest
   def setup
-    @user = User.create!(username: "container-test-#{SecureRandom.hex(4)}", is_admin: true)
+    @user = User.create!(username: "container-test-#{SecureRandom.hex(4)}", is_admin: true, is_active: true)
   end
 
   def test_index_renders_table_when_docker_available
     container = OpenStruct.new(id: "id-123", names: ["/web-app"], image: "nginx:latest", status: "Up 2 hours", created: 1.hour.ago.to_i)
 
     stub_docker_list([container]) do
-      sign_in
+      login_as(@user)
       get containers_path
     end
 
@@ -21,7 +21,7 @@ class ContainersControllerTest < ActionDispatch::IntegrationTest
   def test_index_handles_connection_error
     ContainersController.define_method(:docker_client) { raise DockerEngineRuby::Errors::APIConnectionError.new(url: URI.parse("http://localhost")) }
 
-    sign_in
+    login_as(@user)
     get containers_path
 
     assert_response :success
@@ -32,42 +32,30 @@ class ContainersControllerTest < ActionDispatch::IntegrationTest
 
   def test_index_empty_list
     stub_docker_list([]) do
-      sign_in
+      login_as(@user)
       get containers_path
     end
 
     assert_response :success
   end
 
-  def test_restart_redirects_to_container
+  def test_restart_enqueues_job
     container_id = "restart-test-1"
 
-    client = Object.new
-    client.define_singleton_method(:containers) do
-      Object.new.tap do |c|
-        c.define_singleton_method(:restart) { |id| nil }
-      end
+    login_as(@user)
+
+    assert_enqueued_with(job: Containers::RestartJob, args: [ container_id ]) do
+      post restart_container_path(container_id)
     end
 
-    ContainersController.define_method(:docker_client) { client }
-
-    sign_in
-    post restart_container_path(container_id)
-
-    assert_redirected_to container_path(container_id)
-  ensure
-    ContainersController.send(:remove_method, :docker_client)
+    assert_response :ok
   end
 
-  def test_restart_handles_connection_error
-    ContainersController.define_method(:docker_client) { raise DockerEngineRuby::Errors::APIConnectionError.new(url: URI.parse("http://localhost")) }
-
-    sign_in
+  def test_restart_responds_ok_when_authenticated
+    login_as(@user)
     post restart_container_path("any-id")
 
-    assert_redirected_to containers_path
-  ensure
-    ContainersController.send(:remove_method, :docker_client)
+    assert_response :ok
   end
 
   def test_show_renders_container_details
@@ -75,7 +63,7 @@ class ContainersControllerTest < ActionDispatch::IntegrationTest
     container = build_container_stub(container_id)
 
     stub_docker_inspect(container_id, container) do
-      sign_in
+      login_as(@user)
       get container_path(container_id)
     end
 
@@ -90,7 +78,7 @@ class ContainersControllerTest < ActionDispatch::IntegrationTest
     container = build_container_stub(container_id, running: false, exit_code: 0, finished_at: "2026-07-23T10:00:00Z")
 
     stub_docker_inspect(container_id, container) do
-      sign_in
+      login_as(@user)
       get container_path(container_id)
     end
 
@@ -103,7 +91,7 @@ class ContainersControllerTest < ActionDispatch::IntegrationTest
     container = build_container_stub(container_id, running: false, exit_code: 137, finished_at: "2026-07-23T10:00:00Z")
 
     stub_docker_inspect(container_id, container) do
-      sign_in
+      login_as(@user)
       get container_path(container_id)
     end
 
@@ -116,7 +104,7 @@ class ContainersControllerTest < ActionDispatch::IntegrationTest
     container = build_container_stub(container_id)
 
     stub_docker_inspect(container_id, container) do
-      sign_in
+      login_as(@user)
       get container_path(container_id)
     end
 
@@ -140,7 +128,7 @@ class ContainersControllerTest < ActionDispatch::IntegrationTest
     )
 
     stub_docker_stats(container_id, stats_obj) do
-      sign_in
+      login_as(@user)
       get stats_container_path(container_id)
     end
 
@@ -161,7 +149,7 @@ class ContainersControllerTest < ActionDispatch::IntegrationTest
       end
     end
 
-    sign_in
+    login_as(@user)
     get stats_container_path(container_id)
 
     assert_response :success
@@ -287,8 +275,4 @@ class ContainersControllerTest < ActionDispatch::IntegrationTest
     )
   end
 
-  def sign_in
-    post demo_session_path, params: { username: @user.username }
-    follow_redirect!
-  end
 end
