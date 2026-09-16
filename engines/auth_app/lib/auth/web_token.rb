@@ -74,7 +74,7 @@ module Auth
     def self.encode(hsh, encrypt: false)
       encrypt_values(hsh) if encrypt
       add_expiry(hsh)
-      JWT.encode(hsh, Conf.jwt_secret, 'HS256')
+      JWT.encode(hsh, Auth.jwt_secret, 'HS256')
     end
 
     #
@@ -85,7 +85,7 @@ module Auth
     def self.decode(str)
       return {} unless str.present?
 
-      decoded = JWT.decode(str, Conf.jwt_secret, true, { algorithm: 'HS256' })
+      decoded = JWT.decode(str, Auth.jwt_secret, true, { algorithm: 'HS256' })
       # decoded = Array [ {"data"=>"test", ...}, # payload
       #                   {"alg"=>"HS256", ...} # header   ]
       jwt_data = decoded.first
@@ -99,7 +99,7 @@ module Auth
     private
 
     def self.get_from_header(request)
-      request.headers[Conf.jwt_header]&.sub(/^Bearer /, "")
+      request.headers[Auth.jwt_header]&.sub(/^Bearer /, "")
     end
 
     def self.get_from_params(request)
@@ -126,7 +126,7 @@ module Auth
 
     def self.add_expiry(hsh)
       now = Time.now
-      number, unit = Conf.jwt_expiry.split(" ")
+      number, unit = Auth.jwt_expiry.split(" ")
       expiry = number.to_i.send(unit)
       hsh["iat"] = now.to_i
       hsh["exp"] = (now + expiry).to_i

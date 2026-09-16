@@ -76,6 +76,11 @@ module Auth
   # used internally (derived from forbidden_usernames)
   mattr_accessor :forbidden_regexps
 
+  # jwt configuration (replaces Conf references)
+  mattr_accessor :jwt_secret
+  mattr_accessor :jwt_header, default: "HTTP_AUTHORIZATION"
+  mattr_accessor :jwt_expiry, default: "1 hour"
+
   class Error < StandardError; end
   class InvalidConfiguration < Error; end
   class UnauthenticatedRequest < Error; end

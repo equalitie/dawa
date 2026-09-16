@@ -18,6 +18,8 @@ module Auth
         @session = { vault: session.data["vault"] }
       elsif session.is_a?(ActionDispatch::Request::Session)
         @session = session
+      elsif session.is_a?(Hash)
+        @session = session
       end
       @session[:vault] ||= {}
     end
