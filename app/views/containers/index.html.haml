@@ -1,1 +1,29 @@
-%h1= t(".title")
+= breadcrumbs
+
+- if defined?(@error) && @error
+  .alert.alert-danger= @error
+
+= v.table do |t|
+  - t.column(:shrink, label: "Status")
+  - t.column(:grow, label: "Name")
+  - t.column(:shrink, label: "ID")
+  - t.column(:grow, label: "Image")
+  - t.column(:shrink, label: "Created")
+  - @containers.each do |container|
+    - t.with_row do |r|
+      - r.with_cell do
+        - status = container.status.to_s.downcase
+        - if status.include?("up")
+          %span.badge.bg-success= container.status
+        - elsif status.include?("exit") || status.include?("stop")
+          %span.badge.bg-secondary= container.status
+        - else
+          %span.badge.bg-warning= container.status
+      - r.with_cell do
+        = link_to container.names.first&.delete_prefix("/"), container_path(container.id)
+      - r.with_cell do
+        = link_to container.id.slice(0,12), container_path(container.id)
+      - r.with_cell do
+        = link_to container.image, container_path(container.id)
+      - r.with_cell do
+        = time_ago_in_words(Time.at(container.created))

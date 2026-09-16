@@ -18,7 +18,11 @@ Rails.application.routes.draw do
   resources :users
   resources :apps, only: :index
   resources :backups, only: :index
-  resources :containers, only: :index
+  resources :containers, only: [ :index, :show ] do
+    member do
+      post :restart
+    end
+  end
   resources :logs, only: :index
   resource :metrics, only: :show
   resource :troubleshoot, only: :show, controller: "troubleshoot"

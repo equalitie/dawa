@@ -1,0 +1,48 @@
+.card.mb-3
+  .card-header= t(".host_config")
+  .card-body
+    %table.table.table-sm.mb-0
+      %tbody
+        - if @container.host_config.network_mode
+          %tr
+            %th= t(".network_mode")
+            %td= @container.host_config.network_mode
+        - if @container.host_config.privileged
+          %tr
+            %th= t(".privileged")
+            %td= t("yes")
+        - if @container.host_config.port_bindings&.any?
+          %tr
+            %th= t(".port_bindings")
+            %td
+              - @container.host_config.port_bindings.each do |container_port, bindings|
+                - [bindings].flatten.each do |b|
+                  %div
+                    %code= b.host_ip || "0.0.0.0" + ":" + (b.host_port || "?") + " -> " + container_port
+        - if @container.host_config.binds&.any?
+          %tr
+            %th= t(".binds")
+            %td
+              - @container.host_config.binds.each do |b|
+                %div
+                  %code= b
+        - if @container.host_config.memory
+          %tr
+            %th= t(".memory")
+            %td= number_to_human_size(@container.host_config.memory)
+        - if @container.host_config.memory_swap
+          %tr
+            %th= t(".memory_swap")
+            %td= number_to_human_size(@container.host_config.memory_swap)
+        - if @container.host_config.cpu_shares
+          %tr
+            %th= t(".cpu_shares")
+            %td= @container.host_config.cpu_shares
+        - if @container.host_config.cpuset_cpus
+          %tr
+            %th= t(".cpuset_cpus")
+            %td= @container.host_config.cpuset_cpus
+        - if @container.host_config.restart_policy&.name
+          %tr
+            %th= t(".restart_policy")
+            %td= @container.host_config.restart_policy.name

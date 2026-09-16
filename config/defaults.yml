@@ -44,6 +44,7 @@ development:
   salt: "019f4f667b62e1df76051b373167abe6cea1c72648702f60f914acfdaba7f48d089d64a320184ed2e053055e8fd7950553d952bbe523cf976011fdacad04582b"
   db_name: dawa_development
   db_password: my_db_password
+  docker_url: "unix:///var/run/docker.sock"
 
 test:
   demo: true

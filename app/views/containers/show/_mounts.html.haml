@@ -1,0 +1,17 @@
+.card.mb-3
+  .card-header= t(".mounts")
+  .card-body
+    %table.table.table-sm.mb-0
+      %thead
+        %tr
+          %th= t(".mount_type")
+          %th= t(".mount_source")
+          %th= t(".mount_destination")
+      %tbody
+        - @container.mounts.each do |m|
+          %tr
+            %td= m.type
+            %td
+              %code= m.source
+            %td
+              %code= m.destination

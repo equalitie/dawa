@@ -1,0 +1,9 @@
+* {
+  // always break words that would cause overflow,
+  // but don't break other words.
+  overflow-wrap: anywhere;
+}
+
+code {
+  overflow-wrap: anywhere !important;
+}

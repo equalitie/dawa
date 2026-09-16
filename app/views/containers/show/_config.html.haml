@@ -1,0 +1,44 @@
+.card.mb-3
+  .card-header= t(".config")
+  .card-body
+    %table.table.table-sm.mb-0
+      %tbody
+        - if @container.config.cmd&.any?
+          %tr
+            %th.text-nowrap= t(".cmd")
+            %td
+              %code= @container.config.cmd.join(" ")
+        - if @container.config.entrypoint&.any?
+          %tr
+            %th.text-nowrap= t(".entrypoint")
+            %td
+              %code= @container.config.entrypoint.join(" ")
+        - if @container.config.env&.any?
+          %tr
+            %th.text-nowrap= t(".env")
+            %td
+              - @container.config.env.each do |e|
+                %div
+                  %code= e
+        - if @container.config.user.present?
+          %tr
+            %th.text-nowrap= t(".user")
+            %td= @container.config.user
+        - if @container.config.working_dir.present?
+          %tr
+            %th.text-nowrap= t(".working_dir")
+            %td= @container.config.working_dir
+        - if @container.config.exposed_ports&.any?
+          %tr
+            %th.text-nowrap= t(".exposed_ports")
+            %td
+              - @container.config.exposed_ports.keys.each do |port|
+                %div
+                  %code= port
+        - if @container.config.labels&.any?
+          %tr
+            %th.text-nowrap= t(".labels")
+            %td
+              - @container.config.labels.each do |k, v|
+                %div
+                  %code= "#{k}: #{v}"

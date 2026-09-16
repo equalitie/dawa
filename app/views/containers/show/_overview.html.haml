@@ -1,0 +1,52 @@
+.card.mb-3
+  .card-header= t(".overview")
+  .card-body
+    %table.table.table-sm.mb-0
+      %tbody
+        - if @container.state.started_at
+          %tr
+            %th.text-nowrap= t(".started")
+            %td= time_tag Time.parse(@container.state.started_at)
+        - if @container.state.finished_at
+          %tr
+            %th.text-nowrap= t(".finished")
+            %td= time_tag Time.parse(@container.state.finished_at)
+        %tr
+          %th.text-nowrap= t(".image")
+          %td= @container.image
+        %tr
+          %th.text-nowrap= t(".platform")
+          %td= @container.platform
+        %tr
+          %th.text-nowrap= t(".created")
+          %td= time_tag @container.created
+        %tr
+          %th.text-nowrap= t(".restart_count")
+          %td= @container.restart_count
+        - if @container.size_rw
+          %tr
+            %th.text-nowrap= t(".size_rw")
+            %td= number_to_human_size(@container.size_rw)
+        - if @container.size_root_fs
+          %tr
+            %th.text-nowrap= t(".size_root_fs")
+            %td= number_to_human_size(@container.size_root_fs)
+        %tr
+          %th.text-nowrap= t(".driver")
+          %td= @container.driver
+        %tr
+          %th.text-nowrap= t(".hostname_path")
+          %td
+            %code= @container.hostname_path
+        %tr
+          %th.text-nowrap= t(".hosts_path")
+          %td
+            %code= @container.hosts_path
+        %tr
+          %th.text-nowrap= t(".resolv_conf_path")
+          %td
+            %code= @container.resolv_conf_path
+        %tr
+          %th.text-nowrap= t(".log_path")
+          %td
+            %code= @container.log_path

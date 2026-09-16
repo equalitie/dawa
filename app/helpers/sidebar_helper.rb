@@ -28,7 +28,7 @@ module SidebarHelper
     }
     sb[:containers] = {
       label: t("sidebar.containers"),
-      icon: "hdd-rack",
+      icon: "box",
       path: main_app.containers_path,
       active: active?(c: "containers")
     }

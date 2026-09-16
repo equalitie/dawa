@@ -72,6 +72,8 @@ group :development, :test do
 
   gem "faker"
 
+  gem "ostruct" # used for docker tests
+
   # Audits gems for known security defects (use config/bundler-audit.yml to ignore issues)
   gem "bundler-audit", require: false
 
