@@ -92,3 +92,13 @@ en:
 
   profiles:
     remove_image: Remove Image
+
+  sidebar:
+    home: "Home"
+    users: "Users"
+    apps: "Apps"
+    logs: "Logs"
+    metrics: "Metrics"
+    troubleshoot: "Troubleshoot"
+    settings: "Settings"
+    authentication: "Authentication"
