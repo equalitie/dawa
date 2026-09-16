@@ -1,0 +1,12 @@
+---
+fr:
+  components:
+    delete: "Supprimer"
+    cancel: "Annuler"
+    close: "Fermer"
+    create: "Créer"
+    update: "Mettre à jour"
+    save: "Enregistrer"
+    save_thing: "Enregistrer %{thing}"
+    none: "Aucun"
+    no_thing: "Aucun %{thing}"

@@ -1,0 +1,11 @@
+de:
+  components:
+    delete: "Löschen"
+    cancel: "Abbrechen"
+    close: "Schließen"
+    create: "Erstellen"
+    update: "Aktualisieren"
+    save: "Speichern"
+    save_thing: "%{thing} speichern"
+    none: "Keine"
+    no_thing: "Keine %{thing}"

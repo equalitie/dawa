@@ -1,0 +1,20 @@
+// AVATAR
+
+.avatar-bg {
+  background: var(--avatar-url) center / cover no-repeat;
+}
+
+img.avatar {
+  border-radius: 100%;
+  outline: 1px solid white;
+}
+
+span.avatar {
+  & img {
+    height: var(--avatar-size);
+    width: var(--avatar-size);
+    margin-right: 4px;
+    position: relative;
+    top: -1px;
+  }
+}

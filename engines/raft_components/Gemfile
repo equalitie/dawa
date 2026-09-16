@@ -1,0 +1,5 @@
+source 'https://gem.coop'
+gemspec
+
+gem "sqlite3"
+gem "irb", "~> 1.13"

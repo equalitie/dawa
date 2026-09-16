@@ -1,0 +1,267 @@
+//
+// RAFT COMPONENTS
+//
+
+@use "contain_image";
+@use "autocomplete";
+@use "timeline";
+@use "avatar";
+
+:root {
+  --selected-border-color: var(--bs-primary-border-subtle);
+  --selected-bg: var(--bs-primary-bg-subtle);
+  // other vars for UI elements:
+  // --hover-bg
+  // --hover-border-color
+  // --bs-border-color
+}
+
+// BUTTONS
+// display a <button> as if it was a link. bootstrap class btn-link does the same thing,
+// but keeps the button-like spacing. This uses text-like spacing.
+.btn-text {
+  background-color: transparent;
+  border: none;
+  &:hover {
+    text-decoration: underline;
+  }
+}
+
+// some buttons show different content when disabled (submission pending)
+button[disabled] .when-disabled {
+  display: inline !important;
+}
+button[disabled] .when-enabled {
+  display: none !important;
+}
+
+//
+// DropdownButton
+//
+
+.dropdown-toggle.no-triangle:after {
+  display: none;
+}
+
+//
+// THEME'ED HOVER
+// change the hover color with --hover-bg
+//
+.hover {
+  &:hover {
+    background-color: var(--hover-bg);
+    border-color: var(--hover-border-color);
+  }
+}
+
+//
+// RADIO GROUPS & SWATCHES
+//
+
+.radio-swatches {
+  input:checked + .swatch {
+    position: relative;
+    z-index: 500;
+    border: 2px solid white;
+    outline: 2px solid black;
+    transform: scale(1.2);
+  }
+}
+
+.radio-card {
+  cursor: pointer;
+  //border: 1px solid var(--border-color);
+  transition: all 0.2s ease;
+}
+
+//.radio-card:hover {
+//  border-color: var(--bs-light);
+//}
+
+.radio-input:checked + .radio-card {
+  border-color: var(--selected-border-color);
+  background-color: var(--selected-bg);
+}
+
+//
+// ACTIONBAR
+// a toast that is positioned at the bottom of the content.
+//
+
+.actionbar {
+  margin: var(--content-padding);
+  margin-left: calc(var(--sidebar-actual-width) + var(--content-padding));
+}
+
+// PROGRESS STEPS
+
+/* $progress-step-active: var(--bs-primary);
+$progress-step-border: var(--bs-dark-border-subtle);
+$progress-step-label: var(--bs-dark);
+$progress-step-border-size: 2px;
+//$progress-step-color: #999;
+
+.progress-steps {
+  .step-gap {
+    border-top: $progress-step-border-size solid $progress-step-border;
+    flex-grow: 1;
+    margin-left: $progress-step-border-size;
+    &.active {
+      border-top: $progress-step-border-size solid $progress-step-active;
+    }
+    &.short {
+      width: 4px;
+    }
+  }
+  .step-button {
+    padding: 8px !important;
+    line-height: 1em;
+    svg {
+      margin: 0 !important;
+    }
+    border: $progress-step-border-size solid white;
+    outline: $progress-step-border-size solid $progress-step-border;
+    //opacity: .65;
+  }
+  .step-active {
+    outline: $progress-step-border-size solid $progress-step-active;
+    opacity: 1;
+  }
+  .step-label {
+    text-transform: uppercase;
+    font-size: 80%;
+    color: $progress-step-label;
+    line-height: 1.2em;
+    margin-left: 4px;
+    margin-right: 4px - $progress-step-border-size;
+    white-space: nowrap;
+    &.active {
+      color: $progress-step-active;
+    }
+  }
+}
+
+.progress-steps.label-under {
+  .step {
+    text-align: center;
+    position: relative;
+  }
+  .step-label {
+    position: absolute;
+    margin: 4px auto 0 auto;
+    left: 50%;
+    transform: translate(-50%, 0%);
+    overflow: hidden;
+  }
+} */
+
+//
+// this is not used anymore because sometimes turbo applies aria-busy
+// to the wrong frame when frames are nested.
+//
+/* turbo-frame[aria-busy="true"] + .frame-progress > .when-not-busy {
+  display: none !important;
+}
+turbo-frame[aria-busy="true"] + .frame-progress > .when-busy {
+  display: block !important;
+} */
+
+//
+// ALERTS
+//
+
+//
+// p and ul by default have a bottom margin, but this looks bad when inside
+// an alert. sometime the p or ul is nested in an .alert-body.
+
+.alert p:last-child,
+.alert .alert-body p:last-child,
+.alert ul:last-child,
+.alert .alert-body ul:last-child {
+  margin-bottom: 0;
+}
+.alert ul {
+  padding-inline-start: 20px;
+}
+
+//
+// CARDS
+//
+
+/*
+ * Bootstrap 5.3 Cards & Tables: Seamless SCSS Solution
+ * https://gist.github.com/tinyoverflow/999c7797ce51582ea4481b2501e7ad20
+ */
+.card {
+  &:has(> .table:last-child),
+  &:has(> [class^="table-responsive"]:last-child .table) {
+    overflow: hidden;
+  }
+
+  > .table,
+  > [class^="table-responsive"] > .table {
+    /*
+         * Adjusts the padding of the first and last table column to match the card
+         * padding. Otherwise tables in cards will look off when combining them
+         * with other card elements.
+         */
+    > :not(caption) > * {
+      > *:first-child {
+        padding-left: var(--bs-card-cap-padding-x);
+      }
+
+      > *:last-child {
+        padding-right: var(--bs-card-cap-padding-x);
+      }
+    }
+
+    /*
+         * Removes the bottom margin on the table element inside a card, as it is
+         * not needed anyway. If it's the last child, a bottom margin adds unwanted
+         * spacing. If elements come after it, they have their own spacing applied.
+         */
+    margin-bottom: 0;
+  }
+
+  /*
+     * Removes the bottom border of the very last element of a table if the table
+     * is the last child of the card. This is done to prevent rendering the
+     * border of the card and the border of the table row at the same time.
+     */
+  > .table:last-child,
+  > [class^="table-responsive"]:last-child > .table {
+    > :not(caption):last-child > *:last-child > * {
+      border-width: 0;
+    }
+  }
+
+  /*
+     * Add a border between card elements and tables as there is no visual
+     * separation between a card element and a table otherwise.
+     */
+  > *:has(+ .table),
+  > *:has(+ [class^="table-responsive"]) {
+    border-bottom: var(--bs-card-border-width) solid var(--bs-card-border-color);
+  }
+}
+
+//
+// when pagination is in card footer, it should not have a margin
+//
+.card-footer ul.pagination {
+  margin: 0 !important;
+}
+
+//
+// Expander button: make any div take the full viewport.
+//
+
+.fill-viewport {
+  position: fixed !important;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  z-index: 9999;
+  overflow: auto;
+}

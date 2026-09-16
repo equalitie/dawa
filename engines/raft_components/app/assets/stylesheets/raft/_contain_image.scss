@@ -1,0 +1,93 @@
+.contain-image {
+  display: block;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  line-height: 0;
+
+  .visible {
+    opacity: 1;
+  }
+  .hidden {
+    opacity: 0;
+    pointer-events: none;
+  }
+
+  &-sizer {
+    width: 100%;
+    height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  &-inner {
+    display: grid;
+    place-items: center;
+    width: 100%;
+    height: 100%;
+    container-type: size;
+  }
+
+  &-box {
+    position: relative;
+    aspect-ratio: var(--aspect-ratio, 1);
+    max-width: 100%;
+    max-height: 100%;
+    width: min(100%, calc(100cqh * var(--aspect-ratio)));
+    min-width: 0;
+    min-height: 0;
+  }
+
+  &-img {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+    display: block;
+    opacity: 0;
+    transition: opacity 0.1s ease;
+  }
+
+  &-pixel {
+    position: absolute;
+    inset: 0;
+    background-size: cover;
+    background-position: center;
+    transition: opacity 0.1s ease;
+  }
+
+  &-placeholder {
+    display: none;
+    position: absolute;
+    inset: 0;
+    align-items: center;
+    justify-content: center;
+    background: #f0f0f0;
+    color: #888;
+    font-size: 0.85rem;
+    text-align: center;
+    padding: 1rem;
+    border: 1px dashed #ccc;
+  }
+
+  &-link {
+    display: none;
+    position: absolute;
+    inset: 0;
+    cursor: pointer;
+
+    &:focus-visible {
+      outline: 2px solid Highlight;
+      outline-offset: 2px;
+    }
+  }
+}
+
+/* .contain-image-parent {
+  display: block;
+  flex-grow: 1;
+  overflow: hidden;
+  line-height: 0;
+} */

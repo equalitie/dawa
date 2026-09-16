@@ -1,0 +1,11 @@
+pt:
+  components:
+    delete: "Excluir"
+    cancel: "Cancelar"
+    close: "Fechar"
+    create: "Criar"
+    update: "Atualizar"
+    save: "Salvar"
+    save_thing: "Salvar %{thing}"
+    none: "Nenhum"
+    no_thing: "Nenhum %{thing}"
