@@ -30,6 +30,54 @@ class SessionControllerTest < ActionDispatch::IntegrationTest
     end
   end
 
+  # FIXME: test GET auth.session_path (new) renders the login page
+  def test_new
+    skip "Not yet implemented"
+    assert true
+  end
+
+  # FIXME: test POST initiate with valid login returns JSON webauthn options
+  def test_initiate_valid_user
+    skip "Not yet implemented"
+    assert true
+  end
+
+  # FIXME: test POST initiate with unknown login returns error JSON
+  def test_initiate_invalid_user
+    skip "Not yet implemented"
+    assert true
+  end
+
+  # FIXME: test POST verify with valid webauthn credential logs in and redirects
+  def test_verify_valid_credential
+    skip "Not yet implemented"
+    assert true
+  end
+
+  # FIXME: test POST verify with invalid credential returns error
+  def test_verify_invalid_credential
+    skip "Not yet implemented"
+    assert true
+  end
+
+  # FIXME: test POST phrase with correct encryption phrase unlocks vault
+  def test_phrase_valid
+    skip "Not yet implemented"
+    assert true
+  end
+
+  # FIXME: test POST phrase with wrong encryption phrase returns error
+  def test_phrase_invalid
+    skip "Not yet implemented"
+    assert true
+  end
+
+  # FIXME: test DELETE session (destroy) logs out and clears session
+  def test_destroy
+    skip "Not yet implemented"
+    assert true
+  end
+
   # def test_session_encrypted
   #   creator.user
   #   assert_difference "Auth::Session.count" do
