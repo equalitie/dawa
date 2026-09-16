@@ -162,4 +162,50 @@ class VictoriaLogsTest < ActiveSupport::TestCase
   test "build_query drops blank field filters" do
     assert_equal "level:error", VictoriaLogs.build_query(field_filters: [ "", "  ", "level:error" ])
   end
+
+  ##
+  ## cursor (live polling)
+  ##
+
+  test "build_query turns a cursor into a half-open time interval" do
+    # Half-open on the left: the browser already holds the row at exactly the cursor, so
+    # including it would re-send that row on every poll.
+    cursor = Time.utc(2026, 9, 8, 0, 59, 13)
+
+    assert_equal "_time:(2026-09-08T00:59:13.000000Z, now]",
+                 VictoriaLogs.build_query(cursor: cursor)
+  end
+
+  test "build_query keeps microsecond precision in the cursor" do
+    # Truncating to seconds would re-fetch every row in that second on each poll.
+    cursor = Time.utc(2026, 9, 8, 0, 59, 13, 123_456)
+
+    assert_includes VictoriaLogs.build_query(cursor: cursor), "2026-09-08T00:59:13.123456Z"
+  end
+
+  test "build_query prefers the cursor over a time range" do
+    # They are alternatives: intersecting them would only cost more.
+    query = VictoriaLogs.build_query(time_range: "24h", cursor: Time.utc(2026, 9, 8, 0, 59, 13))
+
+    assert_includes query, "_time:("
+    refute_includes query, "_time:24h"
+  end
+
+  test "build_query keeps field filters and text alongside a cursor" do
+    query = VictoriaLogs.build_query(
+      field_filters: [ 'host:"tern"' ], text: "failed", cursor: Time.utc(2026, 9, 8, 0, 59, 13)
+    )
+
+    assert_equal 'host:"tern" "failed" _time:(2026-09-08T00:59:13.000000Z, now]', query
+  end
+
+  test "build_query renders the cursor in UTC regardless of the instant's zone" do
+    # The client's cursor arrives as a parsed Time; VictoriaLogs compares instants, so the
+    # rendering must not depend on the server's zone.
+    utc = Time.utc(2026, 9, 8, 0, 59, 13)
+    shifted = utc.in_time_zone("America/Los_Angeles") # 2026-09-07 local
+
+    assert_equal VictoriaLogs.build_query(cursor: utc),
+                 VictoriaLogs.build_query(cursor: shifted)
+  end
 end

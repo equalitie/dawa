@@ -1,19 +1,63 @@
 module LogsHelper
-  # Selectable "last N" windows for the time filter, shortest first. The values are
-  # LogsQL `_time:` durations; the labels are translated.
-  RANGE_OPTIONS = %w[15m 1h 6h 24h 7d].freeze
-  DEFAULT_RANGE = "1h"
+  #
+  # Default range and the selectable windows now live in the field catalog / filters, so the
+  # picker, the query builder, and the refresh endpoint cannot disagree about which windows
+  # are legal.
+  #
+  RANGE_OPTIONS = LogsFilters::RANGE_OPTIONS
+  DEFAULT_RANGE = LogsFilters::DEFAULT_RANGE
 
   # The selected time window (a `_time:` duration), constrained to RANGE_OPTIONS.
   def logs_range
-    value = params[:range].to_s
-    RANGE_OPTIONS.include?(value) ? value : DEFAULT_RANGE
+    current_filters.range
   end
 
   # The selectable range options (exposed for the view without referencing the module
   # constant directly).
   def logs_range_options
     RANGE_OPTIONS
+  end
+
+  #
+  # The current filter state for this request. Memoized per request so the page and any
+  # partial share one parse, and so an invalid param is dropped exactly once.
+  #
+  def current_filters
+    @current_filters ||= LogsFilters.new(params)
+  end
+
+  # The fields the user may filter on, as the catalog defines them.
+  def logs_filterable_fields
+    LogsFieldCatalog::HOST_FILTERABLE
+  end
+
+  #
+  # A URL path carrying the given filter state as an explicit query string.
+  #
+  # Why not just `logs_path(**filter_params)`?
+  #
+  # A SYMBOL key named `host` is not a query param to a route helper: it is the URL
+  # option that sets the request host, so it is consumed and never emitted.
+  #
+  #   logs_path(host: "tern")             # => "/logs"                (host consumed)
+  #   logs_path({ "host" => "tern" })     # => "/logs?host=tern"      (string key: a param)
+  #   logs_path(host: "tern", text: "x")  # => "/logs?text=x"         (host silently gone)
+  #
+  # `overrides` is a plain Hash (positional, not keywords) because callers pass `range`,
+  # which would otherwise be captured as a keyword.
+  #
+  def logs_path_with(overrides = {}, filters: current_filters)
+    query = filters.to_params(overrides).to_query
+    query.present? ? "#{logs_path}?#{query}" : logs_path
+  end
+
+  #
+  # The URL for the JSON refresh endpoint carrying the current filter state, so the
+  # Stimulus controller starts from exactly what the server rendered.
+  #
+  def logs_refresh_path(filters = current_filters)
+    query = filters.to_params.to_query
+    query.present? ? "#{data_logs_path}?#{query}" : data_logs_path
   end
 
   #
@@ -73,5 +117,46 @@ module LogsHelper
   # The full record rendered as pretty JSON, for the collapsible "full JSON" cell.
   def log_json(record)
     JSON.pretty_generate(record)
+  end
+
+  ##
+  ## JSON refresh (Step 4)
+  ##
+
+  #
+  # One record as the JSON row the refresh endpoint returns.
+  #
+  # The client renders rows from this shape rather than re-deriving display strings, so the
+  # live-appended rows are formatted by the same Ruby that formatted the initial page render.
+  # That is what keeps "live" from looking subtly different from "loaded": time formatting,
+  # truncation, and the source badge all stay server-side.
+  #
+  # `key` is the identity used for client-side dedupe when batches overlap at a cursor
+  # boundary. See `log_row_key`.
+  #
+  def log_row(record)
+    {
+      key: log_row_key(record),
+      time: record["_time"],
+      time_display: log_time(record),
+      source: log_source(record),
+      message: log_message(record),
+      message_full: record["_msg"].to_s,
+      json: log_json(record)
+    }
+  end
+
+  #
+  # A stable identity for a record, used to drop rows we have already shown.
+  #
+  # Timestamps are NOT unique: syslog can emit several lines within the same microsecond,
+  # and journald records are frequently emitted in bursts sharing a `_time`. Keying on time
+  # alone would therefore discard real logs. `_stream_id` + `_time` + the message body is
+  # specific enough in practice, and stays stable across polls because every part comes from
+  # the record itself.
+  #
+  def log_row_key(record)
+    stream = record["_stream_id"].presence || record["_stream"].presence || record["host"].presence || ""
+    "#{stream}|#{record["_time"]}|#{record["_msg"]}"
   end
 end

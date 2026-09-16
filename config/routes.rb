@@ -27,7 +27,11 @@ Rails.application.routes.draw do
   resources :backups, only: :index
   resources :containers
   get "containers/:id/stats", to: "container_stats#stats", as: :stats_container
-  resources :logs, only: :index
+  resources :logs, only: :index do
+    # JSON refresh endpoint. Named explicitly so it does not collide with the
+    # `data` member route the singular `resource :metrics` below generates.
+    get :data, on: :collection, as: :data
+  end
   resource :metrics, only: :show do
     get :data
   end

@@ -1,33 +1,88 @@
 = breadcrumbs
 
-.btn-toolbar.mb-3
-  = v.dropdown_button(label: t("logs.index.range.#{@range}"), icon: "clock-history") do |menu|
-    - logs_range_options.each do |option|
-      - menu.item do
-        = v.link_button(label: t("logs.index.range.#{option}"), url: logs_path(range: option))
+-#
+  The log explorer (logs-plan Steps 3-4).
 
-- if @error.present?
-  = v.alert("danger", icon: "x-circle") do
-    .mb-2.fw-bold= t("logs.index.unreachable")
-    %div= @error
+  Filter state lives entirely in the URL: the controls are ordinary links, so changing a
+  filter is a normal page navigation the server renders. The Stimulus controller only
+  refreshes what is already on the page, which keeps filter state in one place and LogsQL
+  assembly server-side.
 
-= v.table(t(".title")) do |t|
-  - LogsFieldCatalog::HOST_FIELDS.each do |field|
-    - t.column :shrink, label: t("logs.field.#{field}")
-  - t.column :grow, label: t("logs.index.details")
-  - @logs.each do |record|
-    - t.with_row do |r|
+  The `rows` target is the table element: `v.table` renders `<tr>`s directly inside
+  `<table>` (no `<tbody>`), so the table itself is the container new rows are prepended
+  into. New rows are built from the same `logs/row` shape via the JSON endpoint.
+
+= v.controller("logs-explorer",
+    url: logs_refresh_path(@filters),
+    interval: Conf.logs_poll_interval_ms,
+    cursor: @cursor) do
+
+  .btn-toolbar.mb-3.gap-2
+    = v.dropdown_button(label: t("logs.index.range.#{@filters.range}"), icon: "clock-history") do |menu|
+      - logs_range_options.each do |option|
+        - menu.item do
+          - v.link_button(label: t("logs.index.range.#{option}"), url: logs_path_with({ range: option }))
+
+    -# Pause/resume: the buttons swap on state, so the control always says what clicking it
+      will do. Pausing is the only way to read a busy log while it is moving.
+      Hidden with the `hidden` attribute, which is what the controller toggles and what
+      `hide: true` now emits too (see AGENTS.md, "Hiding elements").
+    = v.button label: t("logs.index.pause"), icon: "pause-fill", color: "dark",
+      data: {action: "logs-explorer#togglePause", "logs-explorer-target": "pauseButton"}
+    = v.button label: t("logs.index.resume"), icon: "play-fill", color: "primary",
+      hide: true,
+      data: {action: "logs-explorer#resume", "logs-explorer-target": "resumeButton"}
+
+    -# Shown only when a refresh fails. Without it a backend outage looks exactly like a
+      quiet log, which is the case a sysadmin most needs to notice.
+    %span.badge.text-bg-danger{hidden: true,
+      data: {"logs-explorer-target": "status", "error-text": t("logs.index.disconnected")}}
+      = t("logs.index.disconnected")
+
+  - if @filters.filtered?
+    .mb-3
+      = t("logs.index.filtered_by")
+      - if @filters.host.present?
+        %span.badge.text-bg-secondary.ms-1
+          = t("logs.field.host")
+          \:
+          = @filters.host
+      - if @filters.programname.present?
+        %span.badge.text-bg-secondary.ms-1
+          = t("logs.field.programname")
+          \:
+          = @filters.programname
+      - if @filters.severity.present?
+        %span.badge.text-bg-secondary.ms-1
+          = t("logs.field.severity")
+          \:
+          = @filters.severity
+      - if @filters.text.present?
+        %span.badge.text-bg-secondary.ms-1
+          = t("logs.index.text")
+          \:
+          = @filters.text
+      = link_to t("logs.index.clear_filters"), logs_path, class: "ms-2"
+
+  - if @error.present?
+    = v.alert("danger", icon: "x-circle") do
+      .mb-2.fw-bold= t("logs.index.unreachable")
+      %div= @error
+
+  - if @logs.empty?
+    -#
+      Distinguish "nothing matched your filters" from "there are no logs at all". They
+      call for completely different next actions, so the empty state must not conflate them.
+    = v.alert("info", icon: "info-circle") do
+      - if @filters.filtered?
+        = t("logs.index.no_matches")
+      - else
+        = t("logs.index.no_logs")
+
+  - else
+    = v.table(t(".title"), data: {"logs-explorer-target": "rows"}) do |t|
       - LogsFieldCatalog::HOST_FIELDS.each do |field|
-        - r.with_cell do
-          - if field == :_time
-            %span.text-nowrap= log_time(record)
-          - elsif field == :_msg
-            %code= log_message(record)
-          - elsif log_field_value(record, field).present?
-            %span.badge.text-bg-light= log_field_value(record, field)
-          - else
-            %span.text-muted= t("logs.index.none")
-      - r.with_cell do
-        %details
-          %summary= t("logs.index.json")
-          %pre.small.mb-0= log_json(record)
+        - t.column :shrink, label: t("logs.field.#{field}")
+      - t.column :grow, label: t("logs.index.details")
+      - @logs.each do |record|
+        = render "logs/row", record: record

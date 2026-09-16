@@ -1,0 +1,26 @@
+-#
+  One log record as a table row.
+
+  `data-row-key` is the dedupe identity the refresh controller uses to drop a row it has
+  already shown when a poll batch overlaps at the cursor boundary. It comes from
+  `log_row_key`, which is also what the JSON endpoint returns, so the server-rendered row
+  and a live-appended row agree.
+
+  Cell order matches `LogsFieldCatalog::HOST_FIELDS` (the columns declared by the table),
+  then the details cell.
+
+= v.table_row(hover: true, data: {"row-key": log_row_key(record)}) do |r|
+  - LogsFieldCatalog::HOST_FIELDS.each do |field|
+    - r.with_cell do
+      - if field == :_time
+        %span.text-nowrap= log_time(record)
+      - elsif field == :_msg
+        %code= log_message(record)
+      - elsif log_field_value(record, field).present?
+        %span.badge.text-bg-light= log_field_value(record, field)
+      - else
+        %span.text-muted= t("logs.index.none")
+  - r.with_cell do
+    %details
+      %summary= t("logs.index.json")
+      %pre.small.mb-0= log_json(record)

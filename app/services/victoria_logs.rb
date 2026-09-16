@@ -80,15 +80,15 @@ class VictoriaLogs
   #
   # Build a LogsQL expression from structured filter parts, ANDing them together.
   #
-  # Order is fixed (fields first, then the free-text term, then the time range) so the
+  # Order is fixed (fields first, then the free-text term, then the time bound) so the
   # output is deterministic and easy to assert in tests. All quoting/escaping happens
-  # here — callers never hand-assemble LogsQL.
+  # here -- callers never hand-assemble LogsQL.
   #
-  #   VictoriaLogs::Query.build(field_filters: ["programname:sshd"], text: "failed login")
+  #   VictoriaLogs.build_query(field_filters: ["programname:sshd"], text: "failed login")
   #   # => 'programname:sshd "failed login"'
   #
-  def self.build_query(field_filters: [], text: nil, time_range: nil)
-    Query.build(field_filters: field_filters, text: text, time_range: time_range)
+  def self.build_query(field_filters: [], text: nil, time_range: nil, cursor: nil)
+    Query.build(field_filters: field_filters, text: text, time_range: time_range, cursor: cursor)
   end
 
   private
