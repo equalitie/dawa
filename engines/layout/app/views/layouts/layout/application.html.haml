@@ -10,7 +10,7 @@
     .split(data-controller="split" data-turbo-permanent id="split-handle")
     .header
       = render 'layouts/layout/header'
-    - if content_for?(:sidebar_top) || content_for?(:breadcrumbs)
+    -# if content_for?(:sidebar_top) || content_for?(:breadcrumbs)
       .sidebar.sidebar-top
         = yield :sidebar_top if content_for?(:sidebar_top)
     - if content_for?(:breadcrumbs)

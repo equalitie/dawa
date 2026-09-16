@@ -1,9 +1,9 @@
-- if theme.header_icon
-  = theme.header_icon
-- else
-  #header-icon.with-icon-url.header-height.sidebar-width
-#header-text.header-height
-  %span= theme.header_text
-- if theme.header_status_partial
-  #header-status.header-height.d-flex.align-items-center.pe-2
-    = render theme.header_status_partial
+-# - if theme.header_icon
+-#   = theme.header_icon
+-# - else
+-#   #header-icon.with-icon-url.header-height.sidebar-width
+-# #header-text.header-height
+-#   %span= theme.header_text
+-# - if theme.header_status_partial
+-#   #header-status.header-height.d-flex.align-items-center.pe-2
+-#     = render theme.header_status_partial

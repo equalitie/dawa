@@ -16,14 +16,14 @@ body.with-breadcrumbs {
   display: grid;
   grid-template-areas:
     "icon    split header"
-    "sb-top  split breadcrumbs"
+    "icon    split breadcrumbs"
     "sidebar split content";
 }
 body.without-breadcrumbs {
   display: grid;
   grid-template-areas:
     "icon    split header"
-    "sb-top  split content"
+    "icon    split content"
     "sidebar split content";
 }
 .header-icon {

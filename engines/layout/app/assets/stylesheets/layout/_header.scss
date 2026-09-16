@@ -8,6 +8,12 @@
   align-items: center;
 }
 
+body.with-breadcrumbs .header-icon {
+  grid-row: 1 / 3;
+  height: 100% !important;
+  align-self: stretch;
+}
+
 .header {
   justify-content: space-between;
   .header-text {
