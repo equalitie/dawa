@@ -24,23 +24,15 @@ module Secrets
     end
 
     module ClassMethods
-      def find_by_encrypted_code(code)
-        if !code.present?
-          return nil
-        else
-          code = SecretUrl::decrypt(code.strip)&.split('|')&.first
-          return find_by_code(code)
-        end
-      end
-
-      def find_by_any_code(code)
-        if !code.present?
-          return nil
-        elsif code =~ /^[A-Z0-9]{#{self.has_code_config[:length]}}$/i
-          return find_by_code(code.upcase)
-        else
-          return find_by_encrypted_code(code)
-        end
+      # constant time code finding
+      # a little inefficient because we load all the ids for all the records.
+      # if this gets too slow, we can add two columns, one for the code
+      # and one for the code digest, then only search the digest
+      def find_by_code(code)
+        matching_id = all.pluck(:id, :code).find { |id, stored_code|
+          ActiveSupport::SecurityUtils.secure_compare(stored_code, code)
+        }&.first
+        find_by(id: matching_id) if matching_id
       end
 
       def is_a_code?(code)
@@ -49,9 +41,8 @@ module Secrets
     end
 
     module InstanceMethods
-
-      def to_encrypted_param
-        SecretUrl::encrypt(code)
+      def to_param
+        self.code
       end
 
       def generate_code
