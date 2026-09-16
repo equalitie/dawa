@@ -11,28 +11,27 @@ const INTERACTIVE_TAGS = new Set([
   "LABEL",
 ]);
 
+// Normalize a single element or a collection into a plain array.
+function toArray(elements) {
+  if (!elements) return [];
+  return Array.isArray(elements) ? elements : [elements];
+}
+
 export default class {
+  //
+  // Hide/show by toggling the `d-none` class.
+  //
+  // A class is the one hiding mechanism CSS and JS can both drive, and it is what the server
+  // emits (`hide: true` on a component). Do not switch these to `style.display`: `.d-none` is
+  // `display: none !important`, so writing an inline `display` cannot override it and the
+  // element would stay invisible.
+  //
   static hide(elements) {
-    const array = elements
-      ? Array.isArray(elements)
-        ? elements
-        : [elements]
-      : [];
-    array.forEach((el) => {
-      el.style.display = "none";
-    });
+    toArray(elements).forEach((el) => el.classList.add("d-none"));
   }
 
-  static show(elements, display) {
-    display = display || "block";
-    const array = elements
-      ? Array.isArray(elements)
-        ? elements
-        : [elements]
-      : [];
-    array.forEach((el) => {
-      el.style.display = display;
-    });
+  static show(elements) {
+    toArray(elements).forEach((el) => el.classList.remove("d-none"));
   }
 
   // return the value of a meta tag in head

@@ -28,7 +28,9 @@ class ApplicationComponent < ViewComponent::Base
   # - :data    -- used to build "data-*" element attributes.
   # - :params  -- additional params included in any request made by this component
   # - :name    -- name attribute for input elements
-  # - :hide    -- if set to true, "display: none" is added to the style
+  # - :hide    -- if true, adds the `d-none` class (Bootstrap's `display: none !important`).
+  #               Toggle it from a script by adding/removing the same class, so hiding has
+  #               ONE mechanism that CSS and JS both understand.
   # - :tooltip -- tooltip text for this component.
   #
   def initialize(**args)
@@ -49,8 +51,17 @@ class ApplicationComponent < ViewComponent::Base
       @html[:style] = [args.delete(:style), @html[:style]].compact.join(" ")
     end
     @html[:style] ||= ""
+    #
+    # Hide via the `d-none` class rather than an inline `display: none`.
+    #
+    # A class is the one mechanism CSS and JS can both drive: a stylesheet can target
+    # `.d-none` for state-driven or responsive rules, and a script toggles visibility with
+    # `classList` -- no inline style to fight, and no attribute that only JS can change.
+    # `!important` (Bootstrap) also beats utilities like `.d-flex`, which a plain inline
+    # style loses to.
+    #
     if args[:hide]
-      @html[:style] += ";display: none;"
+      @html[:class] = [@html[:class], "d-none"].reject(&:blank?).join(" ")
     end
 
     @factory = args[:factory]
