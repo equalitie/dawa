@@ -18,7 +18,7 @@ module ErrorsConcern
     # to see error pages in development mode, set consider_all_requests_local
     # to `false` in config/environments/development.rb
 
-    rescue_from ErrorMessage,                    with: :render_message
+    rescue_from ErrorMessage,                    with: :render_error_message
 
     unless Rails.application.config.consider_all_requests_local
       rescue_from StandardError,                   with: :render_exception
@@ -31,6 +31,16 @@ module ErrorsConcern
     helper_method :error_message!
   end
 
+  def render_message(message, color = "danger")
+    respond_to do |format|
+      format.turbo_stream do
+        render turbo_stream: turbo_stream.append("alerts", helpers.v.alert(color) { helpers.content_tag(:p, message) })
+      end
+      format.html do
+        render template: "errors/message", message: message, color: color
+      end
+    end
+  end
 
   protected
 
@@ -63,16 +73,7 @@ module ErrorsConcern
     logger.error("ERROR: %s -- %s" % [msg, caller[1..11].join(" >>> ")])
   end
 
-  def render_message(exception)
-    respond_to do |format|
-      format.turbo_stream do
-        render turbo_stream: turbo_stream.append("alerts", helpers.v.alert(exception.color) { helpers.content_tag(:p, exception.to_s) })
-      end
-      format.html do
-        @message = exception.to_s
-        @color = exception.color
-        render template: "errors/message"
-      end
-    end
+  def render_error_message(exception)
+    render_message(exception.to_s, exception.color)
   end
 end
