@@ -23,7 +23,9 @@ Rails.application.routes.draw do
   resources :containers
   get "containers/:id/stats", to: "container_stats#stats", as: :stats_container
   resources :logs, only: :index
-  resource :metrics, only: :show
+  resource :metrics, only: :show do
+    get :data
+  end
   resource :troubleshoot, only: :show, controller: "troubleshoot"
   resource :settings, only: :show
   resource :profile, only: :show

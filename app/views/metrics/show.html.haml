@@ -1,1 +1,13 @@
 = breadcrumbs
+
+.card.mb-3
+  .card-header Host Metrics
+  .card-body
+    %div{data: {
+        controller: "metrics",
+        "metrics-url-value": data_metrics_path(format: :json),
+        "metrics-interval-value": @metrics_poll_interval_ms
+      }}
+      - @metrics_charts.each do |(key, spec)|
+        .chart.mb-3{data: {"metrics-target": "chart", "chart-key": key, "chart-spec": spec.to_json}}
+          .chart-body{data: {"chart-body": true}, style: "width: 100%; height: 200px;"}

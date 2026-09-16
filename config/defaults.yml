@@ -37,6 +37,13 @@ defaults:
   openid_provider_url: "${site_public_url}"
   openid_private_key: ~
 
+  metrics_url: "http://localhost:8428"
+  metrics_host_instance: "host.docker.internal:9100"
+  metrics_real_time_interval: "1 second"
+  metrics_real_time_max_window: "72 hours"
+  metrics_historical_interval: "1 minute"
+  metrics_historical_max_window: "90 days"
+
   db_port: 5432
   db_host: localhost
   db_user: dawa

@@ -1,0 +1,154 @@
+#
+# Shared helpers for building Vega-Lite area chart specifications backed by a
+# single streaming "chartdata" dataset.
+#
+# Both container resource graphs (ContainerStatsHelper) and future
+# VictoriaMetrics host graphs reuse these builders, so chart output stays
+# consistent and data streaming (view.change("chartdata", changeset)) works the
+# same everywhere.
+#
+# Charts are layered: an area mark for the trend, plus an invisible circle
+# layer that shows a tooltip with the data point's details on hover.
+#
+module VegaChartHelper
+  #
+  # Build a single-series area chart spec (one y value per point), e.g. CPU%.
+  # Pass an optional vega.rb `transform` (calculate) to derive the y field, and
+  # optionally a `data_name` (default "chartdata") matching the dataset the
+  # client streams via view.change(data_name, ...).
+  #
+  def vega_area_spec(points, title:, y_field:, y_title:, color:, tooltip:, transform: nil, data_name: "chartdata")
+    chart = Vega.lite
+      .data(name: data_name, values: points)
+      .width("container")
+      .height(120)
+      .autosize(streaming_autosize)
+      .title(title)
+      .encoding(
+        x: { field: "time", type: "temporal", axis: { title: nil } },
+        y: { field: y_field, type: "quantitative", title: y_title }
+      )
+    chart = chart.transform(transform) if transform
+    chart.layer(area_marks(interpolate: "monotone", color: color, opacity: 0.6).push(
+      hover_tooltip_layer(tooltip)
+    )).spec
+  end
+
+  #
+  # Build an area chart whose series are folded from two point fields
+  # (e.g. net_rx/net_tx) into a nominal direction, then colored by direction.
+  # `fold` is the pair of point fields to fold; `label_calc` maps the folded
+  # direction field to a friendly label (e.g. "datum.direction == 'net_rx' ? 'RX' : 'TX'").
+  # Both a bytes->MB/s calculation and the direction label are applied internally.
+  #
+  def vega_folded_area_spec(points, title:, fold:, label_calc:, y_title:, domain:, range:, tooltip:, data_name: "chartdata")
+    fold_transform = { fold: fold, as: [ "direction", "bytes" ] }
+    transforms = [
+      { calculate: "datum.bytes / 1048576", as: "mbps" },
+      { calculate: label_calc, as: "direction_label" }
+    ]
+    Vega.lite
+      .data(name: data_name, values: points)
+      .width("container")
+      .height(120)
+      .autosize(streaming_autosize)
+      .title(title)
+      .transform([ fold_transform ] + transforms)
+      .encoding(
+        x: { field: "time", type: "temporal", axis: { title: nil } },
+        y: { field: "mbps", type: "quantitative", title: y_title },
+        color: { field: "direction", type: "nominal", title: nil,
+                 scale: { domain: domain, range: range },
+                 legend: { orient: "top" } }
+      )
+      .layer([
+        { mark: { type: "area", interpolate: "monotone", opacity: 0.5 } },
+        hover_tooltip_layer(tooltip)
+      ])
+      .spec
+  end
+
+  #
+  # Build an area chart colored by an existing nominal series field (e.g.
+  # "series") where each row is already tagged, rather than folded from two
+  # fields. Used for charts that combine the results of multiple queries.
+  #
+  def vega_series_area_spec(points, title:, y_field:, y_title:, color_field:, domain:, range:, tooltip:, data_name: "chartdata", opacity: 0.5, stack: true)
+    y_encoding = { field: y_field, type: "quantitative", title: y_title }
+    y_encoding[:stack] = false unless stack
+    Vega.lite
+      .data(name: data_name, values: points)
+      .width("container")
+      .height(120)
+      .autosize(streaming_autosize)
+      .title(title)
+      .encoding(
+        x: { field: "time", type: "temporal", axis: { title: nil } },
+        y: y_encoding,
+        color: { field: color_field, type: "nominal", title: nil,
+                 scale: { domain: domain, range: range },
+                 legend: { orient: "top" } }
+      )
+      .layer([
+        { mark: { type: "area", interpolate: "monotone", opacity: opacity } },
+        hover_tooltip_layer(tooltip)
+      ])
+      .spec
+  end
+
+  private
+
+  #
+  # With width: "container", Vega-Lite doesn't re-measure layout on every data
+  # update by default, so a grown y-axis label can get clipped after streaming.
+  # Setting autosize.resize true recomputes the layout on each view update.
+  # See: https://vega.github.io/vega-lite/docs/size.html#autosize
+  #
+  def streaming_autosize
+    { resize: true }
+  end
+
+  #
+  # The base area mark layer (used where encoding is shared across layers).
+  #
+  def area_marks(interpolate:, color:, opacity:)
+    [
+      { mark: { type: "area", interpolate: interpolate, color: color, opacity: opacity } }
+    ]
+  end
+
+  #
+  # An invisible circle layer that reveals a tooltip on hover.
+  # Hidden markers are intentionally larger (size 80) to make hovering easier,
+  # and their opacity goes to 0 when not hovered.
+  #
+  # Pass an explicit tooltip encoding array (list of { field:, type:, title: })
+  # to whitelist which fields show in the tooltip, hiding derived fields like
+  # the fold's direction/index and intermediate values.
+  #
+  def hover_tooltip_layer(tooltip = true)
+    layer = {
+      params: [
+        {
+          name: "hover",
+          select: {
+            type: "point",
+            on: "pointerover",
+            clear: "pointerout",
+            # snap to the nearest data value to track the cursor over a moving chart
+            nearest: true
+          }
+        }
+      ],
+      mark: { type: "circle", size: 80 },
+      encoding: {
+        opacity: {
+          condition: { test: { param: "hover", empty: false }, value: 1 },
+          value: 0
+        }
+      }
+    }
+    layer[:encoding][:tooltip] = tooltip if tooltip.is_a?(Array)
+    layer
+  end
+end
