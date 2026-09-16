@@ -1,0 +1,9 @@
+
+%h1.mt-4
+  🦉
+  Not Found
+
+%p
+  The page you seek is not found at this location.
+  - if request.referrer
+    = link_to "Take me back.", request.referrer
