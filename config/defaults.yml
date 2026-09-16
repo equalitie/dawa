@@ -18,6 +18,10 @@ variables:
   logs_max_limit: integer
   logs_poll_interval_ms: integer
 
+  # dcommsctl tuning (numeric; declared so Conf returns numbers, not Strings)
+  dcomms_timeout: integer
+  dcomms_job_timeout: integer
+
 #
 # common default settings for all environments
 #
@@ -54,6 +58,18 @@ defaults:
   logs_default_limit: 200
   logs_max_limit: 2000
   logs_poll_interval_ms: 1500
+
+  # dcommsctl backend (JSON-RPC 2.0 over a WebSocket). It installs and supervises
+  # docker-compose applications on this host.
+  dcomms_url: "ws://localhost:6006/ws"
+  dcomms_timeout: 10
+  # How long Dawa tracks a job before giving up and reporting "still running".
+  dcomms_job_timeout: 3600
+  # TEMPORARY. Which methods fall back to DcommsMock because the daemon doesn't implement
+  # them yet: "none" | "all" | "default" (the known-missing set) | a list of method names.
+  # Set to "none" once the API lands, then delete this key entirely.
+  # See docs/dcommsctl-integration-plan.md (§4, Step 1b).
+  dcomms_use_mocks: "default"
 
   db_port: 5432
   db_host: localhost
@@ -107,3 +123,4 @@ production:
   app_port: 3000
   metrics_url: "http://victoriametrics:8428"
   logs_url: "http://victorialogs:9428"
+  dcomms_url: "ws://dcommsctl:6006/ws"
