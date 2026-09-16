@@ -1,4 +1,4 @@
-class TroubleshootController < ApplicationController
+class TroubleshootController < BaseAdminController
   def show
   end
 end

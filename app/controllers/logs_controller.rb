@@ -1,4 +1,4 @@
-class LogsController < ApplicationController
+class LogsController < BaseAdminController
   def index
   end
 end

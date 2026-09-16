@@ -1,4 +1,4 @@
-class BackupsController < ApplicationController
+class BackupsController < BaseAdminController
   def index
   end
 end

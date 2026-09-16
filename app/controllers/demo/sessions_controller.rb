@@ -9,18 +9,17 @@ else
     include Auth::LoginAttempt
     optional_authentication
     optional_authorization
-    skip_before_action :permit_admin!
 
     def create
       permit! { true }
       user = User.find_by_login(allowed_username(params[:username]))
       if user
         credential = user.credentials.where(type: "Auth::Credential::Demo").take
-        set_current_user!(user)
+        set_current_user!(user, preserve: [:redirect])
         login_attempt(:success, user, credential)
         session[:timezone] ||= params[:timezone]
         session[:locale] ||= params[:locale]
-        redirect_to home_url
+        redirect_to session[:redirect] || root_url
       else
         raise Auth::UnauthenticatedRequest
       end
@@ -42,7 +41,7 @@ else
     ALLOWED_SESSION_KEYS = [ :verify_user_id, :verify_challenge ]
 
     ALLOWED = [
-      "demo", "testy", "test1", "test2"
+      "demo", "demo-admin", "demo-user", "testy", "test1", "test2"
     ]
 
     # just to be extra cautious, only allow some usernames

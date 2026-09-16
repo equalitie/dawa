@@ -76,6 +76,8 @@ en:
     delete: "Delete"
     abort: "Abort"
     download: "Download"
+  error:
+    exception_message: "Something has gone wrong. Rest assured! We have been notified and will fix the problem soon."
 
   yes: "Yes"
   no: "No"
@@ -92,6 +94,10 @@ en:
         email: "Email"
         is_active: "Active"
 
+  login:
+    demo_user: "Demo User"
+    demo_admin: "Demo Admin"
+
   enroll:
     title: "Register a new user"
     username_help: "Your unique identifier."
@@ -103,6 +109,7 @@ en:
 
   sidebar:
     home: "Home"
+    dashboard: "Home"
     users: "Users"
     containers: "Containers"
     backups: "Backups"
@@ -112,6 +119,7 @@ en:
     troubleshoot: "Troubleshoot"
     settings: "Settings"
     authentication: "Authentication"
+    profile: "Profile"
 
   users:
     active: "Active"

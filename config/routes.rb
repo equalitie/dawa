@@ -3,6 +3,7 @@ Rails.application.routes.draw do
   mount RaftComponents::Engine, at: "/"
 
   resource :home, only: [ :show ], controller: "home"
+  resource :dashboard, only: [ :show ], controller: "dashboard"
 
   resource :enroll, only: [ :create, :update, :destroy ], controller: "enroll" do
     post :start
@@ -14,6 +15,7 @@ Rails.application.routes.draw do
   get "up" => "rails/health#show", as: :rails_health_check
 
   root "root#show"
+  get "login" => "root#login"
 
   resources :users
   resources :apps, only: :index
@@ -28,6 +30,7 @@ Rails.application.routes.draw do
   resource :metrics, only: :show
   resource :troubleshoot, only: :show, controller: "troubleshoot"
   resource :settings, only: :show
+  resource :profile, only: :show
 
   if Conf.demo
     namespace :demo do

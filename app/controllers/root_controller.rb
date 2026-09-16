@@ -1,13 +1,16 @@
 class RootController < ApplicationController
   optional_authentication
   optional_authorization
-  skip_before_action :permit_admin!
 
   layout "inset"
 
   def show
-    if current_user&.is_active?
-      redirect_to home_url
+    if current_user
+      if current_user.is_admin?
+        redirect_to dashboard_url
+      else
+        redirect_to home_url
+      end
     end
     #theme.show_sidebar = false
   end

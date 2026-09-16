@@ -1,6 +1,6 @@
 require "docker_engine_ruby"
 
-class ContainersController < ApplicationController
+class ContainersController < BaseAdminController
   before_action :fetch_container, only: :show
 
   def index

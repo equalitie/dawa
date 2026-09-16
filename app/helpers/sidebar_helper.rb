@@ -1,12 +1,21 @@
 module SidebarHelper
 
   def sidebar_items
+    return nil unless current_user
+    if current_user.is_admin?
+      admin_sidebar_items
+    else
+      user_sidebar_items
+    end
+  end
+
+  def admin_sidebar_items
     sb = {}
     sb[:home] = {
-      label: t("sidebar.home"),
+      label: t("sidebar.dashboard"),
       icon: "house-door-fill",
-      path: main_app.home_path,
-      active: active?(c: "home")
+      path: main_app.dashboard_path,
+      active: active?(c: "dashboard")
     }
     # sb[:search] = {
     #   label: t("sidebar.search"),
@@ -61,6 +70,36 @@ module SidebarHelper
       icon: "gear-fill",
       path: main_app.settings_path,
       active: active?(c: "settings")
+    }
+    sb[:my_account] = "<hr>".html_safe
+    sb[:profile] = {
+      label: t("sidebar.profile"),
+      icon: "person-circle",
+      path: main_app.profile_path,
+      active: active?(c: "profiles")
+    }
+    sb[:auth] = {
+      label: t("sidebar.authentication"),
+      icon: "patch-check",
+      path: auth.credentials_path,
+      active: active?(c: "auth/credentials")
+    }
+    sb
+  end
+
+  def user_sidebar_items
+    sb = {}
+    sb[:home] = {
+      label: t("sidebar.home"),
+      icon: "house-door-fill",
+      path: main_app.home_path,
+      active: active?(c: "home")
+    }
+    sb[:profile] = {
+      label: t("sidebar.profile"),
+      icon: "person-circle",
+      path: main_app.profile_path,
+      active: active?(c: "profiles")
     }
     sb[:auth] = {
       label: t("sidebar.authentication"),

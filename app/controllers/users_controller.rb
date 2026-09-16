@@ -1,4 +1,4 @@
-class UsersController < ApplicationController
+class UsersController < BaseAdminController
   before_action { permit_admin! }
 
   before_action :fetch_user, only: [ :show, :edit, :update, :destroy ]

@@ -100,8 +100,9 @@ ActiveRecord::Schema[8.1].define(version: 2026_07_23_223552) do
     t.json "data", default: {}
     t.string "display_name"
     t.string "email"
-    t.boolean "is_active", default: true
+    t.boolean "is_active", default: false
     t.boolean "is_admin", default: false
+    t.boolean "is_finalized", default: false
     t.datetime "updated_on"
     t.string "username", limit: 40
     t.index ["username"], name: "index_users_on_username", unique: true

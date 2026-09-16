@@ -14,9 +14,16 @@ require "faker"
 
 User.destroy_all
 
-User.create!(username: "demo", display_name: "Demo Admin") do |user|
+User.create!(username: "demo-admin", display_name: "Demo Admin") do |user|
   user.is_active = true
   user.is_admin = true
+  user.is_finalized = true
+end
+
+User.create!(username: "demo-user", display_name: "Demo User") do |user|
+  user.is_active = true
+  user.is_admin = false
+  user.is_finalized = true
 end
 
 40.times do
