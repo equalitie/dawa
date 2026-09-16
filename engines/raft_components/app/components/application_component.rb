@@ -37,6 +37,9 @@ class ApplicationComponent < ViewComponent::Base
     @disabled = args[:disabled]
 
     @html = HashWithIndifferentAccess.new(args[:html])
+    if @id
+      @html[:id] = @id
+    end
     @html[:disabled] ||= @disabled
     if args[:class]
       @html[:class] = [args.delete(:class), @html[:class]].compact.join(" ")

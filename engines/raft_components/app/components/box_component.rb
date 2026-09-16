@@ -26,7 +26,7 @@ class BoxComponent < ApplicationComponent
   renders_many :list_items
 
   haml_template <<~HAML
-    %div{class: box_classes}
+    %div{**@html}
       - if header?
         .card-header= header
       .card-body.d-flex.flex-row.gap-3
@@ -40,7 +40,7 @@ class BoxComponent < ApplicationComponent
         - else
           .alert-body.flex-grow-1.align-self-start.align-self-sm-center
             .d-flex.flex-column.flex-sm-row.align-items-sm-center.gap-3
-              .flex-grow-1{class: @html[:class]}
+              .flex-grow-1
                 = content
               .flex-shrink-1.btn-toolbar
                 = buttons
@@ -58,10 +58,11 @@ class BoxComponent < ApplicationComponent
     @color = color
     @icon = icon
     @size = size
+    @html[:class] += box_classes
   end
 
   def box_classes
-    "card mb-3 btn-white text-bg-#{@color}"
+    " card mb-3 btn-white text-bg-#{@color}"
   end
 
 end
