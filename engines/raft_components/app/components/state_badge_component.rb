@@ -24,17 +24,15 @@ class StateBadgeComponent < ApplicationComponent
       object_field    = field || self.class.field
       field_value     = object&.send(object_field)&.to_s
     end
-    if field_value && field_map[field_value]
-      color_n_label = [ field_map[field_value] ].flatten
-      @badge_state_class = "text-bg-" + color_n_label.first
+    color_n_label = [ field_map[field_value] ].flatten.compact
+    if color_n_label.any?
       if color_n_label.length == 1
+        @badge_state_class = "text-bg-primary"
         @badge_state_label = field_value
       else
+        @badge_state_class = "text-bg-" + color_n_label.first
         @badge_state_label = color_n_label.last
       end
-    else
-      @badge_state_label = field_value
-      @badge_state_class = "text-bg-dark"
     end
   end
 
