@@ -6,7 +6,7 @@ module Auth
 
     def index
       @credentials = current_user.credentials.visible.active
-      @attempts    = paginate(current_user.attempts.order(created_at: :desc))
+      @attempts    = auth_paginate(current_user.attempts.order(created_at: :desc))
       @sessions    = Auth::Session.where(user: current_user)
       @webauthn_cred_count = current_user.credentials.webauthn.count
 

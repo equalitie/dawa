@@ -125,7 +125,8 @@ view docs: `bundle exec yard server`
 
 TODO:
 
-* This engine depends on util.js. We should remove that dependency.
+* remove time helper dependency
+* remote util.js dependency
 * Encrypt the join between user and session records, so that only when the user has
   unlocked their vault can they find the list of associated sessions.
 * Instead of having a duplicate vault for each credential, replace with a single vault
