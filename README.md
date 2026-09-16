@@ -22,6 +22,12 @@ To create a dummy container that simulates different load conditions:
 docker run -d --name keep-vm-alive gentasumantri/keep-vm-alive
 ```
 
+To create a dummy container that simulates logs:
+
+```sh
+docker run -d --name loggen kubetail/loggen:0.2.0
+```
+
 ## Support
 
 ## Roadmap

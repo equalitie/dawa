@@ -1,0 +1,12 @@
+- container_id = local_assigns[:container_id] || @container&.id
+
+.container-logs.local-scroll-parent{data: {
+    controller: "container-logs clipboard",
+    "container-logs-container-id-value": container_id,
+    "clipboard-success-content-value": icon("check-circle", t("nav.copied"))
+  }}
+  .btn-toolbar.mb-3
+    = v.button label: t("nav.copy"), icon: "copy", data: {action: "clipboard#copy", "clipboard-target": "button"}
+    = v.button label: t("nav.clear"), icon: "eraser", data: {action: "container-logs#clear"}
+  .container-log-monitor.local-scroll.p-1{id: "container-logs-#{container_id}",
+    data: {"container-logs-target": "monitor", "clipboard-target": "source"}}

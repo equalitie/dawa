@@ -18,5 +18,9 @@
       = render "containers/show/mounts"
     - if @container.network_settings
       = render "containers/show/network"
-  - tabs.with_tab(label: t(".logs_tab"), url: container_path(@container.id, tab: "logs"), active: params[:tab] == "logs") do
-    logs
+  - tabs.with_tab(label: t(".logs_tab"), url: container_path(@container.id, tab: "logs"), active: params[:tab] == "logs")
+
+- # the log content is rendered outside the tab bar component so we can control
+- # all the nested classes.
+- if params[:tab] == "logs"
+  = render "containers/show/logs", container_id: @container.id

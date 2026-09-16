@@ -76,6 +76,9 @@ en:
     delete: "Delete"
     abort: "Abort"
     download: "Download"
+    copy: "Copy"
+    copied: "Copied"
+    clear: "Clear"
   error:
     exception_message: "Something has gone wrong. Rest assured! We have been notified and will fix the problem soon."
 

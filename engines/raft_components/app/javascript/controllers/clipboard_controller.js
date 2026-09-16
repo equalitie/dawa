@@ -10,6 +10,10 @@ export default class extends Controller {
       type: Number,
       default: 2000,
     },
+    mode: {
+      type: String,
+      default: "text",
+    },
   };
 
   connect() {
@@ -19,10 +23,15 @@ export default class extends Controller {
 
   copy(event) {
     event.preventDefault();
+    navigator.clipboard.writeText(this.getText()).then(() => this.copied());
+  }
 
-    const text = this.sourceTarget.innerHTML || this.sourceTarget.value;
-
-    navigator.clipboard.writeText(text).then(() => this.copied());
+  getText() {
+    return (
+      (this.modeValue == "text"
+        ? this.sourceTarget.innerText
+        : this.sourceTarget.innerHTML) || this.sourceTarget.value
+    );
   }
 
   copied() {

@@ -1,0 +1,23 @@
+.container-log-monitor {
+  background: #0a0f0a;         // near-black background
+  color: #51f17f;              // light green text
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace;
+  line-height: 1.35;
+  white-space: pre-wrap;       // wrap long lines
+  word-break: break-word;
+  overflow-y: auto;
+
+  .container-log-line {
+    white-space: pre-wrap;
+    word-break: break-word;
+  }
+
+  .container-log-prompt {
+    color: #5f6f5f;
+  }
+}
+
+.container-log-line {
+  // ensure lines emitted via the channel get the same styling
+  color: inherit;
+}
