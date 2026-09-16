@@ -2,6 +2,7 @@
 # see https://icons.getbootstrap.com/
 #
 require 'bootstrap_icons/bootstrap_icon'
+require "bootstrap-icons-helper"
 
 module RaftComponents
   module IconHelper
