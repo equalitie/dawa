@@ -22,6 +22,11 @@ export default class extends Controller {
   }
 
   createCredential(options, params) {
+    if (!this.supportsWebAuthn()) {
+      util.showMessage("Passkeys support is unavailable.", "warning");
+      return;
+    }
+
     const credentialOptions =
       PublicKeyCredential.parseCreationOptionsFromJSON(options);
     navigator.credentials.create({ publicKey: credentialOptions }).then(
@@ -30,7 +35,7 @@ export default class extends Controller {
       },
       (error) => {
         if (error.name == "NotAllowedError") {
-          util.showMessage("Passkey registration canceled or timed out.");
+          this.handleNotAllowedError();
         } else {
           util.showMessage(error.message, "danger");
         }
@@ -94,5 +99,40 @@ export default class extends Controller {
       ).toBase64({ alphabet: "base64url" });
     }
     return results;
+  }
+
+  //
+  // Passkey registration cannot even start when WebAuthn is unavailable. The most
+  // common reason is a non-secure context (plain http:// on a non-loopback host
+  // such as host.docker.internal), where the browser exposes neither PublicKeyCredential
+  // nor navigator.credentials. Guard so we can explain rather than throw a raw
+  // ReferenceError.
+  //
+  supportsWebAuthn() {
+    return (
+      typeof PublicKeyCredential !== "undefined" &&
+      typeof navigator.credentials?.create === "function"
+    );
+  }
+
+  //
+  // NotAllowedError is thrown for several very different situations: the user
+  // dismissed the prompt (canceled), the request timed out, or no passkey
+  // authenticator was available / usable in this context (e.g. the platform
+  // credential manager is locked or unavailable). A single "canceled or timed out"
+  // message is misleading, so tailor it to the secure-context case we can detect.
+  //
+  handleNotAllowedError() {
+    if (window.isSecureContext === false) {
+      util.showMessage(
+        "Passkey registration couldn't start because this page isn't a secure context.",
+        "warning",
+      );
+    } else {
+      util.showMessage(
+        "Passkey registration was canceled, timed out, or no authenticator was available.",
+        "warning",
+      );
+    }
   }
 }
