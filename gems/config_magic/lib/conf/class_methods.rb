@@ -8,13 +8,15 @@ class Conf
 
     #
     # get the configuration value. note that `false` is a legitimate value, and
-    # we only fallback to ENV if the configured value is nil.
+    # if ENV is set it overrides config (but it must be defined in config first).
     #
     def get(variable_name, default=nil)
-      if @data[variable_name].nil?
-        ENV[variable_name.upcase] || default
-      else
+      if ENV[variable_name.upcase] && @data.key?(variable_name)
+        ENV[variable_name.upcase]
+      elsif !@data[variable_name].nil?
         @data[variable_name]
+      else
+        default
       end
     end
 
@@ -167,7 +169,7 @@ class Conf
     #
     def _load_config(filepath)
       return unless File.exist?(filepath)
-      puts "Loading #{filepath}"
+      puts "Loading #{filepath}" unless defined?(::RAKEFILE)
       hash = YAML.load_file(filepath, aliases: true)
       return unless hash
       if hash["variables"]
