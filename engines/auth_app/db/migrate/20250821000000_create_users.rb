@@ -36,13 +36,5 @@ class CreateUsers < ActiveRecord::Migration[8.0]
       t.jsonb    "cleartext_data", default: {}
     end
 
-    create_table "profiles" do |t|
-      t.integer "user_id"
-      t.string "username"
-      t.string "display_name"
-      t.jsonb "data", default: {}
-      t.index [ "username" ], unique: true
-    end
-
   end
 end
