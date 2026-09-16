@@ -10,6 +10,7 @@
 = javascript_importmap_tags
 %style{"nonce" => content_security_policy_nonce, "data-turbo-track" => "dynamic"}
   = theme.css_variables
-= favicon_link_tag(theme.favicon_url)
+- if theme.favicon_url
+  = favicon_link_tag(theme.favicon_url)
 - if content_for?(:head)
   = yield :head
