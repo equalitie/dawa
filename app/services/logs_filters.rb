@@ -43,7 +43,7 @@ class LogsFilters
     @range = clean_range(params[:range])
     @host = clean(fetch(params, :host))
     @programname = clean(fetch(params, :programname))
-    @severity = clean(fetch(params, :severity))
+    @severity = clean_severity(fetch(params, :severity))
     @text = clean(fetch(params, :text))&.truncate(MAX_TEXT_LENGTH)
   end
 
@@ -69,8 +69,31 @@ class LogsFilters
     [
       ("host:#{quote_value(host)}" if host.present?),
       ("programname:#{quote_value(programname)}" if programname.present?),
-      ("severity:#{quote_value(severity)}" if severity.present?)
+      severity_filter
     ].compact
+  end
+
+  #
+  # The severity filter as LogsQL, or nil when no level is selected.
+  #
+  # A level the picker offers directly (`err`, `warning`, ...) is a plain equality filter. A
+  # GROUP term (`crit`) covers several raw levels, so it becomes an OR of equality filters:
+  # LogsQL has no "or worse" operator, and the levels are not adjacent in a way `_time`-style
+  # ranges could exploit, so the union has to be spelled out.
+  #
+  # Every term is expanded through the catalog rather than matched literally, so this stays
+  # correct if the groups change.
+  #
+  def severity_filter
+    return nil if severity.blank?
+
+    levels = LogsFieldCatalog.severity_levels_for(severity)
+    return nil if levels.empty?
+
+    parts = levels.map { |level| "severity:#{quote_value(level)}" }
+    # A single level needs no grouping; parentheses are added only where the OR would
+    # otherwise bind against the neighbouring AND terms.
+    parts.one? ? parts.first : "(#{parts.join(" OR ")})"
   end
 
   # The free-text term, or nil when unset.
@@ -124,6 +147,26 @@ class LogsFilters
   def clean_range(value)
     candidate = value.to_s
     RANGE_OPTIONS.include?(candidate) ? candidate : DEFAULT_RANGE
+  end
+
+  #
+  # Severity is validated against the catalog's FILTER terms rather than merely stripped.
+  #
+  # Unlike a hostname, which is free-form, a severity is a small closed set: the filter terms
+  # the picker offers. Accepting anything else would send a `severity:` filter that cannot
+  # match any record -- a filter that silently returns nothing is worse than no filter, because
+  # the empty result reads as "no errors" rather than "you asked a bad question".
+  #
+  # The terms are not the raw levels: `crit` is a group covering crit/alert/emerg, and the
+  # individual raw levels in that group are deliberately not accepted, since offering them
+  # separately is what the grouping exists to avoid. What the menu can emit is exactly what
+  # the parser accepts.
+  #
+  def clean_severity(value)
+    candidate = clean(value)&.downcase
+    return nil if candidate.nil?
+
+    LogsFieldCatalog::SEVERITY_FILTER_TERMS.include?(candidate) ? candidate : nil
   end
 
   # Normalize a scalar param to a stripped String, or nil when blank/non-scalar. Arrays

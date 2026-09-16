@@ -29,15 +29,15 @@ module LogsFieldCatalog
   # Keys are the standard syslog level names that `to_syslog_level` emits from journald's
   # numeric PRIORITY (0 = emerg ... 7 = debug), which is how `severity` is derived in the
   # vector transform. The scale is deliberately loud-to-quiet: panics and failures read as
-  # danger/warning, routine chatter as secondary, so the eye is drawn to what needs it.
+  # danger/dark, routine chatter as secondary, so the eye is drawn to what needs it.
   #
   # An unknown or missing level maps to nil, which the view renders as a neutral stripe
   # rather than guessing at a severity.
   #
   SEVERITY_COLORS = {
-    "emerg" => "danger",
-    "alert" => "danger",
-    "crit" => "danger",
+    "emerg" => "dark",
+    "alert" => "dark",
+    "crit" => "dark",
     "err" => "danger",
     "error" => "danger", # accepted alias; not emitted by to_syslog_level
     "warning" => "warning",
@@ -50,6 +50,41 @@ module LogsFieldCatalog
   # The bootstrap colour for a severity value, or nil when it is not a known level.
   def self.severity_color(value)
     SEVERITY_COLORS[value.to_s.downcase.strip]
+  end
+
+  #
+  # The levels the severity FILTER offers, as filter terms mapped to the raw levels each one
+  # covers.
+  #
+  # `crit` is a group rather than a single level: it stands for "crit or worse" (crit, alert,
+  # emerg), which is how triage actually reads. Those three are rare on a healthy host and
+  # indistinguishable at stripe width, so offering them separately asked the user to pick
+  # between options they have no basis to choose. `err` stays on its own because it is the
+  # one level that is both common and actionable -- "did anything actually fail" -- and
+  # folding it into a group would make that question unaskable.
+  #
+  # Order is most severe first, which is the order a triage workflow reads in.
+  #
+  SEVERITY_FILTERS = {
+    "crit" => %w[crit alert emerg],
+    "err" => %w[err],
+    "warning" => %w[warning],
+    "notice" => %w[notice],
+    "info" => %w[info],
+    "debug" => %w[debug]
+  }.freeze
+
+  # The filter terms the picker offers, worst first.
+  SEVERITY_FILTER_TERMS = SEVERITY_FILTERS.keys.freeze
+
+  #
+  # The raw levels a filter term covers, or an empty array when the term is unknown.
+  #
+  # Callers use this to build the query rather than matching the term literally, so `crit`
+  # finds records stored as `alert` or `emerg` too.
+  #
+  def self.severity_levels_for(term)
+    SEVERITY_FILTERS[term.to_s.downcase.strip] || []
   end
 
   #

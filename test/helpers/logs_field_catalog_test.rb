@@ -63,6 +63,38 @@ class LogsFieldCatalogTest < ActiveSupport::TestCase
     end
   end
 
+  test "the critical levels are coloured dark and err is not" do
+    # crit/alert/emerg all render dark; err keeps danger. The distinction is what makes the
+    # crit GROUP worth having -- if they shared a colour the grouping would be invisible.
+    %w[emerg alert crit].each do |level|
+      assert_equal "dark", LogsFieldCatalog.severity_color(level)
+    end
+    assert_equal "danger", LogsFieldCatalog.severity_color("err")
+  end
+
+  test "every filter term expands to at least one raw level" do
+    # A term that covers nothing would produce a filter matching no record, which reads as
+    # "no errors" rather than "you asked a bad question".
+    LogsFieldCatalog::SEVERITY_FILTERS.each do |term, levels|
+      assert levels.any?, "#{term} must cover at least one level"
+      levels.each do |level|
+        assert LogsFieldCatalog.severity_color(level),
+               "#{term} covers #{level}, which must be a displayable level"
+      end
+    end
+  end
+
+  test "every filterable level is one the data can produce" do
+    # The terms may group levels, but they may not invent them: each member has to be a name
+    # `to_syslog_level` emits, or the filter would never match.
+    emitted = %w[emerg alert crit err warning notice info debug]
+    LogsFieldCatalog::SEVERITY_FILTERS.each_value do |levels|
+      levels.each do |level|
+        assert_includes emitted, level, "#{level} is not a syslog level name"
+      end
+    end
+  end
+
   test "severity colours use bootstrap colour names" do
     valid = %w[primary secondary success danger warning info light dark]
     LogsFieldCatalog::SEVERITY_COLORS.each_value do |colour|

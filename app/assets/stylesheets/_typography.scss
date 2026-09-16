@@ -7,3 +7,7 @@
 code {
   overflow-wrap: anywhere !important;
 }
+
+.text-bg-hover:hover {
+  --bs-bg-opacity: 0.65;
+}

@@ -88,7 +88,7 @@ class LogsControllerTest < ActionDispatch::IntegrationTest
     # the disclosure is open, keeping the summary element as the collapse target.
     assert_match(/<summary[^>]*>\s*<span class="log-message-summary-text">\s*Accepted publickey for admin\s*<\/span>/, body)
     # The message itself, unlabelled, at the table's normal size (no `small`).
-    assert_match(/<div class="mb-2 mt-2"[^>]*>\s*Accepted publickey for admin\s*<\/div>/, body)
+    assert_match(/<div class="mb-3"[^>]*>\s*Accepted publickey for admin\s*<\/div>/, body)
     assert_includes body, "<ul", "the metadata follows as an unstyled list"
     assert_includes body, "list-unstyled"
     assert_includes body, "<i>programname</i>", "keys are italic"
@@ -125,6 +125,131 @@ class LogsControllerTest < ActionDispatch::IntegrationTest
     # The summary is left intact as the control keyboard and assistive tech drive.
     assert_select "details.log-message summary", minimum: 1
     assert_select "details.log-message summary span.log-message-summary-text", minimum: 1
+  end
+
+  ##
+  ## severity filter
+  ##
+
+  test "the severity filter offers every term the catalog defines" do
+    # The picker's options come from the catalog, which is also what expands a term into the
+    # levels it covers, so the menu and the query builder cannot disagree about what a term
+    # means.
+    with_stubbed_service(records: sample_records) do
+      login_as(@user)
+      get logs_path
+    end
+
+    assert_select "a[href*='severity=']" do |links|
+      terms = links.map { |l| l["href"][/severity=([a-z]+)/, 1] }.compact.uniq
+      assert_equal LogsFieldCatalog::SEVERITY_FILTER_TERMS.sort, terms.sort
+    end
+  end
+
+  test "the severity filter does not offer individual critical levels" do
+    # `crit` is a group covering crit/alert/emerg, so offering the members separately would
+    # ask the user to choose between options they have no basis to distinguish.
+    with_stubbed_service(records: sample_records) do
+      login_as(@user)
+      get logs_path
+    end
+
+    %w[emerg alert].each do |level|
+      assert_select "a[href*='severity=#{level}']", false,
+                    "#{level} is covered by the crit group and must not be offered"
+    end
+    # The group term itself is offered.
+    assert_select "a[href*='severity=crit']"
+  end
+
+  test "the severity filter label shows the active level" do
+    # A filtered view that reads like an unfiltered one is how someone concludes "there are no
+    # errors" when they have simply filtered them out, so the button states the active level.
+    with_stubbed_service(records: sample_records) do
+      login_as(@user)
+      get "#{logs_path}?severity=err"
+    end
+
+    assert_select "button", text: /#{I18n.t("logs.index.severity.err")}/
+  end
+
+  test "the unfiltered severity label says so" do
+    with_stubbed_service(records: sample_records) do
+      login_as(@user)
+      get logs_path
+    end
+
+    assert_select "button", text: /#{I18n.t("logs.index.severity.all")}/
+  end
+
+  test "an unknown severity param is dropped rather than echoed" do
+    # The param is attacker-controllable via the query string. It is validated against the
+    # level list, so an unrecognized value falls back to the unfiltered state instead of
+    # reaching LogsQL or being reflected back into the label.
+    recorded = []
+
+    with_stubbed_service(records: sample_records, recorded: recorded) do
+      login_as(@user)
+      get "#{logs_path}?severity=not-a-level"
+    end
+
+    assert_select "button", text: /#{I18n.t("logs.index.severity.all")}/, count: 1
+    assert_not_includes recorded.first.to_s, "not-a-level"
+  end
+
+  test "selecting a severity filters the query and keeps the other filters" do
+    recorded = []
+
+    with_stubbed_service(records: sample_records, recorded: recorded) do
+      login_as(@user)
+      get "#{logs_path}?range=6h&host=tern&severity=err"
+    end
+
+    query = recorded.first.to_s
+    assert_includes query, 'severity:"err"'
+    assert_includes query, 'host:"tern"'
+    assert_includes query, "_time:6h"
+  end
+
+  test "crit expands to a union of the critical levels" do
+    # The point of the group: `crit` is "crit or worse", so the query must find records stored
+    # as alert and emerg too. LogsQL has no "or worse" operator, so the union is spelled out.
+    recorded = []
+
+    with_stubbed_service(records: sample_records, recorded: recorded) do
+      login_as(@user)
+      get "#{logs_path}?severity=crit"
+    end
+
+    query = recorded.first.to_s
+    assert_includes query, 'severity:"crit"'
+    assert_includes query, 'severity:"alert"'
+    assert_includes query, 'severity:"emerg"'
+    assert_includes query, " OR ", "the members must be ORed, not ANDed"
+    assert_match(/\(.*\bOR\b.*\)/, query, "the OR must be grouped so it cannot bind loose")
+  end
+
+  test "a single-level term is not wrapped in a group" do
+    # Parentheses are only needed where an OR would bind against the neighbouring AND terms.
+    recorded = []
+
+    with_stubbed_service(records: sample_records, recorded: recorded) do
+      login_as(@user)
+      get "#{logs_path}?severity=warning"
+    end
+
+    assert_not_includes recorded.first.to_s, "OR"
+  end
+
+  test "the clear filter link drops the severity" do
+    with_stubbed_service(records: sample_records) do
+      login_as(@user)
+      get "#{logs_path}?severity=err"
+    end
+
+    assert_select "a", text: I18n.t("logs.index.clear_filters") do |links|
+      assert_equal logs_path, links.first["href"]
+    end
   end
 
   test "there is no separate details column" do

@@ -96,6 +96,50 @@ class LogsFiltersTest < ActiveSupport::TestCase
     assert_equal [ 'host:"tern"', 'programname:"sshd"', 'severity:"err"' ], filters.field_filters
   end
 
+  test "every filter term is accepted" do
+    LogsFieldCatalog::SEVERITY_FILTER_TERMS.each do |term|
+      assert_equal term, LogsFilters.new(severity: term).severity
+    end
+  end
+
+  test "a group term expands to a union of its levels" do
+    # `crit` covers crit/alert/emerg. The expansion lives in the catalog, so a change to the
+    # grouping changes the query without touching this class.
+    assert_equal %w[crit alert emerg], LogsFieldCatalog.severity_levels_for("crit")
+    assert_equal 'severity:"err"', LogsFilters.new(severity: "err").severity_filter
+    assert_equal '(severity:"crit" OR severity:"alert" OR severity:"emerg")',
+                 LogsFilters.new(severity: "crit").severity_filter
+  end
+
+  test "individual critical levels are not accepted as terms" do
+    # They are covered by the `crit` group, and offering them separately is what the grouping
+    # exists to avoid, so typing one by hand is dropped rather than silently matching.
+    %w[emerg alert].each do |level|
+      assert_nil LogsFilters.new(severity: level).severity
+    end
+  end
+
+  test "an unknown severity is dropped rather than passed through" do
+    # Severity is a closed set (the names `to_syslog_level` emits), not free-form like a
+    # hostname. Emitting a `severity:` filter that matches nothing is worse than no filter:
+    # the empty result reads as "no errors" rather than "you asked a bad question".
+    filters = LogsFilters.new(severity: "not-a-level")
+
+    assert_nil filters.severity
+    refute filters.filtered?
+    assert_equal [], filters.field_filters
+  end
+
+  test "severity validation is case-insensitive" do
+    assert_equal "err", LogsFilters.new(severity: "ERR").severity
+  end
+
+  test "severity validation rejects non-scalars" do
+    # A repeated param (`?severity=a&severity=b`) should not silently become a filter.
+    assert_nil LogsFilters.new(severity: [ "err", "crit" ]).severity
+    assert_nil LogsFilters.new(severity: { "a" => "b" }).severity
+  end
+
   test "field_filters quote values so punctuation cannot break the expression" do
     filters = LogsFilters.new(host: 'ter n AND _msg:"secret"')
 

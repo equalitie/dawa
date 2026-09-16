@@ -362,6 +362,20 @@ en:
         "6h": "Last 6 hours"
         "24h": "Last 24 hours"
         "7d": "Last 7 days"
+      # The severity picker. Labels are readable names, not the terse abbreviations the data
+      # stores (`err`, `crit`), and `crit`'s label says "or worse" because that term is a
+      # group covering crit/alert/emerg rather than one level.
+      severity:
+        all: "All severities"
+        crit: "Critical or worse"
+        err: "Error"
+        warning: "Warning"
+        notice: "Notice"
+        info: "Info"
+        debug: "Debug"
+        # Raw level names, for the "filtered by" badge on a record's own level.
+        emerg: "Emergency"
+        alert: "Alert"
     field:
       _time: "Time"
       host: "Host"

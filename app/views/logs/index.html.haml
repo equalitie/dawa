@@ -23,6 +23,8 @@
         - menu.item do
           - v.link_button(label: t("logs.index.range.#{option}"), url: logs_path_with({ range: option }))
 
+    = log_filter_severity_dropdown
+
     -# Pause/resume: the buttons swap on state, so the control always says what clicking it
       will do. Pausing is the only way to read a busy log while it is moving.
       Hidden with the `d-none` class, which is what the controller toggles and what
@@ -53,10 +55,12 @@
           \:
           = @filters.programname
       - if @filters.severity.present?
+        -# The badge shows the readable term ("Critical or worse"), not the stored param, so it
+          reads the same as the picker that produced it.
         %span.badge.text-bg-secondary.ms-1
           = t("logs.field.severity")
           \:
-          = @filters.severity
+          = severity_filter_label
       - if @filters.text.present?
         %span.badge.text-bg-secondary.ms-1
           = t("logs.index.text")
