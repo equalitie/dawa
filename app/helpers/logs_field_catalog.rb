@@ -12,7 +12,19 @@ module LogsFieldCatalog
   # encoding (journald's numeric PRIORITY -- see the transform in vector.yml), so showing both
   # prints the same level twice, once as a stripe and once as a number. The record still
   # carries it, and it still appears in the message cell's field list, so nothing is lost.
-  HOST_FIELDS = [ :severity, :_time, :host, :programname, :_msg ].freeze
+  #
+  # `host` is deliberately NOT a column either. Dawa is single-host, so every row carries the
+  # same value and the column is pure width. The machine is still identifiable from the page,
+  # and the Source column carries what does vary (see `log_context` / `log_source`).
+  #
+  # `context` and `programname` are SYNTHETIC columns: neither is a field on the record, both
+  # are derived (`log_context` and `log_source` respectively). They are named here anyway
+  # because the catalog is what decides which columns exist and in what order, and splitting
+  # the two parts of the old single Source cell into adjacent columns is a display decision
+  # that belongs with the rest.
+  # `programname` keeps its name because the label it shows IS the program for a host log; the
+  # key predates the split and the label is what the user reads.
+  HOST_FIELDS = [ :severity, :_time, :context, :programname, :_msg ].freeze
 
   # Fields that may be offered as filters for host logs.
   # These map to host sink `_stream_fields` (`host,programname`) plus `severity`,

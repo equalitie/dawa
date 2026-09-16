@@ -379,7 +379,8 @@ en:
     field:
       _time: "Time"
       host: "Host"
-      programname: "Program"
+      context: "Context"
+      programname: "Source"
       severity: "Severity"
       _stream: "Stream"
       _msg: "Message"

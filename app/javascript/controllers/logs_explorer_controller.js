@@ -205,6 +205,18 @@ export default class extends Controller {
         // Matching `logs/_cell.html.haml`.
         const collapse = ' data-action="click->logs-explorer#collapseMessage"';
         return `<td${classAttr}><details class="log-message"><summary class="text-truncate"><span class="log-message-summary-text">${value}</span></summary><div class="mb-3"${collapse}>${this.escape(cell.message)}</div>${this.fieldsHtml(cell.fields, collapse)}</details></td>`;
+      case "context":
+        // The Context column: what KIND of thing logged this. Light because it is the
+        // low-variance half and should not compete with the identifier beside it.
+        return `<td${classAttr}><span class="badge text-bg-light">${value}</span></td>`;
+      case "source":
+        // The Source column, with a per-string colour computed server-side (see
+        // `source_label_color`) so the same daemon or container is always the same colour.
+        // Dark text because those colours are light; a label with no text gets no colour, so
+        // an empty badge is not drawn as a confident one. Matching `LogsTableHelper`.
+        return cell.color
+          ? `<td${classAttr}><span class="badge text-dark" style="background-color: ${this.escape(cell.color)}">${value}</span></td>`
+          : `<td${classAttr}><span class="badge text-bg-light">${value}</span></td>`;
       case "badge":
         return `<td${classAttr}><span class="badge text-bg-light">${value}</span></td>`;
       default:

@@ -26,11 +26,6 @@ module LogsHelper
     @current_filters ||= LogsFilters.new(params)
   end
 
-  # The fields the user may filter on, as the catalog defines them.
-  def logs_filterable_fields
-    LogsFieldCatalog::HOST_FILTERABLE
-  end
-
   #
   # A URL path carrying the given filter state as an explicit query string.
   #
@@ -74,44 +69,142 @@ module LogsHelper
   end
 
   #
-  # A human "source" label for a host log. Host records are normalized by the
-  # `parse_host_logs` transform, so prefer `programname` (the daemon), then `host` (the
-  # machine). `unit` is not used: it is not a display column, and falling back to it made
-  # the label inconsistent with the Program column it sat next to.
+  # Both Context and Source columns read the SAME question -- "what logged this, and which one
+  # is it" -- but each column shows one half, so they are two methods rather than one returning
+  # a pair. The split has to agree on one thing: whether the record is a container record.
+  # `container_record?` is that test, and both go through it so the columns cannot disagree
+  # about which half a row belongs to (one column showing a container context beside a host
+  # source would be nonsense).
+  #
+  def log_context(record)
+    if container_record?(record)
+      # An INSTALLATION of an app: `dc_inst` says which one ("dummy-1" when an app runs several
+      # instances). Falls back to `dc_app` so a container labeled before `dc_inst` existed still
+      # gets a context rather than an empty one.
+      record["dc_inst"].presence || record["dc_app"].presence
+    else
+      # The machine itself. There is nothing finer to name at this level -- the daemon goes in
+      # the Source column beside it.
+      "host"
+    end
+  end
+
+  #
+  # The specific source within the context, most human-readable first.
+  #
+  # `dc_name` is a friendly per-instance label -- PLANNED but not emitted yet, so this lookup
+  # currently falls through to `container_name`, the compose service (e.g. "dawa-web-1").
+  # `container_id` is the last resort, and is SHORTENED: a full 64-hex id is unreadable in a
+  # table cell, and two containers of one app are told apart by their first few characters
+  # anyway.
+  #
+  # On the host side the chain is the daemon, then the systemd unit, then the machine name --
+  # progressively less specific, but each still identifies the row, and a weak label beats a
+  # blank one.
+  #
+  # @return [String, nil] nil when nothing names the record (an unnamed container).
   #
   def log_source(record)
-    record["programname"].presence ||
-      record["host"].presence ||
-      record["_stream"].presence ||
-      "—"
+    if container_record?(record)
+      record["dc_name"].presence || record["container_name"].presence ||
+        short_container_id(record["container_id"])
+    else
+      record["programname"].presence || record["unit"].presence || record["host"].presence
+    end
+  end
+
+  #
+  # True when a record came from a container rather than from the host itself.
+  #
+  # Keyed on the Dawa labels rather than on `source_type` or the presence of a container name:
+  # the labels are what the composer sets for an installed app, and they are what the two
+  # columns above are really describing.
+  #
+  def container_record?(record)
+    record["dc_app"].present? || record["dc_inst"].present?
+  end
+
+  #
+  # A container id shortened for display: Docker's own convention is the first 12 hex
+  # characters, which is what `docker ps` shows and what users recognize.
+  #
+  def short_container_id(id)
+    value = id.to_s.presence
+    return nil if value.nil?
+
+    value[0, 12]
+  end
+
+  ##
+  ## Source colour
+  ##
+
+  # Saturation and lightness for source badges, as percentages (`hsl()` takes them that way).
+  # Fixed, so every badge has the same visual weight and only the HUE varies -- varying
+  # brightness too would read as meaning ("dimmer = less important") that is not there, and
+  # would make some labels harder to read than others for no reason.
+  SOURCE_BADGE_SATURATION = 80
+  SOURCE_BADGE_LIGHTNESS = 80
+
+  #
+  # The hue range source badges are spread over, in degrees.
+  #
+  # Deliberately NOT the full 0..360 wheel: the wheel wraps, so 0 and 359 are both red and two
+  # unrelated programs would land on nearly the same colour at the seam. Restricting the range
+  # trades a little room between neighbours for never having a false "these two are the same".
+  #
+  # 30..330 also skips the pure reds around 0, which at this lightness are the hardest to tell
+  # from orange and from each other.
+  #
+  SOURCE_HUE_MIN = 30
+  SOURCE_HUE_SPAN = 300
+
+  #
+  # A stable colour for a source label, as CSS `hsl()`.
+  #
+  # The point is that the same string always gets the same colour, in this request and every
+  # later one, so a reader learns "peertube is the blue one" and can scan for it. That rules
+  # out anything random or counter-based: the colour has to be a pure function of the text.
+  #
+  # The hash is a POSITION-WEIGHTED sum of the character ordinals: each character is
+  # multiplied by its 1-based index, then the products are added. A plain sum is
+  # order-insensitive, which made anagrams collide exactly -- `sshd` and `cron` are the same
+  # eight-or-so characters' worth of ordinals and landed on identical hues, and short names
+  # clustered because their sums all fall in a narrow band. Weighting by position fixes both
+  # at the same cost: still one pass over a short string, still no allocation.
+  #
+  # It is deliberately NOT cryptographic: a collision means two programs share a colour, which
+  # is a cosmetic annoyance rather than a correctness problem, so an avalanche hash would buy
+  # nothing for that risk.
+  #
+  # Returns nil for a blank label so the caller can fall back to a plain badge rather than
+  # rendering an invisible one: a hash of "" would otherwise produce a valid-looking colour
+  # for a badge with nothing in it.
+  #
+  # @return [String, nil] e.g. "hsl(210 80% 80%)"
+  #
+  def source_label_color(label)
+    text = label.to_s
+    return nil if text.empty?
+
+    hue = SOURCE_HUE_MIN + (weighted_ordinal_sum(text) % SOURCE_HUE_SPAN)
+    "hsl(#{hue} #{SOURCE_BADGE_SATURATION}% #{SOURCE_BADGE_LIGHTNESS}%)"
+  end
+
+  #
+  # A position-weighted sum of a string's character ordinals.
+  #
+  # See `source_label_color` for why the weight is needed. `each_char.with_index(1)` so the
+  # first character counts once rather than zero, which keeps a leading character from being
+  # free and two strings differing only there from colliding.
+  #
+  def weighted_ordinal_sum(text)
+    text.each_char.with_index(1).sum { |char, index| char.ord * index }
   end
 
   # A short, single-line preview of the message body.
   def log_message(record, length: 160)
     record["_msg"].to_s.truncate(length)
-  end
-
-  #
-  # Normalize a record into ordered display cells: the known HOST_FIELDS first (in that
-  # exact order), then any "other" fields the record carries (sorted). This is the one
-  # place that decides field order; the table and (later) facets read from it.
-  #
-  # @return [Array<Hash>] e.g. [{ field: :_time, value: "...", known: true }, ...]
-  #
-  def log_display_cells(record)
-    known = LogsFieldCatalog::HOST_FIELDS
-    known_cells = known.map do |field|
-      { field: field, value: log_field_value(record, field), known: true }
-    end
-    others = (record.keys.map(&:to_sym) - known).sort.map do |field|
-      { field: field, value: log_field_value(record, field), known: false }
-    end
-    known_cells + others
-  end
-
-  # The display value for a single field of a record (used by the "other" columns).
-  def log_field_value(record, field)
-    record[field.to_s]
   end
 
   # The full record rendered as pretty JSON, for copy/paste out of the UI.
@@ -160,89 +253,6 @@ module LogsHelper
       classes: log_row_cell_classes(record),
       cells: log_row_cells(record)
     }
-  end
-
-  #
-  # The message cell, as a disclosure: the truncated message is the summary and the full
-  # record's JSON is the body, so the row stays one line high until the user asks for more.
-  # The JSON used to be its own column, which cost a column of width on every row to show a
-  # control most rows never used.
-  #
-  def log_row_cells(record)
-    LogsFieldCatalog::HOST_FIELDS.map { |field| log_row_cell(record, field) }
-  end
-
-  # One column's markup description. Mirrors `logs/_cell.html.haml` exactly.
-  def log_row_cell(record, field)
-    # Severity is handled before the blank check: an absent level is still a rendered
-    # stripe (neutral), because the column's width carries meaning even when the value
-    # does not. A blank cell would collapse the stripe and shift the row.
-    return { kind: :severity, color: LogsFieldCatalog.severity_color(record["severity"]),
-             value: record["severity"].to_s } if field == :severity
-
-    value = log_field_value(record, field)
-    # The placeholder is translated here rather than in JS so the client holds no strings.
-    return { kind: :none, value: t("logs.index.none") } if value.blank?
-
-    case field
-    when :_time
-      { kind: :time, value: log_time(record) }
-    when :_msg
-      # The summary is the readable preview, and the body repeats the message in full above
-      # the metadata list: the preview is Ruby-truncated and CSS-ellipsised, so the disclosure
-      # is where the whole line becomes readable.
-      { kind: :message, value: log_message(record), message: stringify(record["_msg"]),
-        fields: log_record_pairs(record) }
-    else
-      { kind: :badge, value: value }
-    end
-  end
-
-  #
-  # Declares the log table's columns on a `v.table` builder.
-  #
-  # The view and `log_row_cell_classes` both call this, so the header and the row classes are
-  # generated from one column list. Declaring columns twice is exactly how the severity
-  # stripe's width class ended up on the server-rendered cells but not the appended ones.
-  #
-  # The message column grows and is last: it holds the row's only elastic content, since the
-  # full record's JSON now lives inside it as a disclosure rather than in a column of its own.
-  #
-  def logs_table_columns(table)
-    LogsFieldCatalog::HOST_FIELDS.each do |field|
-      if LogsFieldCatalog.unlabelled?(field)
-        table.column :shrink, class: "log-severity-cell"
-      elsif field == :_msg
-        table.column :grow, label: t("logs.field.#{field}")
-      else
-        table.column :shrink, label: t("logs.field.#{field}")
-      end
-    end
-  end
-
-  #
-  # The <td> classes for one log row's cells, composed exactly as `v.table_row` composes
-  # them.
-  #
-  # The refresh endpoint publishes these with each row so the Stimulus controller can build
-  # the same element the row template builds. Deriving them from the column list rather than
-  # restating them in JS is the whole point: the two were written out independently once and
-  # drifted, and the log table's severity column stopped matching between loaded and appended
-  # rows.
-  #
-  # The row component is instantiated directly rather than through `v.table_row`, which
-  # renders eagerly and would return HTML instead of the builder whose class list we want.
-  #
-  # @return [Array<String>] one class string per cell, in cell order.
-  #
-  def log_row_cell_classes(record, hover: true)
-    row = TableRowComponent.new(hover: hover)
-    logs_table_columns(row)
-    cells = log_row_cells(record)
-    cells.each_index.map do |index|
-      extra = cells[index][:kind] == :severity ? LogsFieldCatalog.severity_class(cells[index][:color]) : nil
-      row.cell_class_list(TableCellComponent.new(class: extra), index).join(" ")
-    end
   end
 
   #

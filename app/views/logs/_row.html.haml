@@ -6,10 +6,11 @@
   `log_row_key`, which is also what the JSON endpoint returns, so the server-rendered row
   and a live-appended row agree.
 
-  The cells come from `log_row_cells`, the same helper the JSON endpoint uses. That is
-  deliberate: the server-rendered row and a row appended by the refresh controller must
-  have identical columns, and a second column list here (or in JS) is exactly how the two
-  drift apart.
+  The cells come from `log_row_cells` and are rendered by `log_cell_markup` (both in
+  LogsTableHelper), the same helpers the JSON endpoint uses. That is deliberate: the
+  server-rendered row and a row appended by the refresh controller must have identical
+  columns and identical markup, and a second column list or a second formatting rule here
+  (or in JS) is exactly how the two drift apart.
 
 = v.table_row(hover: true, data: {"row-key": log_row_key(record)}) do |r|
   - cells = log_row_cells(record)
@@ -24,4 +25,4 @@
       so the colour fills the whole cell with no padding. The class list carries both the
       stripe's width (from the column definition) and its colour (from the record).
     - r.with_cell(class: classes[index]) do
-      = render "logs/cell", cell: cell
+      = log_cell_markup(cell)

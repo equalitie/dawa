@@ -26,8 +26,11 @@ class LogsFieldCatalogTest < ActiveSupport::TestCase
   test "displayable? and filterable? agree with the catalog membership" do
     assert LogsFieldCatalog.displayable?(:_time)
     assert LogsFieldCatalog.displayable?("_msg")
-    assert LogsFieldCatalog.displayable?(:host)
+    assert LogsFieldCatalog.displayable?(:programname)
+    refute LogsFieldCatalog.displayable?(:host), "host is no longer a column (single-host)"
     refute LogsFieldCatalog.displayable?(:dc_app), "container fields are Phase B"
+    # Filtering is a separate list: `host` is still filterable even though it is not displayed,
+    # which is exactly why the two lists exist rather than one.
     assert LogsFieldCatalog.filterable?(:host)
     assert LogsFieldCatalog.filterable?(:programname)
     assert LogsFieldCatalog.filterable?(:severity)

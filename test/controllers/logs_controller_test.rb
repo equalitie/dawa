@@ -607,7 +607,7 @@ class LogsControllerTest < ActionDispatch::IntegrationTest
 
   test "data row cells cover every catalog column" do
     # Regression: the client used to hardcode three columns, so live rows silently dropped
-    # host and severity. The cell count is what keeps the two in step.
+    # the ones it did not know about. The cell count is what keeps the two in step.
     with_stubbed_service(records: sample_records) do
       login_as(@user)
       get data_logs_path
@@ -616,10 +616,12 @@ class LogsControllerTest < ActionDispatch::IntegrationTest
     cells = JSON.parse(response.body)["rows"].first["cells"]
     values = cells.map { |c| c["value"] }
 
-    # sample_records[0] carries host, programname and severity.
-    assert_includes values, "tern"
-    assert_includes values, "sshd"
+    # sample_records[0] carries a severity. The source cell carries its two parts instead of
+    # a `value`, so it is asserted through those.
     assert_includes values, "info"
+    assert_equal "host", cells[2]["value"], "the context column"
+    assert_equal "sshd", cells[3]["value"], "the source column"
+    assert_equal LogsFieldCatalog::HOST_FIELDS.size, cells.size
   end
 
   test "data row cells are in catalog order" do
@@ -630,10 +632,46 @@ class LogsControllerTest < ActionDispatch::IntegrationTest
 
     cells = JSON.parse(response.body)["rows"].first["cells"]
 
-    # severity, _time, host, programname, _msg. The message is its own disclosure kind
-    # because it carries the record, not just a string. `priority` is not a column -- it is
-    # the same level as `severity` in numeric form.
-    assert_equal %w[severity time badge badge message], cells.map { |c| c["kind"] }
+    # severity, _time, context, source, _msg. The message is its own disclosure kind because it
+    # carries the record, not just a string. Context and source are distinct kinds because they
+    # are styled differently -- the context is the low-variance half. `priority` and `host` are
+    # not columns -- see the catalog for why.
+    assert_equal %w[severity time context source message], cells.map { |c| c["kind"] }
+  end
+
+  test "the context and source columns read dc_app for a container record" do
+    # The context is what KIND of thing logged this. For a container that is the app
+    # installation, not the machine and not the binary inside the container.
+    container_record = {
+      "_time" => "2026-09-08T00:59:13Z", "_stream_id" => "c1", "host" => "tern",
+      "container_name" => "dawa-web-1", "dc_app" => "peertube",
+      "severity" => "info", "_msg" => "container line"
+    }
+    cells = nil
+
+    with_stubbed_service(records: [ container_record ]) do
+      login_as(@user)
+      get data_logs_path
+      cells = JSON.parse(response.body)["rows"].first["cells"]
+    end
+
+    assert_equal "context", cells[2]["kind"]
+    assert_equal "peertube", cells[2]["value"]
+    assert_equal "source", cells[3]["kind"]
+    assert_equal "dawa-web-1", cells[3]["value"]
+  end
+
+  test "the context and source columns read host and the daemon for a host record" do
+    cells = nil
+
+    with_stubbed_service(records: sample_records) do
+      login_as(@user)
+      get data_logs_path
+      cells = JSON.parse(response.body)["rows"].first["cells"]
+    end
+
+    assert_equal "host", cells[2]["value"]
+    assert_equal "sshd", cells[3]["value"]
   end
 
   test "the severity cell leads the row and carries a colour" do
@@ -682,7 +720,10 @@ class LogsControllerTest < ActionDispatch::IntegrationTest
     # A column is always rendered, even when the record has no value for it. Dropping the
     # cell instead would shift every following column, so a row with a missing field would
     # stop lining up with its header.
-    record = sample_records.first.merge("host" => nil)
+    #
+    # `_time` is the remaining column that a record can genuinely omit (the others are
+    # derived: severity falls back to neutral, source always resolves a context).
+    record = sample_records.first.merge("_time" => nil)
 
     with_stubbed_service(records: [ record ]) do
       login_as(@user)
@@ -690,10 +731,10 @@ class LogsControllerTest < ActionDispatch::IntegrationTest
     end
 
     cells = JSON.parse(response.body)["rows"].first["cells"]
-    none_cell = cells.find { |c| c["kind"] == "none" }
+    time_cell = cells[1]
 
-    assert none_cell, "a blank host should render a placeholder, not vanish"
-    assert_equal I18n.t("logs.index.none"), none_cell["value"]
+    assert_equal :none, time_cell["kind"].to_sym
+    assert_equal I18n.t("logs.index.none"), time_cell["value"]
     assert_equal LogsFieldCatalog::HOST_FIELDS.size, cells.size,
                  "the placeholder must not change the cell count"
   end
