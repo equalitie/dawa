@@ -27,9 +27,18 @@ class ContainersController < BaseAdminController
 
   def stats
     fetch_stats
-    render partial: "containers/show/stats", locals: { cpu_stats: @cpu_stats, memory_stats: @memory_stats }
+    @payload = stats_payload
+
+    respond_to do |format|
+      format.html { render partial: "containers/show/stats", locals: { cpu_stats: @cpu_stats, memory_stats: @memory_stats } }
+      format.json { render json: @payload }
+    end
   rescue DockerEngineRuby::Errors::Error
-    render partial: "containers/show/stats", locals: { cpu_stats: nil, memory_stats: nil }
+    @payload = stats_payload
+    respond_to do |format|
+      format.html { render partial: "containers/show/stats", locals: { cpu_stats: nil, memory_stats: nil } }
+      format.json { render json: @payload }
+    end
   end
 
   private
@@ -39,11 +48,109 @@ class ContainersController < BaseAdminController
   end
 
   def fetch_stats
-    stats = docker_client.containers.stats(params[:id], stream: false)
-    @cpu_stats = stats.cpu_stats
-    @memory_stats = stats.memory_stats
+    cache_key = "container_stats_prev:#{params[:id]}"
+    @prev_stats, @prev_polled_at = Rails.cache.read(cache_key)
+
+    @stats = docker_client.containers.stats(params[:id], stream: false)
+    @polled_at = Time.current
+    @cpu_stats = @stats.cpu_stats
+    @memory_stats = @stats.memory_stats
+
+    Rails.cache.write(cache_key, [ @stats, @polled_at ])
   rescue DockerEngineRuby::Errors::APIStatusError
     # stats not available (container not running, etc.)
+  end
+
+  def stats_payload
+    {
+      cpu_pct: cpu_percent,
+      mem_used: @memory_stats&.usage,
+      mem_limit: @memory_stats&.limit,
+      mem_pct: memory_percent,
+      net_rx: network_rate(:rx_bytes),
+      net_tx: network_rate(:tx_bytes),
+      blk_read: block_io_rate(:read),
+      blk_write: block_io_rate(:write),
+      timestamp: @polled_at&.to_f || Time.current.to_f
+    }
+  end
+
+  #
+  # CPU utilization is computed as a delta between the current sample and the
+  # previous sample from the Docker API, normalized over the reported online
+  # CPU count. This avoids the plateaus you get from the raw cumulative counters.
+  #
+  def cpu_percent
+    return nil unless @stats
+    cpu = @stats.cpu_stats
+    pre = @stats.precpu_stats
+    return nil unless cpu && pre
+
+    cpu_delta = cpu.cpu_usage&.total_usage.to_f - pre.cpu_usage&.total_usage.to_f
+    system_delta = cpu.system_cpu_usage.to_f - pre.system_cpu_usage.to_f
+    online = cpu.online_cpus || 1
+    return nil if cpu_delta <= 0 || system_delta <= 0
+
+    (((cpu_delta / system_delta) * online * 100).clamp(0, 100)).round(1)
+  end
+
+  def memory_percent
+    return nil unless @memory_stats&.usage && @memory_stats.limit && @memory_stats.limit > 0
+    ((@memory_stats.usage.to_f / @memory_stats.limit) * 100).round(1)
+  end
+
+  #
+  # Network throughput (bytes/sec) computed as a delta between consecutive
+  # polls, aggregated across all networks. Returns nil when there isn't a
+  # previous sample to diff against.
+  #
+  def network_rate(key)
+    return nil unless @prev_stats && @polled_at && @prev_polled_at
+
+    elapsed = @polled_at - @prev_polled_at
+    return nil if elapsed <= 0
+
+    current = network_total(@stats, key)
+    previous = network_total(@prev_stats, key)
+    return nil unless current && previous
+
+    delta = current - previous
+    return nil if delta < 0
+    (delta / elapsed).round
+  end
+
+  def network_total(stats, key)
+    networks = stats&.networks
+    return nil unless networks.respond_to?(:values) && networks.values.any?
+    networks.values.sum { |n| n.public_send(key).to_f }
+  rescue NoMethodError
+    nil
+  end
+
+  #
+  # Block I/O bytes/sec computed as a delta between consecutive polls.
+  #
+  def block_io_rate(kind)
+    return nil unless @prev_stats && @polled_at && @prev_polled_at
+
+    elapsed = @polled_at - @prev_polled_at
+    return nil if elapsed <= 0
+
+    current = block_io_total(@stats, kind)
+    previous = block_io_total(@prev_stats, kind)
+    return nil unless current && previous
+
+    delta = current - previous
+    return nil if delta < 0
+    (delta / elapsed).round
+  end
+
+  def block_io_total(stats, kind)
+    services = stats&.blkio_stats&.io_service_bytes_recursive
+    return nil unless services
+    services.select { |s| s.op.to_s == kind.to_s }.sum { |s| s.value.to_f }
+  rescue NoMethodError
+    nil
   end
 
   def docker_client

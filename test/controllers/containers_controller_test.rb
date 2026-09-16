@@ -140,18 +140,7 @@ class ContainersControllerTest < ActionDispatch::IntegrationTest
 
   def test_stats_returns_cpu_and_memory
     container_id = "stats-test-1"
-    stats_obj = OpenStruct.new(
-      cpu_stats: OpenStruct.new(
-        online_cpus: 4,
-        system_cpu_usage: 1_000_000_000_000,
-        cpu_usage: OpenStruct.new(total_usage: 500_000_000_000)
-      ),
-      memory_stats: OpenStruct.new(
-        usage: 67_108_864,
-        limit: 134_217_728,
-        max_usage: 100_000_000
-      )
-    )
+    stats_obj = build_stats_stub
 
     stub_docker_stats(container_id, stats_obj) do
       login_as(@user)
@@ -160,6 +149,45 @@ class ContainersControllerTest < ActionDispatch::IntegrationTest
 
     assert_response :success
     assert_select ".progress-bar"
+  end
+
+  def test_stats_returns_json_payload
+    container_id = "stats-json-1"
+    first = build_stats_stub
+    second = build_stats_stub(net_total: 2_500_000, blk_total: 1_000_000)
+
+    travel_to(Time.zone.now) do
+      stub_docker_stats_sequence(container_id, [ first, second ]) do
+        login_as(@user)
+
+        get stats_container_path(container_id, format: :json)
+        assert_response :success
+        first_json = JSON.parse(response.body)
+        assert_equal 20.0, first_json["cpu_pct"]
+        assert_equal 67_108_864, first_json["mem_used"]
+        assert_equal 134_217_728, first_json["mem_limit"]
+        assert_equal 50.0, first_json["mem_pct"]
+        assert_nil first_json["net_rx"] # no previous sample yet
+        assert json_timestamp_present(first_json)
+
+        # Advance time by 2s, then poll again -> rates are delta / elapsed
+        travel(2.seconds)
+        get stats_container_path(container_id, format: :json)
+        assert_response :success
+        second_json = JSON.parse(response.body)
+
+        # rx/tx delta = (2.5MB - 1MB) / 2s = 750KB/s
+        assert_equal 750_000, second_json["net_rx"]
+        assert_equal 750_000, second_json["net_tx"]
+        # blk delta = (1MB - 500KB) / 2s = 250KB/s
+        assert_equal 250_000, second_json["blk_read"]
+        assert_equal 250_000, second_json["blk_write"]
+      end
+    end
+  end
+
+  def json_timestamp_present(json)
+    json["timestamp"].present?
   end
 
   def test_stats_handles_unavailable
@@ -182,6 +210,34 @@ class ContainersControllerTest < ActionDispatch::IntegrationTest
   end
 
   private
+
+  def build_stats_stub(net_total: 1_000_000, blk_total: 500_000)
+    OpenStruct.new(
+      cpu_stats: OpenStruct.new(
+        online_cpus: 4,
+        system_cpu_usage: 2_000_000_000_000,
+        cpu_usage: OpenStruct.new(total_usage: 500_000_000_000)
+      ),
+      precpu_stats: OpenStruct.new(
+        system_cpu_usage: 1_000_000_000_000,
+        cpu_usage: OpenStruct.new(total_usage: 450_000_000_000)
+      ),
+      memory_stats: OpenStruct.new(
+        usage: 67_108_864,
+        limit: 134_217_728,
+        max_usage: 100_000_000
+      ),
+      networks: {
+        "eth0" => OpenStruct.new(rx_bytes: net_total, tx_bytes: net_total)
+      },
+      blkio_stats: OpenStruct.new(
+        io_service_bytes_recursive: [
+          OpenStruct.new(op: "read", value: blk_total),
+          OpenStruct.new(op: "write", value: blk_total)
+        ]
+      )
+    )
+  end
 
   def stub_docker_list(containers_list)
     client = Object.new
@@ -211,16 +267,25 @@ class ContainersControllerTest < ActionDispatch::IntegrationTest
     ContainersController.send(:remove_method, :docker_client)
   end
 
-  def stub_docker_stats(container_id, stats_obj)
+  def stub_docker_stats(container_id, stats_obj, &block)
+    stub_docker_stats_sequence(container_id, [ stats_obj ], &block)
+  end
+
+  def stub_docker_stats_sequence(container_id, stats_objects, &block)
+    call_count = 0
     client = Object.new
     client.define_singleton_method(:containers) do
       Object.new.tap do |c|
-        c.define_singleton_method(:stats) { |id, **| stats_obj }
+        c.define_singleton_method(:stats) do |id, **|
+          stats_obj = stats_objects[[ call_count, stats_objects.length - 1 ].min]
+          call_count += 1
+          stats_obj
+        end
       end
     end
 
     ContainersController.define_method(:docker_client) { client }
-    yield
+    block.call
   ensure
     ContainersController.send(:remove_method, :docker_client)
   end

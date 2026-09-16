@@ -1,27 +1,49 @@
+- payload = local_assigns[:payload] || @payload || {}
+
 %turbo-frame#container-stats
-  .card.mb-3
+  .card.mb-3{data: {
+      controller: "container-stats",
+      "container-stats-url-value": stats_container_path(params[:id], format: :json),
+      "container-stats-interval-value": 1500
+    }}
     .card-header= t(".stats")
     .card-body
       %table.table.table-sm.mb-0
         %tbody
-          - if cpu_stats
-            %tr
-              %th.text-nowrap= t(".cpu")
-              %td
-                - if cpu_stats.online_cpus && cpu_stats.system_cpu_usage && cpu_stats.cpu_usage&.total_usage
-                  - cpu_pct = ([cpu_stats.cpu_usage.total_usage.to_f / cpu_stats.system_cpu_usage * cpu_stats.online_cpus * 100, 0].max).round(1)
-                  = number_to_percentage(cpu_pct, precision: 1)
+          %tr
+            %th.text-nowrap= t(".cpu")
+            %td
+              .d-flex.align-items-center.gap-2
+                .progress.flex-grow-1{style: "height: 12px;"}
+                  .progress-bar{role: "progressbar", data: {"container-stats-target": "cpuBar"}, style: "width: #{payload[:cpu_pct] || 0}%;", aria: {valuenow: payload[:cpu_pct] || 0, valuemin: 0, valuemax: 100}}
+                %small.text-muted.text-nowrap{data: {"container-stats-target": "cpuText"}}
+                  = payload[:cpu_pct] ? number_to_percentage(payload[:cpu_pct], precision: 1) : "—"
+          %tr
+            %th.text-nowrap= t(".memory")
+            %td
+              .d-flex.align-items-center.gap-2
+                .progress.flex-grow-1{style: "height: 12px;"}
+                  .progress-bar{role: "progressbar", data: {"container-stats-target": "memBar"}, style: "width: #{payload[:mem_pct] || 0}%;", aria: {valuenow: payload[:mem_pct] || 0, valuemin: 0, valuemax: 100}}
+                %small.text-muted.text-nowrap{data: {"container-stats-target": "memText"}}
+                  - if payload[:mem_used]
+                    = "#{number_to_human_size(payload[:mem_used])} / #{number_to_human_size(payload[:mem_limit])} (#{payload[:mem_pct] ? number_to_percentage(payload[:mem_pct], precision: 1) : "—"})"
+                  - else
+                    —
+          %tr
+            %th.text-nowrap= t(".network")
+            %td
+              %small.text-muted.text-nowrap{data: {"container-stats-target": "netText"}}
+                - if payload[:net_rx] || payload[:net_tx]
+                  = "#{t('.rx')} #{number_to_human_size(payload[:net_rx].to_i)}/s · #{t('.tx')} #{number_to_human_size(payload[:net_tx].to_i)}/s"
                 - else
-                  = cpu_stats.cpu_usage&.total_usage
-          - if memory_stats
-            %tr
-              %th.text-nowrap= t(".memory")
-              %td
-                - if memory_stats.usage && memory_stats.limit && memory_stats.limit > 0
-                  .d-flex.align-items-center.gap-2
-                    .progress.flex-grow-1{style: "height: 8px;"}
-                      - mem_pct = (memory_stats.usage.to_f / memory_stats.limit * 100).round(1)
-                      .progress-bar{role: "progressbar", style: "width: #{mem_pct}%;", aria: {valuenow: mem_pct, valuemin: 0, valuemax: 100}}
-                    %small.text-muted.text-nowrap= "#{number_to_human_size(memory_stats.usage)} / #{number_to_human_size(memory_stats.limit)}"
-                - elsif memory_stats.usage
-                  = number_to_human_size(memory_stats.usage)
+                  —
+          %tr
+            %th.text-nowrap= t(".block_io")
+            %td
+              %small.text-muted.text-nowrap{data: {"container-stats-target": "ioText"}}
+                - if payload[:blk_read] || payload[:blk_write]
+                  = "#{t('.read')} #{number_to_human_size(payload[:blk_read].to_i)}/s · #{t('.write')} #{number_to_human_size(payload[:blk_write].to_i)}/s"
+                - else
+                  —
+      .chart.mt-3{data: {"container-stats-target": "chart"}}
+        .d-flex.flex-wrap.align-items-end.gap-1{style: "height: 60px;"}

@@ -203,6 +203,12 @@ en:
         stats: "Resource Usage"
         cpu: "CPU"
         memory: "Memory"
+        network: "Network"
+        rx: "RX"
+        tx: "TX"
+        block_io: "Block I/O"
+        read: "Read"
+        write: "Write"
       config:
         title: "Configuration"
         config: "Configuration"
