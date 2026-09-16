@@ -64,6 +64,7 @@ gem "secrets_helper",  path: "gems/secrets_helper"
 # APIs
 gem "docker-engine-ruby"                # docker engine API
 gem "prometheus-api-client"             # query victoriametrics db
+gem "faraday"                           # HTTP client
 gem "doorkeeper"                        # OAuth2 authorization server
 gem "doorkeeper-openid_connect"         # OpenID Connect (OIDC) layer on top of doorkeeper
 

@@ -320,6 +320,25 @@ en:
   logs:
     index:
       title: "Logs"
+      details: "Details"
+      json: "JSON"
+      none: "—"
+      unreachable: "Could not reach VictoriaLogs"
+      range:
+        "15m": "Last 15 minutes"
+        "1h": "Last hour"
+        "6h": "Last 6 hours"
+        "24h": "Last 24 hours"
+        "7d": "Last 7 days"
+    field:
+      _time: "Time"
+      host: "Host"
+      programname: "Program"
+      unit: "Unit"
+      severity: "Severity"
+      priority: "Priority"
+      _stream: "Stream"
+      _msg: "Message"
 
   metrics:
     title: "Metrics"

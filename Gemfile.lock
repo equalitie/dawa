@@ -521,6 +521,7 @@ DEPENDENCIES
   doorkeeper
   doorkeeper-openid_connect
   faker
+  faraday
   haml-rails (~> 2.1)
   image_processing (~> 1.2)
   importmap-rails

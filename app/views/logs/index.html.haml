@@ -1,1 +1,33 @@
 = breadcrumbs
+
+.btn-toolbar.mb-3
+  = v.dropdown_button(label: t("logs.index.range.#{@range}"), icon: "clock-history") do |menu|
+    - logs_range_options.each do |option|
+      - menu.item do
+        = v.link_button(label: t("logs.index.range.#{option}"), url: logs_path(range: option))
+
+- if @error.present?
+  = v.alert("danger", icon: "x-circle") do
+    .mb-2.fw-bold= t("logs.index.unreachable")
+    %div= @error
+
+= v.table(t(".title")) do |t|
+  - LogsFieldCatalog::HOST_FIELDS.each do |field|
+    - t.column :shrink, label: t("logs.field.#{field}")
+  - t.column :grow, label: t("logs.index.details")
+  - @logs.each do |record|
+    - t.with_row do |r|
+      - LogsFieldCatalog::HOST_FIELDS.each do |field|
+        - r.with_cell do
+          - if field == :_time
+            %span.text-nowrap= log_time(record)
+          - elsif field == :_msg
+            %code= log_message(record)
+          - elsif log_field_value(record, field).present?
+            %span.badge.text-bg-light= log_field_value(record, field)
+          - else
+            %span.text-muted= t("logs.index.none")
+      - r.with_cell do
+        %details
+          %summary= t("logs.index.json")
+          %pre.small.mb-0= log_json(record)

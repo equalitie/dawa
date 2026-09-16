@@ -13,6 +13,11 @@ variables:
   secret_key_base: hex required
   #db_password: string required
 
+  # VictoriaLogs tuning (numeric; must be declared here so Conf returns Integers)
+  logs_default_limit: integer
+  logs_max_limit: integer
+  logs_poll_interval_ms: integer
+
 #
 # common default settings for all environments
 #
@@ -43,6 +48,12 @@ defaults:
   metrics_real_time_max_window: "72 hours"
   metrics_historical_interval: "1 minute"
   metrics_historical_max_window: "90 days"
+
+  # VictoriaLogs (log exploration) backend
+  logs_url: "http://localhost:9428"
+  logs_default_limit: 200
+  logs_max_limit: 2000
+  logs_poll_interval_ms: 1500
 
   db_port: 5432
   db_host: localhost
@@ -95,3 +106,4 @@ production:
   websocket_url: "wss://${site_domain}"
   app_port: 3000
   metrics_url: "http://victoriametrics:8428"
+  logs_url: "http://victorialogs:9428"

@@ -26,12 +26,6 @@ To create a dummy container that simulates different load conditions:
 docker run --rm --name keep-vm-alive --label dc_app=keepalive gentasumantri/keep-vm-alive
 ```
 
-To create a dummy container that simulates logs:
-
-```sh
-docker run -rm --name loggen --label dc_app=loggen kubetail/loggen:0.2.0
-```
-
 ## OIDC testing
 
 The nature of OIDC is that the same hostname must resolve to the access the identity provider (Dawa in our case). If you are running Dawa on the host and a test OIDC client in a container, that can be a bit tricky. 
