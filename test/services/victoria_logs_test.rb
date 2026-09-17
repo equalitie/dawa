@@ -127,6 +127,34 @@ class VictoriaLogsTest < ActiveSupport::TestCase
     end
   end
 
+  test "field_names always sends a query param, because VictoriaLogs rejects a bare call" do
+    # VictoriaLogs answers 400 to /select/logsql/field_names with no `query` arg at all, so
+    # omitting it turns a working instance into an apparent outage. An empty query ("") is
+    # sent rather than dropping the param.
+    fake = fake_connection(body: { values: [] }.to_json)
+
+    with_connection(fake) do
+      @service.field_names
+      path, params = fake.calls.last
+      assert_equal "/select/logsql/field_names", path
+      assert_equal "", params[:query]
+
+      @service.field_names("*")
+      _path, params = fake.calls.last
+      assert_equal "*", params[:query]
+    end
+  end
+
+  test "streams always sends a query param" do
+    fake = fake_connection(body: "")
+
+    with_connection(fake) do
+      @service.streams
+      _path, params = fake.calls.last
+      assert_equal "", params[:query]
+    end
+  end
+
   test "streams parses NDJSON stream objects" do
     body = <<~NDJSON
       {"host":"tern","programname":"sshd","_stream_id":"abc"}

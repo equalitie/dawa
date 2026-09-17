@@ -1,0 +1,28 @@
+-# Docker Engine: reachable, plus the daemon and API versions. The API version matters
+-# because the gem is pinned against a specific one, and a mismatch is a failure mode that
+-# otherwise shows up as a puzzling error on the containers page.
+- if @docker_diagnostic[:connected]
+  = v.alert("success", icon: "check-circle") do
+    .mb-2.fw-bold= t("troubleshoot.connected")
+    %ul.list-group.p-0
+      %li.list-group-item
+        %code= Conf.docker_url
+      - if @docker_diagnostic[:version].present?
+        %li.list-group-item.d-flex.justify-content-between.align-items-center
+          %span= t("troubleshoot.docker_version")
+          %span.badge.text-bg-secondary= @docker_diagnostic[:version]
+      - if @docker_diagnostic[:api_version].present?
+        %li.list-group-item.d-flex.justify-content-between.align-items-center
+          %span= t("troubleshoot.docker_api_version")
+          %span.badge.text-bg-secondary= @docker_diagnostic[:api_version]
+- else
+  = v.alert("danger", icon: "x-circle") do
+    .mb-2.fw-bold= t("troubleshoot.unreachable")
+    %ul.list-group.p-0
+      %li.list-group-item
+        %code= Conf.docker_url
+      %li.list-group-item
+        - if @docker_diagnostic[:error].present?
+          = @docker_diagnostic[:error]
+        - else
+          = t("troubleshoot.error_unknown")

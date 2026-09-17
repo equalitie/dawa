@@ -56,12 +56,11 @@ class VictoriaLogs
   #
   # Known stream field-value combinations, used to populate the "source/provider" picker.
   #
-  # @param query [String, nil] optional LogsQL filter to scope the streams.
+  # @param query [String] a LogsQL expression ("" means "everything").
   # @return [Array<Hash>] one parsed object per stream.
   #
-  def streams(query = nil)
-    params = {}
-    params[:query] = query if query.present?
+  def streams(query = "")
+    params = { query: query.to_s }
     parse_ndjson(get("/select/logsql/streams", params))
   end
 
@@ -69,12 +68,15 @@ class VictoriaLogs
   # The field names present in the logs (optionally scoped by a query/range). Used to
   # reconcile the shared LogsFieldCatalog against what the deployment actually emits.
   #
+  # The `query` arg is REQUIRED on the wire: VictoriaLogs answers 400 to
+  # `/select/logsql/field_names` when it is absent, so an empty string is sent rather
+  # than omitting the parameter ("" matches everything, same as `*`).
+  #
+  # @param query [String] a LogsQL expression ("" means "everything").
   # @return [Array<String>] field names, e.g. ["_msg", "_stream", "_time", "programname"].
   #
-  def field_names(query = nil)
-    params = {}
-    params[:query] = query if query.present?
-    parse_values(get("/select/logsql/field_names", params))
+  def field_names(query = "")
+    parse_values(get("/select/logsql/field_names", query: query.to_s))
   end
 
   #

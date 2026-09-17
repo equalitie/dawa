@@ -1,5 +1,16 @@
 = breadcrumbs
 
-%h3= t("sidebar.metrics")
+%h3= t("troubleshoot.title")
+%p.text-muted= t("troubleshoot.intro")
 
+%h4= t("troubleshoot.metrics")
 = render "metrics"
+
+%h4= t("troubleshoot.logs")
+= render "logs"
+
+%h4= t("troubleshoot.docker")
+= render "docker"
+
+%h4= t("troubleshoot.dcomms")
+= render "dcomms"

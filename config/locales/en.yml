@@ -390,11 +390,24 @@ en:
     providers: "Metrics Providers"
 
   troubleshoot:
+    title: "Troubleshoot"
+    intro: "Reachability checks for the services Dawa depends on."
     connected: "Connected"
     unreachable: "Unreachable"
     up: "up"
     down: "down"
     error_unknown: "Error Unknown"
+    # section headings, one per backend
+    metrics: "VictoriaMetrics"
+    logs: "VictoriaLogs"
+    docker: "Docker Engine"
+    dcomms: "dcommsctl"
+    # per-backend detail rows
+    field_count: "Fields"
+    field_count_none: "none"
+    docker_version: "Daemon version"
+    docker_api_version: "API version"
+    job_count: "Jobs tracked"
 
   settings:
     show:
