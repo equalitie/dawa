@@ -160,7 +160,11 @@ class DcommsMock
   # Serves the next unserved chunk, honouring `offset` so the client's byte cursor is
   # genuinely exercised. A caller that is behind (offset < what we've served) gets an
   # empty chunk rather than a rewind, which mirrors "you already have these bytes".
-  def job_log(id:, offset: 0)
+  #
+  # Takes `instance_id` as well as the job id because the daemon keys its job map on the
+  # pair; see DcommsClient#job_log.
+  #
+  def job_log(id:, instance_id:, offset: 0)
     job = fetch_job(id)
 
     if offset < job.served_bytes

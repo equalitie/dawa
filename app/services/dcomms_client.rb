@@ -22,10 +22,6 @@ require "securerandom"
 #   DcommsClient.new.catalog_list
 #   # => [ #<Dcomms::CatalogEntry id="peertube" name="Peertube" ...>, ... ]
 #
-# NOTE: the backend does not yet implement `job/status`, `job/log` (real output) or
-# `inst/list`; see docs/dcommsctl-api-requests.md. DcommsAdapter is what decides
-# whether to call this class or the mock.
-#
 class DcommsClient
   # Base for every failure raised by this client.
   class Error < StandardError; end
@@ -92,16 +88,19 @@ class DcommsClient
   #
 
   #
-  # `apps/list` - the catalog of installable entries.
+  # `app/list` - the catalog of installable entries.
   #
-  # dcommsctl calls this method "apps" and returns "applications", but what it returns is
+  # SINGULAR `app`, not `apps`: the method was renamed (confirmed live), and the old
+  # `apps/list` now returns -32601. See docs/dcommsctl-api-requests.md.
+  #
+  # dcommsctl calls this method "app" and returns "applications", but what it returns is
   # what CAN be installed, not what IS. In Dawa those are catalog entries, and "app" is
   # reserved for an installed deployment (see the vocabulary note in dcomms.rb).
   #
   # @return [Array<Dcomms::CatalogEntry>] only rows with an id and name.
   #
   def catalog_list
-    result = call("apps/list")
+    result = call("app/list")
     applications = result.is_a?(Hash) ? result["applications"] : result
     Array(applications).filter_map { |raw| Dcomms::CatalogEntry.from_json(raw) }.select(&:available?)
   end
@@ -133,15 +132,27 @@ class DcommsClient
   ##
   #
 
-  # `inst/list` - installed apps. NOT IMPLEMENTED by the backend yet
-  # (raises MethodNotFound); DcommsAdapter mocks it.
   #
-  # @return [Array<Dcomms::AppInstance>]
+  # `inst/list` - the installed instance NAMES.
+  #
+  # The daemon returns `InstancesNames: ["peertube-bongo", ...]`, a list of bare strings
+  # read from directory names (see rpc_inst_list.go). The richer shape the API doc asks
+  # for -- `{instances: [{id, app, domain, version, status}]}` -- is NOT implemented, so
+  # only the id is known here and every other field on AppInstance is nil.
+  #
+  # Note the key casing: the Go struct field is `InstancesNames` with an empty json tag, so
+  # that is what comes over the wire. Reading `"instances"` finds nothing at all.
+  #
+  # Callers must treat the missing fields as genuinely unknown. In particular there is NO
+  # status, so an instance cannot be reported as running or stopped from this call.
+  #
+  # @return [Array<Dcomms::AppInstance>] with only `id` populated.
   #
   def apps_installed_list
     result = call("inst/list")
-    instances = result.is_a?(Hash) ? result["instances"] : result
-    Array(instances).filter_map { |raw| Dcomms::AppInstance.from_json(raw) }.select(&:available?)
+    names = extract_instance_names(result)
+
+    names.filter_map { |name| Dcomms::AppInstance.from_json("id" => name) }.select(&:available?)
   end
 
   # Old name, kept so nothing breaks mid-refactor.
@@ -182,20 +193,61 @@ class DcommsClient
   ##
   #
 
-  # `job/status` -- NOT IMPLEMENTED yet (raises MethodNotFound). DcommsAdapter mocks it.
+  #
+  # `job/status` - a job's state.
+  #
+  # STILL A STUB in the daemon: `rpcJobStatus` returns a zero-value JobStatus and never
+  # looks at the id, so this answers `ok` with every field blank for a job that `job/list`
+  # reports as `done`. DcommsAdapter therefore keeps it mocked.
+  #
+  # It raises on a blank id rather than handing back a zero-value status, because a caller
+  # cannot tell "this job is pending" from "the backend did not answer" otherwise, and the
+  # second is what is actually happening. That check becomes harmless once the daemon
+  # implements the method properly.
   #
   # @return [Dcomms::JobStatus]
   #
   def job_status(id:)
-    Dcomms::JobStatus.from_json(call("job/status", { id: id }))
+    status = Dcomms::JobStatus.from_json(call("job/status", { id: id }))
+
+    if status.id.blank?
+      raise EmptyResult, "dcommsctl returned an empty job status for #{id.inspect}"
+    end
+
+    status
   end
 
-  # `job/log` -- registered but stubbed by the backend (always returns an empty log).
   #
+  # `job/log` - a chunk of a job's output.
+  #
+  # The daemon keys its job map on instance+job (`fetchLog(instanceID, jobID, offset)`), so
+  # BOTH identifiers are required; `job_id` alone gets "Job not found". The wire names are
+  # `job_id` and `instance_id` -- not `id`, which is the name every other method uses.
+  #
+  # The reply carries only `log`. The intended contract also has `next_offset` and `eof`,
+  # which the daemon does not send, so they are derived here:
+  #
+  #   * `next_offset` is the byte cursor the client should pass next: the offset it asked
+  #     from, plus the bytes it just received. Deriving it (rather than trusting the daemon
+  #     to echo it) is safe because the daemon reads from exactly that offset and the log is
+  #     an opaque byte stream.
+  #   * `eof` means "caught up for now". The daemon caps a reply at 64KB, so an EMPTY chunk
+  #     is the only honest signal that there is nothing more to read. That is a guess in the
+  #     strict sense -- a genuinely empty reply and a short read look alike -- but the
+  #     alternative (always reporting eof: false) would make every caller poll forever.
+  #
+  # Completion is NEVER signalled here regardless: that is `job/status#state`.
+  #
+  # @param id [String] the job id
+  # @param instance_id [String] the instance the job belongs to
+  # @param offset [Integer] byte offset to read from
   # @return [Dcomms::JobLog]
   #
-  def job_log(id:, offset: 0)
-    Dcomms::JobLog.from_json(call("job/log", { id: id, offset: offset }))
+  def job_log(id:, instance_id:, offset: 0)
+    raw = call("job/log", { job_id: id, instance_id: instance_id, offset: offset.to_i })
+    text = raw.is_a?(Hash) ? raw["log"].to_s : ""
+
+    Dcomms::JobLog.new(log: text, next_offset: offset.to_i + text.bytesize, eof: text.empty?)
   end
 
   # `job/list` -- NOT IMPLEMENTED yet. DcommsAdapter mocks it.
@@ -213,6 +265,21 @@ class DcommsClient
   end
 
   private
+
+  #
+  # The installed instance names from an `inst/list` reply.
+  #
+  # The daemon sends `{ "InstancesNames" => ["peertube-bongo", ...] }`. Tolerates the
+  # other plausible shapes (a bare array, or a keyed hash once the richer shape lands) so a
+  # backend change degrades rather than raising.
+  #
+  def extract_instance_names(result)
+    case result
+    when Array then result
+    when Hash then Array(result["InstancesNames"] || result["instances"])
+    else []
+    end.filter_map { |entry| entry.is_a?(Hash) ? entry["id"] : entry }.map(&:to_s).reject(&:empty?)
+  end
 
   # Extract a job_id from a mutation result, guarding against an empty answer.
   def job_id_from(result, method)

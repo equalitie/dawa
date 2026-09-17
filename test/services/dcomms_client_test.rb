@@ -52,7 +52,7 @@ class DcommsClientTest < ActiveSupport::TestCase
 
     request = @sent.last
     assert_equal "2.0", request["jsonrpc"]
-    assert_equal "apps/list", request["method"]
+    assert_equal "app/list", request["method"]
     assert request["id"].present?, "request must carry an id"
   end
 
@@ -70,8 +70,18 @@ class DcommsClientTest < ActiveSupport::TestCase
   end
 
   ##
-  ## apps/list
+  ## app/list
   ##
+
+  test "catalog_list uses the singular app/list method" do
+    # The daemon renamed this from apps/list; the plural form now returns -32601.
+    # Confirmed against the live daemon (script/backend-ls).
+    stub_exchange(result: { "applications" => [] }) do
+      @client.catalog_list
+    end
+
+    assert_equal "app/list", @sent.last["method"]
+  end
 
   test "catalog_list unwraps the applications array into Definition objects" do
     result = { "applications" => [
@@ -262,6 +272,15 @@ class DcommsClientTest < ActiveSupport::TestCase
   ## jobs
   ##
 
+  test "job_status raises when the backend answers with a zero-value status" do
+    # STILL A STUB: rpcJobStatus returns JobStatus{} and ignores the id, so a job that
+    # job/list reports as `done` comes back all-empty. Observed live. A caller cannot tell
+    # that apart from a genuinely pending job, so it is an error rather than a status.
+    stub_exchange(result: { "id" => "", "state" => "" }) do
+      assert_raises(DcommsClient::EmptyResult) { @client.job_status(id: "install-1") }
+    end
+  end
+
   test "job_status parses state and terminality" do
     result = {
       "id" => "install-1", "type" => "install", "instance_id" => "peertube-quokka",
@@ -277,6 +296,8 @@ class DcommsClientTest < ActiveSupport::TestCase
       assert_equal 1, status.exit_code
       assert_equal 2048, status.bytes_written
     end
+
+    assert_equal({ "id" => "install-1" }, @sent.last["params"])
   end
 
   test "job_status treats done as success and running as non-terminal" do
@@ -289,29 +310,66 @@ class DcommsClientTest < ActiveSupport::TestCase
     end
   end
 
-  test "job_log requests an offset and parses the chunk" do
-    result = { "log" => "line\n", "next_offset" => 5, "eof" => false }
-
-    stub_exchange(result: result) do
-      chunk = @client.job_log(id: "j", offset: 0)
-      assert_equal "line\n", chunk.log
-      assert_equal 5, chunk.next_offset
-      refute chunk.eof
-      refute chunk.empty?
+  test "job_log sends the daemon's param names and both identifiers" do
+    # The wire names are `job_id` and `instance_id` -- NOT the `id` every other method uses.
+    # The daemon keys its job map on the pair, so `job_id` alone answers "Job not found".
+    stub_exchange(result: { "log" => "line\n" }) do
+      @client.job_log(id: "install-1", instance_id: "peertube-quokka")
     end
 
-    assert_equal({ "id" => "j", "offset" => 0 }, @sent.last["params"])
+    assert_equal({ "job_id" => "install-1", "instance_id" => "peertube-quokka", "offset" => 0 },
+                 @sent.last["params"])
   end
 
-  test "job_log tolerates the stubbed backend returning an empty log" do
-    # `job/log` IS registered but returns an empty string today. That must parse
-    # cleanly (it is indistinguishable on the wire from "no output yet").
-    stub_exchange(result: { "log" => "" }) do
-      chunk = @client.job_log(id: "j")
-      assert chunk.empty?
-      assert_equal 0, chunk.next_offset
-      refute chunk.eof
+  test "job_log derives next_offset from the byte length of the chunk" do
+    # The daemon replies with only `log`; the intended contract's `next_offset` is not sent,
+    # so the client computes it: the offset asked from plus the bytes received. Safe because
+    # the daemon reads from exactly that offset and a log is an opaque byte stream.
+    stub_exchange(result: { "log" => "hello" }) do
+      chunk = @client.job_log(id: "j", instance_id: "i", offset: 10)
+
+      assert_equal "hello", chunk.log
+      assert_equal 15, chunk.next_offset
     end
+  end
+
+  test "job_log measures the cursor in bytes, not characters" do
+    # Multi-byte UTF-8 is the case a character count would get wrong, and the daemon's
+    # offset is a byte offset (it uses ReadAt).
+    text = "caf\u00e9\u00e9"
+
+    stub_exchange(result: { "log" => text }) do
+      chunk = @client.job_log(id: "j", instance_id: "i", offset: 0)
+
+      assert_equal text.bytesize, chunk.next_offset
+      assert_operator chunk.next_offset, :>, text.length
+    end
+  end
+
+  test "an empty chunk means caught up" do
+    # `eof` is not sent either. The daemon caps a reply at 64KB, so an empty chunk is the
+    # only honest "nothing more right now". It is NOT completion -- that is job/status.
+    stub_exchange(result: { "log" => "" }) do
+      chunk = @client.job_log(id: "j", instance_id: "i", offset: 42)
+
+      assert chunk.empty?
+      assert chunk.eof
+      assert_equal 42, chunk.next_offset, "an empty chunk must not move the cursor"
+    end
+  end
+
+  test "a non-empty chunk is not eof" do
+    stub_exchange(result: { "log" => "more\n" }) do
+      refute @client.job_log(id: "j", instance_id: "i").eof
+    end
+  end
+
+  test "job_list sends active_only only when asked" do
+    stub_exchange(result: { "jobs" => [] }) { @client.job_list }
+    refute @sent.last["params"].key?("active_only")
+
+    stub_exchange(result: { "jobs" => [] }) { @client.job_list(active_only: true) }
+    assert_equal true, @sent.last["params"]["active_only"]
   end
 
   test "job_list maps jobs and forwards the active_only filter" do
@@ -326,19 +384,43 @@ class DcommsClientTest < ActiveSupport::TestCase
     assert_equal({ "active_only" => true }, @sent.last["params"])
   end
 
-  test "apps_installed_list parses instances, tolerating blank rows" do
-    result = { "instances" => [
-      { "id" => "peertube-quokka", "app" => "peertube", "domain" => "pt.test", "status" => "running" },
-      { "id" => "" }
-    ] }
+  test "apps_installed_list reads the daemon's InstancesNames key" do
+    # The Go struct field is `InstancesNames` with an empty json tag, so that is the key on
+    # the wire. Reading `instances` (the name the API doc proposes) finds nothing at all --
+    # confirmed against the live daemon.
+    stub_exchange(result: { "InstancesNames" => [ "peertube-bongo", "peertube-zebu" ] }) do
+      names = @client.apps_installed_list.map(&:id)
 
-    stub_exchange(result: result) do
-      instances = @client.apps_installed_list
-      assert_equal 1, instances.size
-      assert_equal "peertube-quokka", instances.first.id
-      # dcommsctl names this field "app"; it identifies the catalog entry the app came from
-      assert_equal "peertube", instances.first.catalog_entry_id
-      assert instances.first.running?
+      assert_equal %w[peertube-bongo peertube-zebu], names
+    end
+  end
+
+  test "apps_installed_list only knows ids, so other fields stay nil" do
+    # The daemon returns directory names and nothing else. The richer shape is not
+    # implemented, and inventing domain/version/status would be a lie.
+    stub_exchange(result: { "InstancesNames" => [ "peertube-bongo" ] }) do
+      instance = @client.apps_installed_list.first
+
+      assert_equal "peertube-bongo", instance.id
+      assert_nil instance.catalog_entry_id
+      assert_nil instance.domain
+      assert_nil instance.version
+      assert_nil instance.status
+      refute instance.running?, "an unknown status must not read as running"
+    end
+  end
+
+  test "apps_installed_list tolerates an empty or missing list" do
+    stub_exchange(result: {}) do
+      assert_equal [], @client.apps_installed_list
+    end
+  end
+
+  test "apps_installed_list still accepts the richer shape if it lands" do
+    # The API doc asks for objects. If the daemon ever sends them, the id survives rather
+    # than the whole row being dropped.
+    stub_exchange(result: { "instances" => [ { "id" => "peertube-quokka" } ] }) do
+      assert_equal [ "peertube-quokka" ], @client.apps_installed_list.map(&:id)
     end
   end
 
@@ -382,7 +464,7 @@ class DcommsClientTest < ActiveSupport::TestCase
     end
 
     assert_equal 3, requests.size, "each call must open its own connection"
-    assert_equal %w[apps/list apps/list apps/list], requests.map { |r| r["method"] }
+    assert_equal %w[app/list app/list app/list], requests.map { |r| r["method"] }
   end
 
   test "raises ConnectionError when nothing is listening" do

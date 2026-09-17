@@ -29,7 +29,9 @@ class DcommsAdapterTest < ActiveSupport::TestCase
     def backup(id:) = record(:backup, id: id)
     def restore(id:) = record(:restore, id: id)
     def job_status(id:) = record(:job_status, id: id)
-    def job_log(id:, offset: 0) = record(:job_log, id: id, offset: offset)
+    def job_log(id:, instance_id:, offset: 0)
+      record(:job_log, id: id, instance_id: instance_id, offset: offset)
+    end
     def job_list(instance_id: nil, active_only: false)
       record(:job_list, instance_id: instance_id, active_only: active_only)
     end
@@ -65,9 +67,9 @@ class DcommsAdapterTest < ActiveSupport::TestCase
   test "the default-constructed adapter routes mocked methods to the mock" do
     adapter = DcommsAdapter.new
 
-    # apps_installed_list is mocked; it must not reach the (unreachable, in tests) socket,
-    # and it must not blow up on a nil mock.
-    assert_equal DcommsMock::DEFAULT_APPS.size - 1, adapter.apps_installed_list.size
+    # catalog_entry is mocked; it must not reach the (unreachable, in tests) socket, and it
+    # must not blow up on a nil mock. It returns a decorated entry from the mock fixtures.
+    assert_equal "peertube", adapter.catalog_entry(id: "peertube").id
   end
 
   ##
@@ -75,10 +77,20 @@ class DcommsAdapterTest < ActiveSupport::TestCase
   ##
 
   test "MOCKED lists exactly the methods the backend does not implement" do
-    # Deliberately exhaustive: adding a method here means the backend lacks it, which is a
-    # claim that should require updating this list.
-    assert_equal %i[job_status job_log job_list apps_installed_list catalog_entry].sort,
-                 DcommsAdapter::MOCKED.sort
+    # Deliberately exhaustive: this list shrinking is the signal that the daemon landed
+    # something. Re-verified with script/backend-ls -- `job/log`, `job/list` and `inst/list`
+    # are implemented now, leaving only the job/status stub and the absent catalog detail.
+    assert_equal %i[job_status catalog_entry].sort, DcommsAdapter::MOCKED.sort
+  end
+
+  test "the newly-implemented methods are real, not mocked" do
+    # Regression guard: these were mocked while the daemon lacked them. If one slips back
+    # into MOCKED, Dawa would silently stop talking to a backend that works.
+    assert_equal :from_client, @adapter.job_log(id: "j", instance_id: "i")
+    assert_equal :from_client, @adapter.job_list
+    assert_equal :from_client, @adapter.apps_installed_list
+
+    assert_empty @mock.calls
   end
 
   test "REAL and MOCKED do not overlap" do
@@ -102,10 +114,10 @@ class DcommsAdapterTest < ActiveSupport::TestCase
     assert_equal :from_client, @adapter.definitions_list
     assert_equal [ [ :catalog_list, {} ] ], @client.calls
 
-    # apps_installed_list is mocked (the backend lacks inst/list), so its alias routes to the
-    # mock too. The point is that the alias takes the same path as the new name.
-    assert_equal :from_mock, @adapter.instances_list
-    assert_equal [ [ :apps_installed_list, {} ] ], @mock.calls
+    # apps_installed_list is real now (inst/list is implemented), so its alias takes the
+    # real path too. The point is that the alias routes where its replacement does.
+    assert_equal :from_client, @adapter.instances_list
+    assert_includes @client.calls, [ :apps_installed_list, {} ]
   end
 
   test "the default configuration mocks exactly MOCKED" do
@@ -141,22 +153,25 @@ class DcommsAdapterTest < ActiveSupport::TestCase
     assert_equal [ [ :install, { name: "peertube", domain: "pt.test" } ] ], @client.calls
   end
 
-  test "job_log forwards the offset" do
-    @adapter.job_log(id: "j", offset: 128)
+  test "job_log forwards both identifiers and the offset" do
+    # Real now, so it reaches the client rather than the mock -- but the routing is what is
+    # under test here, and both identifiers must travel because the daemon keys its job map
+    # on the pair.
+    @adapter.job_log(id: "j", instance_id: "inst-1", offset: 128)
 
-    assert_equal [ [ :job_log, { id: "j", offset: 128 } ] ], @mock.calls
+    assert_equal [ [ :job_log, { id: "j", instance_id: "inst-1", offset: 128 } ] ], @client.calls
   end
 
   test "job_log defaults the offset" do
-    @adapter.job_log(id: "j")
+    @adapter.job_log(id: "j", instance_id: "inst-1")
 
-    assert_equal [ [ :job_log, { id: "j", offset: 0 } ] ], @mock.calls
+    assert_equal [ [ :job_log, { id: "j", instance_id: "inst-1", offset: 0 } ] ], @client.calls
   end
 
   test "job_list forwards its filters" do
     @adapter.job_list(instance_id: "inst-1", active_only: true)
 
-    assert_equal [ [ :job_list, { instance_id: "inst-1", active_only: true } ] ], @mock.calls
+    assert_equal [ [ :job_list, { instance_id: "inst-1", active_only: true } ] ], @client.calls
   end
 
   ##
@@ -188,7 +203,7 @@ class DcommsAdapterTest < ActiveSupport::TestCase
 
       assert_equal %i[catalog_list job_status].sort, adapter.mocked_methods.sort
       assert_equal :from_mock, adapter.catalog_list
-      assert_equal :from_client, adapter.job_log(id: "j")
+      assert_equal :from_client, adapter.job_log(id: "j", instance_id: "i")
     end
   end
 
@@ -202,9 +217,13 @@ class DcommsAdapterTest < ActiveSupport::TestCase
 
   test "mocked? answers per method" do
     assert @adapter.mocked?(:job_status)
-    assert @adapter.mocked?("apps_installed_list")
+    assert @adapter.mocked?("catalog_entry")
     refute @adapter.mocked?(:catalog_list)
     refute @adapter.mocked?(:install)
+    # These three were mocked while the daemon lacked them.
+    refute @adapter.mocked?(:job_log)
+    refute @adapter.mocked?(:job_list)
+    refute @adapter.mocked?(:apps_installed_list)
   end
 
   #

@@ -1,0 +1,306 @@
+#!/usr/bin/env ruby
+#
+# Probe the dcommsctl JSON-RPC API and print what it answers.
+#
+#   script/backend-ls                       # every non-mutating call
+#   script/backend-ls app/list job/list     # only these
+#   script/backend-ls job/log               # implies job/list, for the ids
+#   DCOMMS_URL=ws://host:6006/ws script/backend-ls
+#
+# `job/status` and `job/log` both need a real job id, so they are probed once per job that
+# `job/list` reports (not with invented ids, which can only ever answer "not found").
+#
+# WHY THIS EXISTS
+#
+# The daemon is a rough draft and its API is moving. `schema_jrpc.json` is regenerated on
+# every start and has already drifted from the code (it lists `app/list` while an older
+# Dawa client sent `apps/list`), so neither the schema nor Dawa's client is trustworthy as
+# a description of what the daemon actually answers. This script asks it directly.
+#
+# It is deliberately NOT a test and NOT part of the app: it needs a live daemon, it prints
+# raw answers rather than asserting anything, and it is meant to be run by hand while
+# working on the integration.
+#
+# READ-ONLY BY DESIGN
+#
+# Only methods that cannot change state are probed. Every `inst/*` mutation allocates a
+# job and a lock file (`jobLockFile` uses O_EXCL) even when the underlying command is a
+# stub -- `inst/upgrade` takes a lock and runs nothing -- so calling one leaves the daemon
+# holding a lock for a job that will never finish. `inst/expose` / `inst/hide` are no-ops
+# today but are still registered as mutations, so they are excluded too.
+#
+# The probe's method list is PROBES below, written from the Go source (`main.go`'s
+# `Register` calls) rather than from schema_jrpc.json, because the schema is known to be
+# stale.
+
+require "json"
+require "socket"
+require "uri"
+require "securerandom"
+require "websocket/driver"
+
+# Where the daemon is. Matches Conf.dcomms_url's default so a plain `script/backend-ls`
+# against a locally running daemon needs no arguments.
+DEFAULT_URL = "ws://localhost:6006/ws"
+
+# Per-call timeout. The daemon has WriteTimeout 5s, so anything waiting longer than this
+# is a hang rather than a slow reply.
+TIMEOUT = 10
+
+READ_CHUNK = 4096
+
+#
+# The non-mutating surface that needs no prior knowledge, with the params to try.
+#
+# Each entry is `[method, params, note]`. A nil params means "send no params at all",
+# which is different from `{}` on the wire and worth testing separately.
+#
+# `job/status` and `job/log` are deliberately NOT here: both are keyed on an id, and a
+# hardcoded id can only ever produce "not found". They are probed in a second phase, driven
+# by the ids `job/list` actually reports (see `job_probes`).
+#
+PROBES = [
+  ["app/list", nil, "the app catalog."],
+  ["inst/list", nil, "installed instances (names only, per rpc_inst_list.go)"],
+  ["job/list", nil, "all jobs. Also used to discover ids for job/status and job/log"],
+  ["job/list", { "active_only" => true }, "active jobs only"],
+  ["unsubscribe", { "subscription_id" => "does-not-exist" }, "built-in; unknown id is not an error"],
+  ["bogus/method", nil, "control: a method that does not exist"]
+].freeze
+
+#
+# A miss the reader can trust: `job/status` returns a zero value for ANY id, including one
+# that cannot exist, so a probe of it proves nothing unless the id is first shown to be
+# real. These run only for ids that `job/list` reported.
+#
+# @param instance_id [String] the job's instance, from job/list (`job/log` needs it; the
+#   daemon keys its job map on instance+job)
+# @param job_id [String] the job id, from job/list
+#
+def job_probes(instance_id:, job_id:)
+  [
+    ["job/status", { "id" => job_id },
+     "real job from job/list (id=#{job_id}, instance=#{instance_id})"],
+    ["job/log", { "job_id" => job_id, "instance_id" => instance_id, "offset" => 0 },
+     "first 64KB of the job's log; offset is a byte cursor"]
+  ]
+end
+
+# Raised for failures in the exchange itself (timeout, protocol), as opposed to a
+# JSON-RPC error object, which is a successful exchange carrying a failure.
+class TransportError < StandardError; end
+
+# One JSON-RPC exchange: open, send, read one reply, close.
+#
+# A fresh connection per call, matching DcommsClient. `websocket-driver` is already
+# present via ActionCable, so no gem is needed.
+def call(url, method, params)
+  uri = URI.parse(url)
+  # Assigned before the socket opens so the `ensure` below can reference it even when
+  # TCPSocket.new raises: a bare local that was never assigned is a NameError in Ruby,
+  # which would mask the real failure.
+  socket = nil
+  socket = TCPSocket.new(uri.host, uri.port || 80)
+  driver = WebSocket::Driver.client(Delegate.new(socket, url))
+
+  replies = []
+  error = nil
+
+  driver.on(:message) { |event| replies << event.data }
+  driver.on(:error) { |event| error ||= event.message }
+  driver.on(:open) { driver.text(JSON.generate(request(method, params))) }
+
+  sent_at = Process.clock_gettime(Process::CLOCK_MONOTONIC)
+  driver.start
+  read(socket, driver, replies, error)
+
+  elapsed = Process.clock_gettime(Process::CLOCK_MONOTONIC) - sent_at
+  raise TransportError, "websocket error: #{error}" if error
+  raise TransportError, "no reply" if replies.empty?
+
+  { body: JSON.parse(replies.first), elapsed: elapsed }
+rescue Errno::ECONNREFUSED, SocketError => e
+  { body: { "connection_error" => e.message }, elapsed: 0.0 }
+rescue TransportError => e
+  { body: { "transport_error" => e.message }, elapsed: 0.0 }
+rescue JSON::ParserError => e
+  { body: { "malformed_json" => e.message }, elapsed: 0.0 }
+ensure
+  begin
+    socket&.close
+  rescue IOError, SystemCallError
+    # peer already gone
+  end
+end
+
+def request(method, params)
+  payload = { jsonrpc: "2.0", method: method, id: SecureRandom.hex(4) }
+  # `nil` omits the key entirely (no params on the wire); `{}` sends an empty object.
+  payload[:params] = params unless params.nil?
+  payload
+end
+
+def read(socket, driver, replies, error)
+  deadline = Process.clock_gettime(Process::CLOCK_MONOTONIC) + TIMEOUT
+
+  while replies.empty? && error.nil?
+    if Process.clock_gettime(Process::CLOCK_MONOTONIC) > deadline
+      raise TransportError, "no reply within #{TIMEOUT}s"
+    end
+
+    begin
+      driver.parse(socket.read_nonblock(READ_CHUNK))
+    rescue IO::WaitReadable
+      IO.select([ socket ], nil, nil, 0.2)
+    rescue EOFError
+      break
+    end
+  end
+end
+
+def render(value, indent: 0)
+  pad = "  " * indent
+
+  case value
+  when Hash
+    return "#{pad}{}" if value.empty?
+
+    value.map { |k, v| "#{pad}#{k}:\n#{render(v, indent: indent + 1)}" }.join("\n")
+  when Array
+    return "#{pad}[]" if value.empty?
+
+    value.map { |v| "#{pad}-\n#{render(v, indent: indent + 1)}" }.join("\n")
+  when String
+    # Log payloads arrive as text; keep them single-line and quoted so the output stays
+    # scannable and whitespace is visible.
+    "#{pad}#{value.inspect}"
+  else
+    "#{pad}#{value.inspect}"
+  end
+end
+
+# A one-line verdict per call, so the shape of the answer is visible without reading it all.
+def summarize(body)
+  if body.key?("error")
+    "error #{body["error"]["code"]}: #{truncate(body["error"]["message"].to_s)}"
+  elsif body.key?("connection_error")
+    "connection error: #{body["connection_error"]}"
+  elsif body.key?("transport_error")
+    "transport error: #{body["transport_error"]}"
+  elsif body.key?("malformed_json")
+    "malformed JSON: #{body["malformed_json"]}"
+  else
+    "ok"
+  end
+end
+
+def truncate(text, length = 120)
+  text.length > length ? "#{text[0, length]}..." : text
+end
+
+# `websocket-driver`'s client writes through its delegate and reads its `url`.
+class Delegate
+  def initialize(socket, url)
+    @socket = socket
+    @url = url
+  end
+
+  attr_reader :url
+
+  def write(data) = @socket.write(data)
+end
+
+#
+# The jobs a `job/list` reply reported, deduplicated by instance+job id.
+#
+# The daemon can report the SAME job more than once (observed: a single install showing up
+# twice), so probing every entry would repeat identical calls and bury the output. Keys are
+# the pair because that is what `job/log` needs and what the daemon's job map is keyed on --
+# two instances can legitimately use the same id, since ids are timestamp-based.
+#
+# @return [Array<Hash>] e.g. [{ instance_id: "peertube-zebu", job_id: "install-09-16.17:04:53" }]
+#
+def jobs_from(body)
+  jobs = body.dig("result", "jobs")
+  return [] unless jobs.is_a?(Array)
+
+  jobs.filter_map do |job|
+    next unless job.is_a?(Hash)
+
+    instance_id = job["instance_id"].to_s
+    job_id = job["id"].to_s
+    next if job_id.empty?
+
+    { instance_id: instance_id, job_id: job_id }
+  end.uniq
+end
+
+# Run one probe and print it.
+def probe(url, method, params, note)
+  puts
+  puts "#{method}#{params.nil? ? '' : " #{JSON.generate(params)}"}"
+  puts "  (#{note})" if note
+
+  result = call(url, method, params)
+  printf("  %s  [%.2fs]\n", summarize(result[:body]), result[:elapsed])
+  puts render(result[:body], indent: 1)
+
+  result[:body]
+end
+
+url = ENV["DCOMMS_URL"] || DEFAULT_URL
+wanted = ARGV
+
+# `job/log` and `job/status` are selected by their own names, but they depend on ids from
+# `job/list`, so asking for either implies the discovery call.
+need_jobs = wanted.any? { |name| %w[job/status job/log].include?(name) }
+wanted = (wanted + [ "job/list" ]).uniq if need_jobs
+
+if wanted.any?
+  selected = PROBES.select { |method, _, _| wanted.include?(method) }
+  missing = wanted - PROBES.map(&:first) - %w[job/status job/log]
+
+  if missing.any?
+    warn "unknown or mutating method(s): #{missing.join(", ")}"
+    warn "available: #{(PROBES.map(&:first) + %w[job/status job/log]).uniq.join(", ")}"
+    exit 1
+  end
+else
+  selected = PROBES
+end
+
+puts "dcommsctl at #{url}"
+puts "=" * 72
+
+# Phase 1: the calls that need no prior knowledge. The body of the unfiltered `job/list` is
+# kept so phase 2 has real ids to work with.
+job_list_body = nil
+
+selected.each do |method, params, note|
+  body = probe(url, method, params, note)
+  job_list_body = body if method == "job/list" && params.nil?
+end
+
+# Phase 2: job ids discovered above. Only runs when `job/list` actually answered -- an
+# unreachable daemon or an error reply leaves nothing to probe, and saying so is clearer
+# than a run of "job not found".
+puts
+puts "-" * 72
+
+jobs = jobs_from(job_list_body || {})
+
+if jobs.empty?
+  puts "job/status and job/log skipped: job/list reported no usable job ids"
+else
+  puts "job ids from job/list: #{jobs.size} (deduplicated)"
+
+  jobs.each do |job|
+    job_probes(**job).each do |method, params, note|
+      probe(url, method, params, note)
+    end
+  end
+end
+
+puts
+puts "=" * 72
+puts "probed #{selected.size} fixed calls, plus job/status and job/log for each discovered job"

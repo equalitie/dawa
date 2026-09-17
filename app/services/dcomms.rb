@@ -9,7 +9,7 @@
 # method names is confined to the client:
 #
 #   dcommsctl method   Dawa concept    meaning
-#   apps/list          CatalogEntry    what CAN be installed (Peertube, an IMAP server)
+#   app/list           CatalogEntry    what CAN be installed (Peertube, an IMAP server)
 #   inst/list          App             what IS installed (one deployment, own data)
 #
 # So in Dawa, "app" always means an installed thing, never a catalog entry. dcommsctl uses
@@ -64,7 +64,7 @@ module Dcomms
   end
 
   #
-  # One installable entry from `apps/list`.
+  # One installable entry from `app/list`.
   #
   # NOTE: the live catalog is not fully trustworthy - `version` is empty for some
   # entries, and `uri` may be a placeholder/relative path (e.g. "/tmp_redirect").
@@ -154,8 +154,11 @@ module Dcomms
   Definition = CatalogEntry
 
   #
-  # One installed app: a deployment of a CatalogEntry, from `inst/list` (not implemented
-  # yet by the backend). Owns its own containers, data, and scripts.
+  # One installed app, from `inst/list`.
+  #
+  # The daemon currently returns only the instance NAMES (directory names), so in practice
+  # only `id` is ever populated. The richer fields are part of the intended contract and
+  # must be treated as unknown, not as "stopped" or "unversioned".
   #
   class AppInstance
     attr_reader :id, :catalog_entry_id, :domain, :version, :status

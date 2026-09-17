@@ -50,15 +50,15 @@ class DcommsMockTest < ActiveSupport::TestCase
   test "job_log serves chunks incrementally and advances the offset" do
     @mock.script_job(id: "j1", chunks: [ "one\n", "two\n" ])
 
-    first = @mock.job_log(id: "j1", offset: 0)
+    first = @mock.job_log(id: "j1", instance_id: "i1", offset: 0)
     assert_equal "one\n", first.log
     assert_equal 4, first.next_offset
 
-    second = @mock.job_log(id: "j1", offset: first.next_offset)
+    second = @mock.job_log(id: "j1", instance_id: "i1", offset: first.next_offset)
     assert_equal "two\n", second.log
     assert_equal 8, second.next_offset
 
-    third = @mock.job_log(id: "j1", offset: second.next_offset)
+    third = @mock.job_log(id: "j1", instance_id: "i1", offset: second.next_offset)
     assert third.empty?, "caught up means an empty chunk"
     assert_equal 8, third.next_offset
   end
@@ -66,7 +66,7 @@ class DcommsMockTest < ActiveSupport::TestCase
   test "job_log tolerates a partial final line" do
     @mock.script_job(id: "j1", chunks: [ "no newline here" ])
 
-    chunk = @mock.job_log(id: "j1", offset: 0)
+    chunk = @mock.job_log(id: "j1", instance_id: "i1", offset: 0)
 
     assert_equal "no newline here", chunk.log
     refute chunk.log.end_with?("\n")
@@ -74,9 +74,9 @@ class DcommsMockTest < ActiveSupport::TestCase
 
   test "job_log does not rewind a client that is behind" do
     @mock.script_job(id: "j1", chunks: [ "one\n", "two\n" ])
-    @mock.job_log(id: "j1", offset: 0)
+    @mock.job_log(id: "j1", instance_id: "i1", offset: 0)
 
-    behind = @mock.job_log(id: "j1", offset: 0)
+    behind = @mock.job_log(id: "j1", instance_id: "i1", offset: 0)
 
     assert behind.empty?
     assert_equal 4, behind.next_offset, "should report where the client actually is"
@@ -85,7 +85,7 @@ class DcommsMockTest < ActiveSupport::TestCase
   test "job_log eof means caught up, not finished" do
     @mock.script_job(id: "j1", chunks: [], running_for: 5)
 
-    chunk = @mock.job_log(id: "j1", offset: 0)
+    chunk = @mock.job_log(id: "j1", instance_id: "i1", offset: 0)
 
     assert chunk.empty?
     assert chunk.eof
