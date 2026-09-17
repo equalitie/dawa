@@ -163,6 +163,17 @@ en:
     version: "Version"
     version_unknown: "Unknown"
     version_number: "Version %{version}"
+    domain: "Domain"
+    domain_unknown: "Unknown"
+    index:
+      title: "Apps"
+      empty: "No apps are installed yet."
+    status:
+      running: "Running"
+      stopped: "Stopped"
+      # The daemon sends an empty status when it cannot reach docker compose, which is
+      # "we do not know", not "stopped".
+      unknown: "Unknown"
 
     # the catalog index (installable entries)
     catalog_empty: "No installable apps were found in the catalog."

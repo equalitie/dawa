@@ -37,8 +37,9 @@ class DcommsAdapter
   #    entry, so `job/log` fails with "no such file" for every completed job. Dawa cannot
   #    fix that; it is a daemon bug. Calls are still real because a progress view is only
   #    ever reading a running job.
-  #  * `inst/list` returns bare directory names (`InstancesNames`), so only the instance id
-  #    is known. Anything needing version or status must wait for the §E shape.
+  #  * `inst/list` is real and returns full rows now (id, app, domain, version, status).
+  #    Note `version` is the CATALOG version, not what is actually running, and `status` is
+  #    empty when docker compose cannot be reached.
   #
   MOCKED = %i[job_status catalog_entry].freeze
 
@@ -95,9 +96,9 @@ class DcommsAdapter
   ##
 
   #
-  # Installed apps, by id only. Real: `inst/list` IS implemented, but it returns bare
-  # directory names, so the returned AppInstances carry nothing else (see
-  # DcommsClient#apps_installed_list).
+  # Installed apps. Real: `inst/list` is implemented and returns full rows (id, app,
+  # domain, version, status). `status` is empty when the daemon cannot reach docker
+  # compose, which means unknown -- see DcommsClient#apps_installed_list.
   #
   def apps_installed_list
     mocked?(:apps_installed_list) ? mock.apps_installed_list : client.apps_installed_list

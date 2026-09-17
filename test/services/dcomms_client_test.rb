@@ -384,29 +384,61 @@ class DcommsClientTest < ActiveSupport::TestCase
     assert_equal({ "active_only" => true }, @sent.last["params"])
   end
 
-  test "apps_installed_list reads the daemon's InstancesNames key" do
-    # The Go struct field is `InstancesNames` with an empty json tag, so that is the key on
-    # the wire. Reading `instances` (the name the API doc proposes) finds nothing at all --
-    # confirmed against the live daemon.
-    stub_exchange(result: { "InstancesNames" => [ "peertube-bongo", "peertube-zebu" ] }) do
-      names = @client.apps_installed_list.map(&:id)
+  test "apps_installed_list reads the full rows the daemon now returns" do
+    # `inst/list` returns {instances: [{id, app, domain, version, status}, ...]}
+    # (InstancesListResult in rpc_inst_list.go). Regression guard: the client used to
+    # collapse each row to its id and drop the rest, so status/version/domain arrived as
+    # nil even though the daemon was sending them.
+    result = {
+      "instances" => [
+        { "id" => "peertube-zebu", "app" => "peertube", "domain" => "pt.test",
+          "version" => "7.0.0", "status" => "stopped" },
+        { "id" => "dawa-okapi", "app" => "dawa", "domain" => "dawa.test",
+          "version" => "0.0.1", "status" => "running" }
+      ]
+    }
 
-      assert_equal %w[peertube-bongo peertube-zebu], names
+    stub_exchange(result: result) do
+      instances = @client.apps_installed_list
+
+      assert_equal %w[peertube-zebu dawa-okapi], instances.map(&:id)
+
+      stopped = instances.first
+      assert_equal "stopped", stopped.status
+      assert_equal "7.0.0", stopped.version
+      assert_equal "pt.test", stopped.domain
+      assert_equal "peertube", stopped.catalog_entry_id
+
+      assert_equal "running", instances.last.status
+      assert instances.last.running?
     end
   end
 
-  test "apps_installed_list only knows ids, so other fields stay nil" do
-    # The daemon returns directory names and nothing else. The richer shape is not
-    # implemented, and inventing domain/version/status would be a lie.
-    stub_exchange(result: { "InstancesNames" => [ "peertube-bongo" ] }) do
+  test "apps_installed_list reports a blank status as unknown, not running" do
+    # The daemon sends "" when it cannot ask docker compose. That must not read as running
+    # (or as stopped); the view renders it as unknown.
+    result = { "instances" => [ { "id" => "peertube-zebu", "status" => "" } ] }
+
+    stub_exchange(result: result) do
       instance = @client.apps_installed_list.first
 
-      assert_equal "peertube-bongo", instance.id
-      assert_nil instance.catalog_entry_id
-      assert_nil instance.domain
-      assert_nil instance.version
+      assert_equal "peertube-zebu", instance.id
       assert_nil instance.status
       refute instance.running?, "an unknown status must not read as running"
+    end
+  end
+
+  test "apps_installed_list still accepts the older bare-names shape" do
+    # The daemon changed this method's shape once already. An older daemon sends
+    # `InstancesNames: ["peertube-bongo", ...]`; that must degrade to id-only rows rather
+    # than breaking the page.
+    stub_exchange(result: { "InstancesNames" => [ "peertube-bongo", "peertube-zebu" ] }) do
+      instances = @client.apps_installed_list
+
+      assert_equal %w[peertube-bongo peertube-zebu], instances.map(&:id)
+      assert_nil instances.first.status
+      assert_nil instances.first.version
+      assert_nil instances.first.domain
     end
   end
 
@@ -416,10 +448,12 @@ class DcommsClientTest < ActiveSupport::TestCase
     end
   end
 
-  test "apps_installed_list still accepts the richer shape if it lands" do
-    # The API doc asks for objects. If the daemon ever sends them, the id survives rather
-    # than the whole row being dropped.
-    stub_exchange(result: { "instances" => [ { "id" => "peertube-quokka" } ] }) do
+  test "apps_installed_list drops rows with no id" do
+    # `available?` is the same guard the catalog uses: a row without an identity cannot be
+    # rendered or linked to.
+    result = { "instances" => [ { "id" => "" }, { "id" => "peertube-quokka" } ] }
+
+    stub_exchange(result: result) do
       assert_equal [ "peertube-quokka" ], @client.apps_installed_list.map(&:id)
     end
   end

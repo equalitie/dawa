@@ -156,9 +156,12 @@ module Dcomms
   #
   # One installed app, from `inst/list`.
   #
-  # The daemon currently returns only the instance NAMES (directory names), so in practice
-  # only `id` is ever populated. The richer fields are part of the intended contract and
-  # must be treated as unknown, not as "stopped" or "unversioned".
+  # The daemon returns `{instances: [{id, app, domain, version, status}, ...]}`. Every field
+  # but `id` can still be empty: `version` is the catalog version rather than what is
+  # running (there is no per-instance upgrade tracking yet), `domain` is read best-effort
+  # from the app's env file and is blank for apps with no mapping, and `status` is blank
+  # when docker compose cannot be reached. Blank means unknown, NOT "stopped" or
+  # "unversioned" -- see AppStatusBadgeComponent.
   #
   class AppInstance
     attr_reader :id, :catalog_entry_id, :domain, :version, :status

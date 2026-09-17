@@ -133,26 +133,27 @@ class DcommsClient
   #
 
   #
-  # `inst/list` - the installed instance NAMES.
+  # `inst/list` - the installed instances.
   #
-  # The daemon returns `InstancesNames: ["peertube-bongo", ...]`, a list of bare strings
-  # read from directory names (see rpc_inst_list.go). The richer shape the API doc asks
-  # for -- `{instances: [{id, app, domain, version, status}]}` -- is NOT implemented, so
-  # only the id is known here and every other field on AppInstance is nil.
+  # The daemon returns `{ "instances": [{id, app, domain, version, status}, ...] }`
+  # (`InstancesListResult` in rpc_inst_list.go). An earlier version returned
+  # `InstancesNames: ["peertube-bongo", ...]` -- bare directory names with no other fields
+  # -- and `instances_from` still tolerates that shape so a daemon rollback degrades rather
+  # than breaking the page.
   #
-  # Note the key casing: the Go struct field is `InstancesNames` with an empty json tag, so
-  # that is what comes over the wire. Reading `"instances"` finds nothing at all.
+  # Note the key casing: the current result key is lowercase `instances`, while the old
+  # bare-names key was `InstancesNames` (Go field name, empty json tag).
   #
-  # Callers must treat the missing fields as genuinely unknown. In particular there is NO
-  # status, so an instance cannot be reported as running or stopped from this call.
+  # Every field is still optional from the caller's point of view. `status` is empty when
+  # the daemon cannot reach docker compose, which means UNKNOWN rather than "stopped"
+  # (see AppStatusBadgeComponent).
   #
-  # @return [Array<Dcomms::AppInstance>] with only `id` populated.
+  # @return [Array<Dcomms::AppInstance>]
   #
   def apps_installed_list
     result = call("inst/list")
-    names = extract_instance_names(result)
 
-    names.filter_map { |name| Dcomms::AppInstance.from_json("id" => name) }.select(&:available?)
+    instances_from(result).filter_map { |raw| Dcomms::AppInstance.from_json(raw) }.select(&:available?)
   end
 
   # Old name, kept so nothing breaks mid-refactor.
@@ -267,18 +268,38 @@ class DcommsClient
   private
 
   #
-  # The installed instance names from an `inst/list` reply.
   #
-  # The daemon sends `{ "InstancesNames" => ["peertube-bongo", ...] }`. Tolerates the
-  # other plausible shapes (a bare array, or a keyed hash once the richer shape lands) so a
-  # backend change degrades rather than raising.
+  # The installed instances from an `inst/list` reply, as raw hashes ready for
+  # `Dcomms::AppInstance.from_json`.
   #
-  def extract_instance_names(result)
-    case result
+  #
+  # The installed instances from an `inst/list` reply, as raw hashes ready for
+  # `Dcomms::AppInstance.from_json`.
+  #
+  # Two shapes are accepted:
+  #
+  #   * `{ "instances": [{id, app, domain, version, status}, ...] }` -- current.
+  #   * `{ "InstancesNames": ["peertube-bongo", ...] }` -- the older bare-names shape.
+  #
+  # Keeping the old branch is deliberate: the daemon has changed this method's shape once
+  # already, and degrading to "id only" is better than the page breaking outright. A bare
+  # string is wrapped as `{"id" => name}` so both branches produce one shape downstream.
+  #
+  # @return [Array<Hash>] raw instance hashes.
+  #
+  def instances_from(result)
+    entries = case result
     when Array then result
-    when Hash then Array(result["InstancesNames"] || result["instances"])
+    when Hash then Array(result["instances"] || result["InstancesNames"])
     else []
-    end.filter_map { |entry| entry.is_a?(Hash) ? entry["id"] : entry }.map(&:to_s).reject(&:empty?)
+    end
+
+    entries.filter_map do |entry|
+      case entry
+      when Hash then entry
+      when String then { "id" => entry }
+      end
+    end
   end
 
   # Extract a job_id from a mutation result, guarding against an empty answer.

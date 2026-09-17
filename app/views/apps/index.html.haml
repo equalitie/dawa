@@ -1,4 +1,23 @@
 = breadcrumbs
 
-.btn-toolbar
+.btn-toolbar.mb-3
   = v.link_button(label: t("apps.install_application"), icon: "plus-square", url: catalog_index_path)
+
+- if @error.present?
+  -#
+    An error is terminal: show the banner and nothing else. Rendering an empty grid
+    underneath would read as "no apps are installed" stacked on "we could not reach the
+    backend", which are different claims and only one of them is true.
+  = v.alert("danger", icon: "x-circle") do
+    .mb-2.fw-bold= t("apps.catalog_unreachable")
+    %div= @error
+
+- elsif @apps.empty?
+  = v.alert("info", icon: "info-circle") do
+    = t("apps.index.empty")
+
+- else
+  .row.row-cols-1.row-cols-md-2.row-cols-xl-3.g-3
+    - @apps.each do |app|
+      .col
+        = v.app_card(app)
