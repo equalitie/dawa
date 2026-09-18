@@ -143,9 +143,16 @@ class DcommsClientTest < ActiveSupport::TestCase
   end
 
   test "catalog_entry requests one entry by id and parses the detail" do
+    # The exact ApplicationDetail shape rpc_app_get.go returns: ApplicationInfo is embedded,
+    # so its fields are FLATTENED alongside the detail fields (not nested under a key).
     result = {
       "id" => "peertube", "name" => "Peertube", "version" => "7.0.0",
+      "redirect_uri" => "/tmp_redirect",
+      "description" => "short",
       "long_description" => "much longer",
+      "upstream_url" => "https://joinpeertube.org",
+      "definition_url" => "https://example.test/defn",
+      "updated_at" => "2026-09-14T23:14:25+02:00",
       "releases" => [
         { "version" => "7.0.0", "released_at" => "2026-03-04T10:00:00Z" },
         { "version" => "6.0.0" }
@@ -156,13 +163,42 @@ class DcommsClientTest < ActiveSupport::TestCase
       entry = @client.catalog_entry(id: "peertube")
 
       assert_equal "peertube", entry.id
+      assert_equal "Peertube", entry.name
+      assert_equal "7.0.0", entry.version
+      assert_equal "/tmp_redirect", entry.redirect_uri
+      assert entry.described?
       assert entry.long_described?
+      assert entry.updated?
+      assert_equal "https://joinpeertube.org", entry.upstream_url
+      assert entry.definition_linked?
       assert_equal %w[7.0.0 6.0.0], entry.releases.map(&:version)
       refute entry.releases.last.released?, "a release with no date must not invent one"
     end
 
     assert_equal({ "id" => "peertube" }, @sent.last["params"])
-    assert_equal "apps/get", @sent.last["method"]
+    # SINGULAR `app/get`. The daemon registers no `apps/get`, so the plural would answer
+    # -32601 (MethodNotFound) -- which is how this test caught the name being wrong.
+    assert_equal "app/get", @sent.last["method"]
+  end
+
+  test "catalog_entry tolerates the omitted fields the daemon leaves out" do
+    # `ApplicationDetail` marks the detail fields `omitempty`, so an entry with no prose or
+    # history arrives without those keys at all. Nothing may raise, and the predicates the
+    # view relies on must answer false so it falls back to placeholder text.
+    result = { "id" => "peertube", "name" => "Peertube", "redirect_uri" => "/tmp_redirect" }
+
+    stub_exchange(result: result) do
+      entry = @client.catalog_entry(id: "peertube")
+
+      assert entry.available?
+      refute entry.described?
+      refute entry.long_described?
+      refute entry.updated?
+      refute entry.upstream?
+      refute entry.definition_linked?
+      refute entry.released_versions?
+      refute entry.versioned?
+    end
   end
 
   test "catalog_entry drops releases with no version" do

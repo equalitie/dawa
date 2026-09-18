@@ -64,33 +64,44 @@ class DcommsAdapterTest < ActiveSupport::TestCase
     assert_instance_of DcommsMock, adapter.mock
   end
 
-  test "the default-constructed adapter routes mocked methods to the mock" do
+  test "the default-constructed adapter talks to the real client" do
+    # Nothing is mocked by default any more, so `catalog_entry` must reach the client rather
+    # than the mock. Asserting that it RAISES ConnectionError (as this once did) only holds
+    # on a machine with no daemon: where dcommsctl runs, the call succeeds and the test
+    # fails. So the socket layer is stubbed instead of relying on the network being down,
+    # which proves the routing deterministically either way.
     adapter = DcommsAdapter.new
+    sent = []
+    adapter.client.define_singleton_method(:call) do |method, params = nil|
+      sent << [ method, params ]
+      { "id" => "peertube", "name" => "Peertube" }
+    end
 
-    # catalog_entry is mocked; it must not reach the (unreachable, in tests) socket, and it
-    # must not blow up on a nil mock. It returns a decorated entry from the mock fixtures.
-    assert_equal "peertube", adapter.catalog_entry(id: "peertube").id
+    entry = adapter.catalog_entry(id: "peertube")
+
+    assert_equal "peertube", entry.id
+    assert_equal [ [ "app/get", { id: "peertube" } ] ], sent
   end
 
   ##
   ## the documented split
   ##
 
-  test "MOCKED lists exactly the methods the backend does not implement" do
+  test "MOCKED is empty, because the daemon implements everything Dawa calls" do
     # Deliberately exhaustive: this list shrinking is the signal that the daemon landed
-    # something. Re-verified against the Go source -- `inst/list`, `job/list`, `job/log` and
-    # `job/status` (`statusByID`) are all implemented now, leaving only the absent catalog
-    # detail method.
-    assert_equal %i[catalog_entry].sort, DcommsAdapter::MOCKED.sort
+    # something. The last holdout was the catalog detail -- `app/get` (rpc_app_get.go) now
+    # returns a full ApplicationDetail, so nothing needs faking.
+    assert_empty DcommsAdapter::MOCKED
   end
 
-  test "the newly-implemented methods are real, not mocked" do
-    # Regression guard: these were mocked while the daemon lacked them. If one slips back
-    # into MOCKED, Dawa would silently stop talking to a backend that works.
+  test "every method the daemon implements is real, not mocked" do
+    # Regression guard: each of these was mocked at some point while the daemon lacked it. If
+    # one slips back into MOCKED, Dawa would silently stop talking to a backend that works.
     assert_equal :from_client, @adapter.job_log(id: "j", instance_id: "i")
     assert_equal :from_client, @adapter.job_list
     assert_equal :from_client, @adapter.job_status(id: "j")
     assert_equal :from_client, @adapter.apps_installed_list
+    assert_equal :from_client, @adapter.catalog_entry(id: "peertube")
 
     assert_empty @mock.calls
   end
@@ -136,10 +147,16 @@ class DcommsAdapterTest < ActiveSupport::TestCase
     assert_empty @mock.calls
   end
 
-  test "mocked methods go to the mock, not the client" do
-    assert_equal :from_mock, @adapter.catalog_entry(id: "peertube")
-    assert_equal [ [ :catalog_entry, { id: "peertube" } ] ], @mock.calls
-    assert_empty @client.calls
+  test "a method routed to the mock does not reach the client" do
+    # No method is mocked by default, so the mock branch is reached through configuration.
+    # That branch has to keep working: it is how `dcomms_use_mocks` serves the app offline.
+    with_use_mocks("catalog_entry") do
+      adapter = DcommsAdapter.new(client: @client, mock: @mock)
+
+      assert_equal :from_mock, adapter.catalog_entry(id: "peertube")
+      assert_equal [ [ :catalog_entry, { id: "peertube" } ] ], @mock.calls
+      assert_empty @client.calls
+    end
   end
 
   test "mutations that work today are real" do
@@ -218,35 +235,44 @@ class DcommsAdapterTest < ActiveSupport::TestCase
   end
 
   test "mocked? answers per method" do
-    assert @adapter.mocked?(:catalog_entry)
-    assert @adapter.mocked?("catalog_entry")
+    # Nothing is mocked by default, so every method answers false...
+    refute @adapter.mocked?(:catalog_entry)
     refute @adapter.mocked?(:catalog_list)
     refute @adapter.mocked?(:install)
-    # These four were mocked while the daemon lacked them; job/status was the last to land.
     refute @adapter.mocked?(:job_log)
     refute @adapter.mocked?(:job_list)
     refute @adapter.mocked?(:job_status)
     refute @adapter.mocked?(:apps_installed_list)
+
+    # ...and `mocked?` still works when the configuration turns one back on.
+    with_use_mocks("catalog_entry") do
+      configured = DcommsAdapter.new(client: @client, mock: @mock)
+
+      assert configured.mocked?(:catalog_entry)
+      assert configured.mocked?("catalog_entry")
+      refute configured.mocked?(:catalog_list)
+    end
   end
 
   #
   # catalog entry detail
   #
 
-  test "catalog_entry is mocked until the backend exposes a detail method" do
-    # Note the asymmetry: catalog_list is REAL, catalog_entry is mocked. The show page
-    # therefore mixes real and fake data, which is why every detail field it renders must
-    # be treated as optional.
-    assert @adapter.mocked?(:catalog_entry)
-    assert_equal :from_mock, @adapter.catalog_entry(id: "peertube")
+  test "catalog_entry is real now that app/get exists" do
+    # `app/get` (rpc_app_get.go) returns a full ApplicationDetail, so the old asymmetry with
+    # catalog_list (real list, faked detail) is gone. The view still treats every detail
+    # field as optional, because the daemon omits empty ones.
+    refute @adapter.mocked?(:catalog_entry)
+    assert_equal :from_client, @adapter.catalog_entry(id: "peertube")
   end
 
-  test "catalog_entry goes to the client once unmocked" do
-    with_use_mocks("none") do
+  test "catalog_entry can still be served from the mock when configured to" do
+    with_use_mocks("catalog_entry") do
       adapter = DcommsAdapter.new(client: @client, mock: @mock)
 
-      assert_equal :from_client, adapter.catalog_entry(id: "peertube")
-      assert_equal [ [ :catalog_entry, { id: "peertube" } ] ], @client.calls
+      assert_equal :from_mock, adapter.catalog_entry(id: "peertube")
+      assert_equal [ [ :catalog_entry, { id: "peertube" } ] ], @mock.calls
+      assert_empty @client.calls
     end
   end
 

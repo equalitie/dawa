@@ -6,10 +6,10 @@
 # The catalog is what CAN be installed, so the card is informational only: there is no
 # install action here. Installing creates an app, which is a separate concern.
 #
-# Fields the backend does not send yet (`description`, `updated_at`) render as
-# placeholders. That is deliberate: the card is built against the intended shape of
-# `apps/list`, and placeholder text is honest about the gap where inventing a value
-# would not be. See docs/dcommsctl-api-requests.md.
+# A list row (`app/list`) carries only the summary fields, so `description` and `updated_at`
+# are often absent. The card falls back to placeholder text for them, which is honest about
+# the gap where inventing a value would not be. The full detail comes from `app/get` and is
+# rendered on the show page, not here.
 #
 class CatalogEntryCardComponent < ApplicationComponent
   haml_template <<~HAML

@@ -19,38 +19,34 @@ class DcommsAdapter
   #
   # Methods served by DcommsMock instead of the daemon.
   #
-  # Re-verified against the live daemon with `script/backend-ls` (see the plan's
-  # "Probe results"). The list is short now because the daemon has implemented most of what
-  # was missing:
+  # EMPTY: the daemon now implements every method Dawa calls. `app/get` (the catalog detail)
+  # was the last gap, added in rpc_app_get.go. DcommsMock is therefore unreachable through
+  # this adapter in the default configuration, and the routing branches below are dead code
+  # while the list stays empty.
   #
-  #  * `job/status`        -> registered but a STUB. It returns a zero-value JobStatus and
-  #                           never looks at the id, so a job that `job/list` reports as
-  #                           `done` comes back with `state: ""`. Still the #1 backend ask.
-  #  * `catalog_entry`     -> no `app/get` method exists; the catalog detail is not sent by
-  #                           anything, so the show page's extra fields stay faked.
+  # The list is kept (rather than deleted) because its emptiness is the signal that the
+  # backend caught up: `DcommsAdapterTest` asserts it, and a method that regresses to a stub
+  # would be added back here. Setting `dcomms_use_mocks` to "all" or a method list still
+  # routes to the mock, which is how to work offline against fixtures.
   #
-  # `job/log`, `job/list` and `inst/list` are REAL now and are no longer mocked -- but see
-  # the notes on each in DcommsClient, because two of them have sharp edges:
+  # Sharp edges that remain in the REAL methods (none of them are missing methods):
   #
   #  * `job/log` only works for a job that is still RUNNING. The daemon renames a finished
   #    job's log from `.partial.log` to `.log` but records the new path on the wrong map
   #    entry, so `job/log` fails with "no such file" for every completed job. Dawa cannot
-  #    fix that; it is a daemon bug. Calls are still real because a progress view is only
-  #    ever reading a running job.
-  #  * `inst/list` is real and returns full rows now (id, app, domain, version, status).
-  #    Note `version` is the CATALOG version, not what is actually running, and `status` is
-  #    empty when docker compose cannot be reached.
+  #    fix that; it is a daemon bug.
+  #  * `job/status` raises for an unknown id rather than returning a zero-value status.
+  #  * `inst/list` is real and returns full rows (id, app, domain, version, status). Note
+  #    `version` is the CATALOG version, not what is actually running, and `status` is empty
+  #    when docker compose cannot be reached.
+  #  * `job/list` reports jobs persisted to `.jobs_db.json`, reloaded on daemon startup, so
+  #    history survives a restart.
   #
-  #  * `job/list` is real and the daemon persists jobs to `.jobs_db.json`, reloading them
-  #    on startup, so history survives a restart.
-  #  * `job/status` is real now too: `rpcJobStatus` looks the id up via `statusByID` and
-  #    errors for an unknown job, rather than returning a zero-value stub.
-  #
-  MOCKED = %i[catalog_entry].freeze
+  MOCKED = [].freeze
 
   # Fully-implemented methods, listed so tests can assert the split is deliberate.
-  REAL = %i[catalog_list install uninstall start stop backup restore job_log job_list
-            job_status apps_installed_list].freeze
+  REAL = %i[catalog_list catalog_entry install uninstall start stop backup restore job_log
+            job_list job_status apps_installed_list].freeze
 
   def initialize(client: nil, mock: nil)
     # Default to the real collaborators. Without this, `DcommsAdapter.new` (which is how the
@@ -80,9 +76,10 @@ class DcommsAdapter
   # One catalog entry, with the detail the index does not carry (long description,
   # upstream and definition URLs, release history).
   #
-  # MOCKED until the backend exposes a detail method. Note the asymmetry with
-  # `catalog_list`, which is real: the list comes from the daemon, but the detail is
-  # faked. That is why the show page must treat every detail field as optional.
+  # Real: `app/get` returns an `ApplicationDetail` (rpc_app_get.go), which embeds the same
+  # summary shape as `app/list`, so the two cannot drift on the daemon side. Every detail
+  # field is still treated as optional by the view, because the daemon omits empty ones
+  # (`omitempty`) and an entry can legitimately have no releases.
   #
   def catalog_entry(id:)
     if mocked?(:catalog_entry)

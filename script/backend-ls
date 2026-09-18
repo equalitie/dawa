@@ -4,11 +4,13 @@
 #
 #   script/backend-ls                       # every non-mutating call
 #   script/backend-ls app/list job/list     # only these
+#   script/backend-ls app/get               # implies app/list, for the ids
 #   script/backend-ls job/log               # implies job/list, for the ids
 #   DCOMMS_URL=ws://host:6006/ws script/backend-ls
 #
-# `job/status` and `job/log` both need a real job id, so they are probed once per job that
-# `job/list` reports (not with invented ids, which can only ever answer "not found").
+# `job/status`, `job/log` and `app/get` all take an id, so they are probed once per id that
+# a listing call actually reports (not with invented ids, which can only ever answer "not
+# found").
 #
 # WHY THIS EXISTS
 #
@@ -16,6 +18,11 @@
 # every start and has already drifted from the code (it lists `app/list` while an older
 # Dawa client sent `apps/list`), so neither the schema nor Dawa's client is trustworthy as
 # a description of what the daemon actually answers. This script asks it directly.
+#
+# Note the SINGULAR `app/*` names below. The methods were renamed from `apps/*`, and a
+# client still sending the plural gets -32601 -- which is exactly the kind of drift this
+# script exists to catch. Read the names from `main.go`'s `Register` calls, not from a
+# client's source.
 #
 # It is deliberately NOT a test and NOT part of the app: it needs a live daemon, it prints
 # raw answers rather than asserting anything, and it is meant to be run by hand while
@@ -55,13 +62,13 @@ READ_CHUNK = 4096
 # Each entry is `[method, params, note]`. A nil params means "send no params at all",
 # which is different from `{}` on the wire and worth testing separately.
 #
-# `job/status` and `job/log` are deliberately NOT here: both are keyed on an id, and a
-# hardcoded id can only ever produce "not found". They are probed in a second phase, driven
-# by the ids `job/list` actually reports (see `job_probes`).
+# `job/status`, `job/log` and `app/get` are deliberately NOT here: all three are keyed on an
+# id, and a hardcoded id can only ever produce "not found". They are probed in the second
+# phase, driven by ids the listing calls actually report (see `job_probes` / `app_probes`).
 #
 PROBES = [
   ["app/list", nil, "the app catalog."],
-  ["inst/list", nil, "installed instances (names only, per rpc_inst_list.go)"],
+  ["inst/list", nil, "installed instances (id, app, domain, version, status)"],
   ["job/list", nil, "all jobs. Also used to discover ids for job/status and job/log"],
   ["job/list", { "active_only" => true }, "active jobs only"],
   ["unsubscribe", { "subscription_id" => "does-not-exist" }, "built-in; unknown id is not an error"],
@@ -69,9 +76,26 @@ PROBES = [
 ].freeze
 
 #
-# A miss the reader can trust: `job/status` returns a zero value for ANY id, including one
-# that cannot exist, so a probe of it proves nothing unless the id is first shown to be
-# real. These run only for ids that `job/list` reported.
+# `app/get` takes a catalog entry id, so it is driven by the ids `app/list` reports rather
+# than a hardcoded one. The result is the `ApplicationDetail` shape: the `app/list` summary
+# fields plus long_description, upstream_url, definition_url and releases.
+#
+# @param app_id [String] a catalog entry id, from app/list
+#
+def app_probes(app_id:)
+  [
+    ["app/get", { "id" => app_id }, "real catalog entry from app/list (id=#{app_id})"],
+    # An id outside the daemon's allowlist must be a JSON-RPC error, not an empty entry.
+    # Probed once rather than per id, since the answer does not depend on the id.
+    ["app/get", { "id" => "no-such-application" }, "control: an unknown id must error"]
+  ]
+end
+
+#
+# A miss the reader can trust: `job/status` used to return a zero value for ANY id, so a
+# probe of it proved nothing unless the id was first shown to be real. The daemon now looks
+# the id up (`statusByID`) and errors for an unknown one, but the ids still have to come from
+# a real listing to be meaningful.
 #
 # @param instance_id [String] the job's instance, from job/list (`job/log` needs it; the
 #   daemon keys its job map on instance+job)
@@ -211,6 +235,25 @@ class Delegate
 end
 
 #
+# The catalog entry ids an `app/list` reply reported.
+#
+# @return [Array<String>] e.g. ["peertube", "mastodon", "dawa"]
+#
+def apps_from(body)
+  apps = body.dig("result", "applications")
+  return [] unless apps.is_a?(Array)
+
+  apps.filter_map do |app|
+    next unless app.is_a?(Hash)
+
+    id = app["id"].to_s
+    next if id.empty?
+
+    id
+  end.uniq
+end
+
+#
 # The jobs a `job/list` reply reported, deduplicated by instance+job id.
 #
 # The daemon can report the SAME job more than once (observed: a single install showing up
@@ -252,17 +295,19 @@ url = ENV["DCOMMS_URL"] || DEFAULT_URL
 wanted = ARGV
 
 # `job/log` and `job/status` are selected by their own names, but they depend on ids from
-# `job/list`, so asking for either implies the discovery call.
+# `job/list`, so asking for either implies the discovery call. `app/get` is the same, keyed on
+# `app/list`.
 need_jobs = wanted.any? { |name| %w[job/status job/log].include?(name) }
 wanted = (wanted + [ "job/list" ]).uniq if need_jobs
+wanted = (wanted + [ "app/list" ]).uniq if wanted.include?("app/get")
 
 if wanted.any?
   selected = PROBES.select { |method, _, _| wanted.include?(method) }
-  missing = wanted - PROBES.map(&:first) - %w[job/status job/log]
+  missing = wanted - PROBES.map(&:first) - %w[job/status job/log app/get]
 
   if missing.any?
     warn "unknown or mutating method(s): #{missing.join(", ")}"
-    warn "available: #{(PROBES.map(&:first) + %w[job/status job/log]).uniq.join(", ")}"
+    warn "available: #{(PROBES.map(&:first) + %w[job/status job/log app/get]).uniq.join(", ")}"
     exit 1
   end
 else
@@ -272,35 +317,55 @@ end
 puts "dcommsctl at #{url}"
 puts "=" * 72
 
-# Phase 1: the calls that need no prior knowledge. The body of the unfiltered `job/list` is
-# kept so phase 2 has real ids to work with.
+# Phase 1: the calls that need no prior knowledge. The bodies of the unfiltered `job/list`
+# and `app/list` are kept so phase 2 has real ids to work with.
 job_list_body = nil
+app_list_body = nil
 
 selected.each do |method, params, note|
   body = probe(url, method, params, note)
   job_list_body = body if method == "job/list" && params.nil?
+  app_list_body = body if method == "app/list" && params.nil?
 end
 
-# Phase 2: job ids discovered above. Only runs when `job/list` actually answered -- an
-# unreachable daemon or an error reply leaves nothing to probe, and saying so is clearer
-# than a run of "job not found".
+# Phase 2: ids discovered above. Only runs for the id-keyed methods that were asked for, and
+# only when the listing call actually answered -- an unreachable daemon or an error reply
+# leaves nothing to probe, and saying so is clearer than a run of "not found".
 puts
 puts "-" * 72
 
-jobs = jobs_from(job_list_body || {})
+if wanted.empty? || wanted.include?("app/get")
+  apps = apps_from(app_list_body || {})
 
-if jobs.empty?
-  puts "job/status and job/log skipped: job/list reported no usable job ids"
-else
-  puts "job ids from job/list: #{jobs.size} (deduplicated)"
+  if apps.empty?
+    puts "app/get skipped: app/list reported no usable ids"
+  else
+    puts "app ids from app/list: #{apps.size}"
 
-  jobs.each do |job|
-    job_probes(**job).each do |method, params, note|
-      probe(url, method, params, note)
+    apps.each { |id| app_probes(app_id: id).each { |m, p, note| probe(url, m, p, note) } }
+  end
+
+  puts
+  puts "-" * 72
+end
+
+if wanted.empty? || need_jobs
+  jobs = jobs_from(job_list_body || {})
+
+  if jobs.empty?
+    puts "job/status and job/log skipped: job/list reported no usable job ids"
+  else
+    puts "job ids from job/list: #{jobs.size} (deduplicated)"
+
+    jobs.each do |job|
+      job_probes(**job).each do |method, params, note|
+        probe(url, method, params, note)
+      end
     end
   end
 end
 
 puts
 puts "=" * 72
-puts "probed #{selected.size} fixed calls, plus job/status and job/log for each discovered job"
+puts "probed #{selected.size} fixed calls, plus app/get per catalog entry and " \
+     "job/status + job/log per discovered job"

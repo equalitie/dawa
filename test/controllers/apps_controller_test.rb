@@ -82,13 +82,15 @@ class AppsControllerTest < ActionDispatch::IntegrationTest
   test "the real adapter is constructed, not stubbed away" do
     # Every other test here stubs `adapter`, which hides construction bugs: a default
     # DcommsAdapter with nil collaborators raises "undefined method ... for nil" on the first
-    # request. This exercises the real path. The backend is unreachable in tests, so the
-    # expected outcome is the error banner, not a 500.
+    # request. This exercises the real path with no stub.
+    #
+    # The outcome deliberately does NOT depend on whether dcommsctl happens to be running:
+    # it must render a page either way, never a 500. Asserting the error banner (as this once
+    # did) made the test pass on a machine with no daemon and fail on one with a daemon.
     login_as(@user)
     get apps_path
 
     assert_response :success
-    assert_select "div.alert-danger", count: 1
   end
 
   test "lists every installed app" do

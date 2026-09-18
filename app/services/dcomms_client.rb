@@ -110,17 +110,19 @@ class DcommsClient
   alias_method :apps_list, :catalog_list
 
   #
-  # `apps/get` - one catalog entry, with the detail `apps/list` omits.
+  # `app/get` - one catalog entry, with the detail `app/list` omits.
   #
-  # NOT IMPLEMENTED by the backend yet (the method is not registered, so this raises
-  # MethodNotFound); DcommsAdapter mocks it. The method name follows the existing
-  # `inst/*` and `job/*` convention and is the shape proposed in
-  # docs/dcommsctl-api-requests.md.
+  # SINGULAR `app`, like `app/list`: the daemon registers `app/get` and nothing else. The
+  # method was added in rpc_app_get.go and returns an `ApplicationDetail` (the summary fields
+  # plus long_description, upstream_url, definition_url and releases).
+  #
+  # An unknown id is an error, not an empty entry: the handler rejects ids outside the
+  # `appIDs` allowlist before touching the filesystem.
   #
   # @return [Dcomms::CatalogEntry]
   #
   def catalog_entry(id:)
-    entry = Dcomms::CatalogEntry.from_json(call("apps/get", { id: id }))
+    entry = Dcomms::CatalogEntry.from_json(call("app/get", { id: id }))
     raise EmptyResult, "dcommsctl returned no catalog entry for #{id.inspect}" if entry.nil? || !entry.available?
 
     entry

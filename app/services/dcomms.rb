@@ -64,16 +64,17 @@ module Dcomms
   end
 
   #
-  # One installable entry from `app/list`.
+  # One installable entry from `app/list` (summary) or `app/get` (detail).
+  #
+  # `app/get` returns an `ApplicationDetail`: the summary fields below PLUS
+  # `long_description`, `upstream_url`, `definition_url` and `releases`. The daemon marks the
+  # detail fields `omitempty`, so an entry can legitimately arrive without them and every
+  # caller must still treat them as optional -- the view falls back to placeholder text rather
+  # than pretending the data exists.
   #
   # NOTE: the live catalog is not fully trustworthy - `version` is empty for some
   # entries, and `uri` may be a placeholder/relative path (e.g. "/tmp_redirect").
   # `available?` therefore does NOT consider `version`.
-  #
-  # `description`, `long_description`, `upstream_url`, `definition_url`, `updated_at` and
-  # `releases` are part of the intended contract but are NOT sent yet (see
-  # docs/dcommsctl-api-requests.md). Callers must tolerate nil/empty for all of them; the
-  # view falls back to placeholder text rather than pretending the data exists.
   #
   class CatalogEntry
     attr_reader :id, :name, :version, :redirect_uri, :description, :long_description,
@@ -111,8 +112,8 @@ module Dcomms
       )
     end
 
-    # True when the catalog told us something. Absent data is not an error here - the
-    # backend simply does not send these fields yet.
+    # True when the catalog told us something. Absent data is not an error: `app/get` omits
+    # empty fields, and a list row never carries them at all.
     def described? = description.present?
     def long_described? = long_description.present?
     def updated? = updated_at.present?
@@ -122,8 +123,8 @@ module Dcomms
 
     #
     # True when the row carries enough information to be shown or installed. A row with
-    # no id and no name is the zero-value entry `apps/list` appends when a per-entry
-    # config.json fails to parse (it swallows that error), and must be dropped.
+    # no id and no name is the zero-value entry a per-entry config.json failure used to
+    # append (it swallowed that error), and must be dropped.
     #
     def available?
       id.present? && name.present?

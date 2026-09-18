@@ -96,13 +96,12 @@ class DcommsMock
   ].freeze
 
   #
-  # MOCK(dcommsctl): the detail half of apps/list.
+  # MOCK(dcommsctl): the detail half of the catalog.
   #
-  # `apps/list` returns only id/name/version/redirect_uri, so everything the catalog
-  # *show* page needs (long description, upstream and definition URLs, the release
-  # history) is absent. The real implementation should return these per entry; until it
-  # does, anything missing is filled with deterministic Faker text so the page can be
-  # built and reviewed.
+  # `app/get` is real now, so this is only reached when `dcomms_use_mocks` asks for it. It
+  # exists to work on the UI offline: the catalog *show* page needs the long description,
+  # upstream and definition URLs and the release history, and anything the fixtures leave
+  # out is filled with deterministic Faker text so the page can still be reviewed.
   #
   # Release histories are shaped to exercise the UI: one entry with many releases, one
   # with a single release, and none with an empty history, so the "no releases" branch
@@ -191,9 +190,12 @@ class DcommsMock
   # Old name, kept so nothing breaks mid-refactor.
   alias_method :instances_list, :apps_installed_list
 
-  # MOCK(dcommsctl): catalog entry detail (the unwritten `apps/get`).
+  # MOCK(dcommsctl): catalog entry detail. No longer needed: the daemon implements
+  # `app/get` (rpc_app_get.go) and returns the full ApplicationDetail, so
+  # DcommsAdapter::MOCKED is empty and this is unreachable unless `dcomms_use_mocks` names
+  # it. Kept for offline UI work.
   #
-  # Decorates one entry from `apps/list` with the metadata the show page needs. Returning
+  # Decorates one entry from `app/list` with the metadata the show page needs. Returning
   # a CatalogEntry rather than raw JSON keeps the same value-object contract as the real
   # client, so the view cannot tell the two apart.
   #
