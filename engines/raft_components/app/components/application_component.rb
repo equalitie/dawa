@@ -3,14 +3,12 @@ class ApplicationComponent < ViewComponent::Base
   include RaftComponents::ColorHelper
   include RaftComponents::IconHelper
 
-  attr_accessor :parent
-
   # if set to true, this component can only be created
   # via a form builder, e.g. `form.v.component_name()`
   class_attribute :requires_builder, default: false
 
   attr_accessor :factory
-
+  attr_accessor :parent
 
   # this are the keyword args the the abstract super class ApplicationComponent
   # handles. some sublclasses may wish to operate on all keyword args that are
@@ -158,11 +156,15 @@ class ApplicationComponent < ViewComponent::Base
   # e.g form_with(...) {|form| form.v.button(...) }
   #
   def builder
-    @factory&.builder
+    @factory.builder
   end
 
   def v
-    @factory
+    @factory.args(component_context: self)
+  end
+
+  def component_context
+    @factory.component_context
   end
 
   protected

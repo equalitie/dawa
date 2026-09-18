@@ -5,10 +5,10 @@
 
 module RaftComponents
   class ComponentFactory
-    attr_reader :context, :builder
+    attr_reader :view_context, :builder
 
-    def initialize(context, builder: nil, args: nil)
-      @context = context
+    def initialize(view_context, builder: nil, args: nil)
+      @view_context = view_context
       @builder = builder
       @args    = args
     end
@@ -22,10 +22,23 @@ module RaftComponents
     #   = a.button(...)
     #
     def args(**args, &block)
-      old_args = @args
-      @args = args
-      yield self
-      @args = old_args
+      if block_given?
+        old_args = @args
+        @args = args
+        yield self
+        @args = old_args
+      elsif args.present?
+        ComponentFactory.new(@view_context,
+          builder: @builder,
+          args: (@args || {}).merge(args)
+        )
+      else
+        self
+      end
+    end
+
+    def component_context
+      @args[:component_context]
     end
 
     def method_missing(component_name, *args, **named_args, &block)
@@ -43,9 +56,9 @@ module RaftComponents
       end
       component_instance = component_class.send(:new, *args, **named_args)
       if block
-        component_instance.render_in(@context, &block)
+        component_instance.render_in(@view_context, &block)
       else
-        component_instance.render_in(@context)
+        component_instance.render_in(@view_context)
       end
     end
 

@@ -20,7 +20,7 @@ class TableRowComponent < TableBaseComponent
   end
 
   def columns_definition
-    parent&.columns_definition&.presence || @columns_definition
+    @columns_definition || parent&.columns_definition&.presence
   end
 
   def hover
