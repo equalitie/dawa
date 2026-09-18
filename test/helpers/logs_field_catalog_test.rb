@@ -131,13 +131,19 @@ class LogsFieldCatalogTest < ActiveSupport::TestCase
     # Only this direction is a real invariant: the catalog must not list fields the
     # deployment never emits (that would be a fabricated column).
     #
+    # Synthetic columns are excluded because they are NOT record fields at all -- `context`
+    # is derived by `log_context`, so `_time:1h | field_names` will never report it. Counting
+    # it here made this test fail on every host, since no deployment can emit a field the UI
+    # invents.
+    #
     # The reverse direction is deliberately NOT asserted. Journald records carry
     # arbitrary per-program structured fields (`NM_LOG_DOMAINS` from NetworkManager,
     # `GLIB_DOMAIN`, `CPU_USAGE_NSEC`, `_AUDIT_SESSION`, ...) whose set is open-ended
     # and grows with whatever software is installed. Asserting it is a closed set
     # would fail on every package update. Those fields surface as "other" columns and
     # in the JSON view, which is the intended behaviour.
-    unexpected_in_catalog = LogsFieldCatalog::HOST_FIELDS.map(&:to_s) - fields
+    expected = LogsFieldCatalog::HOST_FIELDS.map(&:to_s) - LogsFieldCatalog::SYNTHETIC_FIELDS.map(&:to_s)
+    unexpected_in_catalog = expected - fields
 
     assert_empty unexpected_in_catalog,
                  "catalog lists fields the live host logs never emit: #{unexpected_in_catalog.inspect}"

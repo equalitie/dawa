@@ -26,6 +26,16 @@ module LogsFieldCatalog
   # key predates the split and the label is what the user reads.
   HOST_FIELDS = [ :severity, :_time, :context, :programname, :_msg ].freeze
 
+  #
+  # Columns derived from a record rather than read off it.
+  #
+  # `context` comes from `log_context` (the container name) and `programname` happens to
+  # coincide with a real journald field, so the two differ: `programname` IS emitted, `context`
+  # is NOT. Anything reconciling this catalog against the fields a deployment actually emits
+  # must ignore the derived ones, or it would report a fabricated column for every host.
+  #
+  SYNTHETIC_FIELDS = [ :context ].freeze
+
   # Fields that may be offered as filters for host logs.
   # These map to host sink `_stream_fields` (`host,programname`) plus `severity`,
   # so narrowing on them stays cheap.
