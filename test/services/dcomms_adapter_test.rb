@@ -78,9 +78,10 @@ class DcommsAdapterTest < ActiveSupport::TestCase
 
   test "MOCKED lists exactly the methods the backend does not implement" do
     # Deliberately exhaustive: this list shrinking is the signal that the daemon landed
-    # something. Re-verified with script/backend-ls -- `job/log`, `job/list` and `inst/list`
-    # are implemented now, leaving only the job/status stub and the absent catalog detail.
-    assert_equal %i[job_status catalog_entry].sort, DcommsAdapter::MOCKED.sort
+    # something. Re-verified against the Go source -- `inst/list`, `job/list`, `job/log` and
+    # `job/status` (`statusByID`) are all implemented now, leaving only the absent catalog
+    # detail method.
+    assert_equal %i[catalog_entry].sort, DcommsAdapter::MOCKED.sort
   end
 
   test "the newly-implemented methods are real, not mocked" do
@@ -88,6 +89,7 @@ class DcommsAdapterTest < ActiveSupport::TestCase
     # into MOCKED, Dawa would silently stop talking to a backend that works.
     assert_equal :from_client, @adapter.job_log(id: "j", instance_id: "i")
     assert_equal :from_client, @adapter.job_list
+    assert_equal :from_client, @adapter.job_status(id: "j")
     assert_equal :from_client, @adapter.apps_installed_list
 
     assert_empty @mock.calls
@@ -135,8 +137,8 @@ class DcommsAdapterTest < ActiveSupport::TestCase
   end
 
   test "mocked methods go to the mock, not the client" do
-    assert_equal :from_mock, @adapter.job_status(id: "j")
-    assert_equal [ [ :job_status, { id: "j" } ] ], @mock.calls
+    assert_equal :from_mock, @adapter.catalog_entry(id: "peertube")
+    assert_equal [ [ :catalog_entry, { id: "peertube" } ] ], @mock.calls
     assert_empty @client.calls
   end
 
@@ -216,13 +218,14 @@ class DcommsAdapterTest < ActiveSupport::TestCase
   end
 
   test "mocked? answers per method" do
-    assert @adapter.mocked?(:job_status)
+    assert @adapter.mocked?(:catalog_entry)
     assert @adapter.mocked?("catalog_entry")
     refute @adapter.mocked?(:catalog_list)
     refute @adapter.mocked?(:install)
-    # These three were mocked while the daemon lacked them.
+    # These four were mocked while the daemon lacked them; job/status was the last to land.
     refute @adapter.mocked?(:job_log)
     refute @adapter.mocked?(:job_list)
+    refute @adapter.mocked?(:job_status)
     refute @adapter.mocked?(:apps_installed_list)
   end
 

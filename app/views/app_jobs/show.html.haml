@@ -1,0 +1,37 @@
+= breadcrumbs do |bc|
+  - bc.with_crumb { link_to t("apps.index.title"), apps_path }
+  -#
+    `@app` is nil when the backend was unreachable and `@job` is nil when the job is not
+    this app's, so both crumbs fall back to the ids from the URL.
+  - bc.with_crumb { link_to(@app&.id || params[:app_id], app_path(@app&.id || params[:app_id])) }
+  - bc.with_crumb(active: true) { @job&.id || params[:id] }
+
+- if @error.present?
+  = v.alert("danger", icon: "x-circle") do
+    .mb-2.fw-bold= t("jobs.log_unavailable")
+    %div= @error
+
+- elsif @log.nil?
+  -#
+    The daemon only serves a RUNNING job's log (see AppJobsController). Say so plainly
+    rather than showing an empty log, which would read as "this job produced no output".
+  = v.alert("warning", icon: "exclamation-triangle") do
+    .mb-2.fw-bold= t("jobs.log_finished")
+    %div= t("jobs.log_finished_hint")
+
+- else
+  .d-flex.justify-content-between.align-items-baseline.gap-2.mb-2
+    %div
+      %span.fw-semibold= @job.type.presence || t("jobs.type_unknown")
+      %code.small.text-muted.ms-2= @job.id
+    = v.job_state_badge(@job)
+
+  - if @log.empty?
+    = v.alert("info", icon: "info-circle") do
+      = t("jobs.log_empty")
+  - else
+    %pre.bg-body-tertiary.border.rounded.p-3{style: "max-height: 60vh; overflow: auto;"}
+      %code= @log.log
+
+  - unless @log.eof
+    .small.text-muted.mt-2= t("jobs.log_more")

@@ -251,7 +251,12 @@ module Dcomms
   end
 
   #
-  # A job's state, from `job/status` (NOT YET IMPLEMENTED by the backend).
+  # A job's state, from `job/status` / `job/list`.
+  #
+  # Timestamps arrive as RFC3339 strings (`jobs.go`'s JobStatus) and `finished_at` is EMPTY
+  # while a job is still running, so `finished_at` is nil until the job ends. The raw strings
+  # are kept as sent; `started_time` / `finished_time` are the parsed forms for display, and
+  # both are nil when the daemon sent nothing or sent something unparseable.
   #
   class JobStatus
     STATES = %w[pending running done failed].freeze
@@ -294,6 +299,33 @@ module Dcomms
     def success? = state == "done"
     def failed? = state == "failed"
     def running? = !terminal?
+
+    # Parsed `started_at`, or nil when absent/unparseable.
+    def started_time = parse_time(started_at)
+
+    # Parsed `finished_at`, or nil while the job is still running (the daemon sends "").
+    def finished_time = parse_time(finished_at)
+
+    # How long the job took, or nil while it is still running / for unparseable times.
+    def duration
+      first = started_time
+      last = finished_time
+      return nil if first.nil? || last.nil?
+
+      last - first
+    end
+
+    private
+
+    # Tolerate "" (not finished yet) and anything unparseable, so a bad timestamp degrades
+    # to "unknown" in the view rather than raising inside a request.
+    def parse_time(value)
+      return nil if value.blank?
+
+      Time.zone.parse(value.to_s)
+    rescue ArgumentError, TypeError
+      nil
+    end
   end
 
   #

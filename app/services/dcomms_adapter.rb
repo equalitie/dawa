@@ -41,11 +41,16 @@ class DcommsAdapter
   #    Note `version` is the CATALOG version, not what is actually running, and `status` is
   #    empty when docker compose cannot be reached.
   #
-  MOCKED = %i[job_status catalog_entry].freeze
+  #  * `job/list` is real and the daemon persists jobs to `.jobs_db.json`, reloading them
+  #    on startup, so history survives a restart.
+  #  * `job/status` is real now too: `rpcJobStatus` looks the id up via `statusByID` and
+  #    errors for an unknown job, rather than returning a zero-value stub.
+  #
+  MOCKED = %i[catalog_entry].freeze
 
   # Fully-implemented methods, listed so tests can assert the split is deliberate.
   REAL = %i[catalog_list install uninstall start stop backup restore job_log job_list
-            apps_installed_list].freeze
+            job_status apps_installed_list].freeze
 
   def initialize(client: nil, mock: nil)
     # Default to the real collaborators. Without this, `DcommsAdapter.new` (which is how the
@@ -125,8 +130,10 @@ class DcommsAdapter
   ## jobs
   ##
 
-  # MOCKED: `job/status` is registered but a stub that ignores the id, so it cannot be
-  # unmocked until the daemon actually records job state. The highest-value backend ask.
+  # `job/status` - a job's state. Real (the daemon implements `statusByID`).
+  #
+  # It raises for an unknown job id rather than inventing a state, so a caller must handle
+  # "no such job" as a distinct outcome from "the backend did not answer".
   #
   def job_status(id:) = route(:job_status, id: id)
 
@@ -147,8 +154,8 @@ class DcommsAdapter
     end
   end
 
-  # Real. Note it reports whatever the daemon's in-memory map holds, so it only knows jobs
-  # from the current daemon process -- a daemon restart loses them.
+  # Real. Jobs are persisted to `.jobs_db.json` and reloaded on daemon startup
+  # (`loadJobs`), so this reports history as well as live work.
   #
   def job_list(instance_id: nil, active_only: false)
     if mocked?(:job_list)

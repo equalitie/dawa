@@ -20,4 +20,4 @@
   .row.row-cols-1.row-cols-md-2.row-cols-xl-3.g-3
     - @apps.each do |app|
       .col
-        = v.app_card(app)
+        = link_to v.app_card(app), app_path(app.id), class: "text-decoration-none"

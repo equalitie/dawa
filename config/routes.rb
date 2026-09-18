@@ -21,7 +21,10 @@ Rails.application.routes.draw do
   resources :invites
   resources :join, only: [:show, :update]
 
-  resources :apps
+  resources :apps, only: [ :index, :show ] do
+    # nested bc jobs are only valid in context of an instance.
+    resources :jobs, only: :show, controller: "app_jobs"
+  end
   resources :catalog
 
   resources :backups, only: :index

@@ -174,6 +174,7 @@ en:
       # The daemon sends an empty status when it cannot reach docker compose, which is
       # "we do not know", not "stopped".
       unknown: "Unknown"
+    catalog_entry: "Catalog entry"
 
     # the catalog index (installable entries)
     catalog_empty: "No installable apps were found in the catalog."
@@ -195,6 +196,42 @@ en:
     admin: "Admin"
     none: "None"
 
+  jobs:
+    active: "Active Jobs"
+    past: "Past Jobs"
+    no_active: "No jobs are running for this app."
+    no_past: "No jobs have been run for this app yet."
+    # table columns
+    type: "Type"
+    state_label: "State"
+    started: "Started"
+    outcome: "Outcome"
+    log: "Log"
+    # job states (dcommsctl JobState)
+    state:
+      pending: "Pending"
+      running: "Running"
+      done: "Done"
+      failed: "Failed"
+    # job types are the daemon's own words (install, start, backup, ...). Shown as sent;
+    # this is the fallback when the daemon sends no type at all.
+    type_unknown: "Unknown"
+    time_unknown: "Unknown"
+    in_progress: "In progress"
+    duration: "Took %{duration}"
+    duration_unknown: "Unknown duration"
+    duration_instant: "Took under a second"
+    failed: "Failed"
+    # only offered for in-flight jobs; a finished job's log is not served by the daemon
+    view_log: "View log"
+    log_expired: "Not available"
+    log_finished: "This job has finished"
+    log_finished_hint: |-
+      Only a running job's output can be read: dcommsctl renames a finished job's log file
+      but keeps pointing at the old path, so its log is no longer retrievable.
+    log_unavailable: "Could not read the job log"
+    log_empty: "This job has not produced any output yet."
+    log_more: "Showing the first chunk of output; more follows."
   users:
     active: "Active"
     inactive: "Disabled"

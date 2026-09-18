@@ -1,0 +1,51 @@
+= breadcrumbs do |bc|
+  - bc.with_crumb(active: true) { @app&.id || params[:id] }
+
+- if @error.present?
+  = v.alert("danger", icon: "x-circle") do
+    .mb-2.fw-bold= t("apps.catalog_unreachable")
+    %div= @error
+
+- else
+  = v.box(icon: "box-seam", size: "lg") do |box|
+    .d-flex.justify-content-between.align-items-baseline.gap-2
+      %h3.mb-0= @app.id
+      = v.app_status_badge(@app)
+    %dl.row.small.mb-0.mt-3
+      %dt.col-4.col-md-2.text-muted= t("apps.version")
+      %dd.col-8.col-md-10
+        - if @app.version.present?
+          = @app.version
+        - else
+          %em.text-muted{data: {placeholder: "true"}}= t("apps.version_unknown")
+      %dt.col-4.col-md-2.text-muted= t("apps.domain")
+      %dd.col-8.col-md-10
+        - if @app.domain.present?
+          = @app.domain
+        - else
+          %em.text-muted{data: {placeholder: "true"}}= t("apps.domain_unknown")
+      - if @app.catalog_entry_id.present?
+        %dt.col-4.col-md-2.text-muted= t("apps.catalog_entry")
+        %dd.col-8.col-md-10= @app.catalog_entry_id
+
+  %h4= t("jobs.active")
+
+  - if @active_jobs.any?
+    = v.table(t("jobs.active")) do |t|
+      - t.columns job_columns
+      - @active_jobs.each do |job|
+        = t.v.job_row(job, @app)
+  - else
+    = v.alert("info", icon: "info-circle") do
+      %p= t("jobs.no_active")
+
+  %h4= t("jobs.past")
+
+  - if @past_jobs.any?
+    = v.table(t("jobs.past")) do |t|
+      - t.columns job_columns
+      - @past_jobs.each do |job|
+        = t.v.job_row(job, @app)
+  - else
+    = v.alert("info", icon: "info-circle") do
+      %p= t("jobs.no_past")
