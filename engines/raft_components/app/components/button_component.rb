@@ -42,7 +42,7 @@ class ButtonComponent < ApplicationComponent
   def initialize(\
       value = nil, url: nil, action: nil, method: nil, \
       label: nil, icon: nil, spin: nil, image: nil, fill: false, border: true, size: nil, color: nil, \
-      form_data: nil, hidden_form_inline: nil, override: nil, display: "button", **args)
+      form_data: nil, form: nil, hidden_form_inline: nil, override: nil, display: "button", **args)
     super(**args)
     @label    = value || label
     @icon     = icon || self.class.default_icon
@@ -68,6 +68,9 @@ class ButtonComponent < ApplicationComponent
     )
     if override
       @html.merge! override
+    end
+    if form
+      @html[:form] = form
     end
   end
 

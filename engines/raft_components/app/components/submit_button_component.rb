@@ -1,6 +1,5 @@
 #
-# Submits the current form.
-# If you want to submit a different form, use PostButtonComponent or UpdateButtonComponent
+# Submits the current form or the form id specified with v.submit_button(form: id)
 #
 
 class SubmitButtonComponent < ButtonComponent
