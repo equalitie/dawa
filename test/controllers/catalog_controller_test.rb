@@ -377,42 +377,31 @@ class CatalogControllerTest < ActionDispatch::IntegrationTest
     end
   end
 
-  test "the install button is disabled because it is not wired up" do
-    # Installing creates an app, a separate resource that does not exist yet. A live
-    # button that silently does nothing is worse than an obviously disabled one.
-    with_stubbed_adapter(entry: entry) do
-      login_as(@user)
-      get catalog_path("peertube")
-
-      assert_select "button[disabled]", text: /Install/
-    end
-  end
-
-  test "the install button carries no action" do
-    # Guards against the button being wired to a route that does not exist yet. A data
-    # attribute or form action here would mean something is listening for clicks.
+  test "the install button opens the install dialog" do
+    # It submits a hidden GET form targeting the layout's modal-frame, which is how
+    # `v.remote_modal_button` requests a server-rendered dialog.
     with_stubbed_adapter(entry: entry) do
       login_as(@user)
       get catalog_path("peertube")
 
       assert_select "button", text: /Install/ do |elements|
         element = elements.first
-        assert_nil element["form"], "install button must not submit a form"
-        refute_includes element["data"].to_s, "action", "install button must not have a click action"
+        refute element["disabled"], "the install button is wired up now"
+        # Nokogiri returns nil rather than an empty hash when no data-* attribute is present,
+        # so read the attribute itself.
+        assert_equal "modal-frame", element["data-turbo-frame"]
       end
     end
   end
 
-  test "the install button is not a link or a form" do
-    # Scope to the header box: the page chrome contains links (breadcrumbs, sidebar) and
-    # the layout renders a logout form on every page, so a page-wide count asserts the
-    # wrong thing.
+  test "the install button posts to the install path" do
+    # The hidden form's action is the only thing that makes the button do anything, so it is
+    # worth pinning rather than trusting the component.
     with_stubbed_adapter(entry: entry) do
       login_as(@user)
       get catalog_path("peertube")
 
-      assert_select ".card-body a", count: 0
-      assert_select ".card-body form", count: 0
+      assert_select "form[action=?]", install_catalog_path("peertube"), count: 1
     end
   end
 

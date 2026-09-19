@@ -140,14 +140,13 @@ class DcommsAdapter
   # the client can work around -- and harmless for the intended use, which is watching a job
   # that is in flight.
   #
-  # Takes instance_id as well as the job id because the daemon keys its job map on the
-  # pair; see DcommsClient#job_log.
+  # Takes only the job id: the daemon resolves the instance itself. See DcommsClient#job_log.
   #
-  def job_log(id:, instance_id:, offset: 0)
+  def job_log(id:, offset: 0)
     if mocked?(:job_log)
-      mock.job_log(id: id, instance_id: instance_id, offset: offset)
+      mock.job_log(id: id, offset: offset)
     else
-      client.job_log(id: id, instance_id: instance_id, offset: offset)
+      client.job_log(id: id, offset: offset)
     end
   end
 

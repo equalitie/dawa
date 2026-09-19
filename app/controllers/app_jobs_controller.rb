@@ -1,8 +1,10 @@
 #
 # One job's log output.
 #
-# Nested under an app because the daemon keys its job map on the instance+job pair, so a
-# bare job id is not enough to fetch anything (see DcommsClient#job_log).
+# Nested under an app for the URL's sake, and because the page it belongs to is the app's. The
+# RPC call itself takes only the job id -- the daemon resolves the instance (see
+# DcommsClient#job_log) -- but the instance is still what scopes the job lookup below, so a
+# job id from another app cannot be read through this URL.
 #
 # The daemon only serves the log of a job that is still RUNNING: it renames a finished job's
 # `.partial.log` to `.log` but records the new path on the wrong map entry, so `job/log`
@@ -32,7 +34,8 @@ class AppJobsController < BaseAdminController
   end
 
   # The job must belong to THIS instance and to the instance's own job list, so a job id from
-  # another app cannot be read through this URL.
+  # another app cannot be read through this URL. The RPC call no longer needs the instance,
+  # but this scoping is the reason the route is nested.
   def find_job(id)
     adapter.job_list(instance_id: @app.id).find { |job| job.id == id.to_s }
   end
@@ -40,7 +43,7 @@ class AppJobsController < BaseAdminController
   def fetch_log
     return nil unless @job.running?
 
-    adapter.job_log(id: @job.id, instance_id: @app.id)
+    adapter.job_log(id: @job.id)
   end
 
   # Never talk to DcommsClient directly; the adapter owns the real/mock decision.

@@ -1,0 +1,9 @@
+-#
+  One chunk of job output, appended to #install-log by AppInstallJob.
+
+  `text` already contains newlines, so it is emitted as a single text node inside a <pre>.
+  Splitting into lines here would be wrong: a chunk can end mid-line (the daemon caps replies
+  at 64KB), and breaking it would insert a newline that is not in the output.
+
+-# `html` escapes; the raw text may contain anything the install script printed.
+%span.install-log-chunk= text

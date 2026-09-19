@@ -346,15 +346,24 @@ class DcommsClientTest < ActiveSupport::TestCase
     end
   end
 
-  test "job_log sends the daemon's param names and both identifiers" do
-    # The wire names are `job_id` and `instance_id` -- NOT the `id` every other method uses.
-    # The daemon keys its job map on the pair, so `job_id` alone answers "Job not found".
+  test "job_log sends only the job id, under the name `id`" do
+    # The daemon resolves the instance itself (`instanceIDForJob`), so the ONLY param is `id`
+    # plus the cursor. This was previously sent as `job_id` + `instance_id`, which left `id`
+    # empty on the wire and made every read fail with "unknown job:" (a blank id).
     stub_exchange(result: { "log" => "line\n" }) do
-      @client.job_log(id: "install-1", instance_id: "peertube-quokka")
+      @client.job_log(id: "install-1")
     end
 
-    assert_equal({ "job_id" => "install-1", "instance_id" => "peertube-quokka", "offset" => 0 },
-                 @sent.last["params"])
+    assert_equal({ "id" => "install-1", "offset" => 0 }, @sent.last["params"])
+    assert_equal "job/log", @sent.last["method"]
+  end
+
+  test "job_log sends the offset as an integer" do
+    stub_exchange(result: { "log" => "" }) do
+      @client.job_log(id: "j", offset: 42)
+    end
+
+    assert_equal 42, @sent.last["params"]["offset"]
   end
 
   test "job_log derives next_offset from the byte length of the chunk" do
@@ -362,7 +371,7 @@ class DcommsClientTest < ActiveSupport::TestCase
     # so the client computes it: the offset asked from plus the bytes received. Safe because
     # the daemon reads from exactly that offset and a log is an opaque byte stream.
     stub_exchange(result: { "log" => "hello" }) do
-      chunk = @client.job_log(id: "j", instance_id: "i", offset: 10)
+      chunk = @client.job_log(id: "j", offset: 10)
 
       assert_equal "hello", chunk.log
       assert_equal 15, chunk.next_offset
@@ -375,7 +384,7 @@ class DcommsClientTest < ActiveSupport::TestCase
     text = "caf\u00e9\u00e9"
 
     stub_exchange(result: { "log" => text }) do
-      chunk = @client.job_log(id: "j", instance_id: "i", offset: 0)
+      chunk = @client.job_log(id: "j", offset: 0)
 
       assert_equal text.bytesize, chunk.next_offset
       assert_operator chunk.next_offset, :>, text.length
@@ -386,7 +395,7 @@ class DcommsClientTest < ActiveSupport::TestCase
     # `eof` is not sent either. The daemon caps a reply at 64KB, so an empty chunk is the
     # only honest "nothing more right now". It is NOT completion -- that is job/status.
     stub_exchange(result: { "log" => "" }) do
-      chunk = @client.job_log(id: "j", instance_id: "i", offset: 42)
+      chunk = @client.job_log(id: "j", offset: 42)
 
       assert chunk.empty?
       assert chunk.eof
@@ -396,7 +405,7 @@ class DcommsClientTest < ActiveSupport::TestCase
 
   test "a non-empty chunk is not eof" do
     stub_exchange(result: { "log" => "more\n" }) do
-      refute @client.job_log(id: "j", instance_id: "i").eof
+      refute @client.job_log(id: "j").eof
     end
   end
 

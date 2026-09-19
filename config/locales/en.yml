@@ -196,6 +196,18 @@ en:
     admin: "Admin"
     none: "None"
 
+  app_installs:
+    title: "Install Application"
+    submit: "Install"
+    progress_title: "Installing"
+    starting: "Starting"
+    awaiting_output: "Waiting for output..."
+    log_pending: "The install has started. Its progress will appear here as the job produces output."
+    failed: "Could not start the install"
+    close: "Close"
+    domain_required: "A domain is required."
+    entry_missing: "This catalog entry could not be loaded."
+
   jobs:
     active: "Active Jobs"
     past: "Past Jobs"
@@ -213,6 +225,15 @@ en:
       running: "Running"
       done: "Done"
       failed: "Failed"
+    # Standalone install-job summaries, distinct from the daemon's own states: this adds
+    # `timeout`, which a JobStatus cannot report.
+    install:
+      running: "Installing"
+      succeeded: "Installed"
+      failed: "Failed"
+      timeout: "Still running"
+      timeout_hint: "Dawa stopped following this job. It may still be running; check the app's page."
+      status_unknown: "The job is no longer known to dcommsctl."
     # job types are the daemon's own words (install, start, backup, ...). Shown as sent;
     # this is the fallback when the daemon sends no type at all.
     type_unknown: "Unknown"

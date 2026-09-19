@@ -26,14 +26,10 @@
       %span.text-nowrap
         %code= @entry.id
 
-    -#
-      Not wired up. Installing creates an app, which is a separate resource with its own
-      lifecycle; the button is here so the page shows its shape. Disabled rather than
-      invisible so it is not mistaken for a working action.
     - box.with_buttons do
-      = v.button label: t("apps.install_application"), icon: "download", color: "primary",
-        fill: true, size: "lg", disabled: true,
-        tooltip: t("apps.install_not_wired")
+      = v.remote_modal_button label: t("apps.install_application"), icon: "download",
+        color: "primary", fill: true, size: "lg",
+        url: install_catalog_path(@entry.id)
 
   .row.g-3
     .col-12.col-lg-8.fs-lg

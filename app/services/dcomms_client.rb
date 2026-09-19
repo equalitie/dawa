@@ -199,14 +199,8 @@ class DcommsClient
   #
   # `job/status` - a job's state.
   #
-  # STILL A STUB in the daemon: `rpcJobStatus` returns a zero-value JobStatus and never
-  # looks at the id, so this answers `ok` with every field blank for a job that `job/list`
-  # reports as `done`. DcommsAdapter therefore keeps it mocked.
-  #
-  # It raises on a blank id rather than handing back a zero-value status, because a caller
-  # cannot tell "this job is pending" from "the backend did not answer" otherwise, and the
-  # second is what is actually happening. That check becomes harmless once the daemon
-  # implements the method properly.
+  # Real: the daemon implements `statusByID`. It raises for an unknown job rather than
+  # inventing a state, so a caller can tell "no such job" from "the backend did not answer".
   #
   # @return [Dcomms::JobStatus]
   #
@@ -223,9 +217,10 @@ class DcommsClient
   #
   # `job/log` - a chunk of a job's output.
   #
-  # The daemon keys its job map on instance+job (`fetchLog(instanceID, jobID, offset)`), so
-  # BOTH identifiers are required; `job_id` alone gets "Job not found". The wire names are
-  # `job_id` and `instance_id` -- not `id`, which is the name every other method uses.
+  # Takes ONLY the job id. The daemon looks the instance up itself (`instanceIDForJob`) and
+  # rejects an id it does not know, so the wire name is `id` -- NOT `job_id`, and there is no
+  # `instance_id`. Sending the older pair leaves `id` empty on the wire, which the daemon
+  # reports as `unknown job:` with a blank id.
   #
   # The reply carries only `log`. The intended contract also has `next_offset` and `eof`,
   # which the daemon does not send, so they are derived here:
@@ -241,19 +236,23 @@ class DcommsClient
   #
   # Completion is NEVER signalled here regardless: that is `job/status#state`.
   #
-  # @param id [String] the job id
-  # @param instance_id [String] the instance the job belongs to
+  # Note the daemon only serves a RUNNING job's log -- see DcommsAdapter#job_log.
+  #
+  # @param id [String] the job id, as returned by `inst/install` or listed by `job/list`
   # @param offset [Integer] byte offset to read from
   # @return [Dcomms::JobLog]
   #
-  def job_log(id:, instance_id:, offset: 0)
-    raw = call("job/log", { job_id: id, instance_id: instance_id, offset: offset.to_i })
+  def job_log(id:, offset: 0)
+    raw = call("job/log", { id: id, offset: offset.to_i })
     text = raw.is_a?(Hash) ? raw["log"].to_s : ""
 
     Dcomms::JobLog.new(log: text, next_offset: offset.to_i + text.bytesize, eof: text.empty?)
   end
 
-  # `job/list` -- NOT IMPLEMENTED yet. DcommsAdapter mocks it.
+  # `job/list` - the jobs the daemon knows about.
+  #
+  # Real, and filterable by instance server-side. Jobs are persisted to `.jobs_db.json` and
+  # reloaded on daemon startup, so this reports finished work as well as live work.
   #
   # @return [Array<Dcomms::JobStatus>]
   #

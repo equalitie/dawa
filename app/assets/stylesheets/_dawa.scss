@@ -23,6 +23,35 @@
 }
 
 //
+// Install job log pane.
+//
+// A <pre> that AppInstallJob appends chunks to. `white-space: pre-wrap` because install output
+// has meaningful newlines and indentation but also very long lines (docker compose output,
+// URLs) that would otherwise force a horizontal scrollbar inside a modal.
+//
+// A fixed max-height keeps the dialog from growing without bound as output arrives.
+//
+// NOTE: content is appended, so the pane stays scrolled to the TOP as output arrives and the
+// newest output ends up below the fold. Fixing that needs either a scroll command on each
+// append (a Stimulus controller on the pane) or `flex-direction: column-reverse`, which does
+// keep the newest in view but reverses the reading order of every line -- worse than an
+// unscrolled pane. Left as-is deliberately: the dialog is scrollable and the user can follow
+// the output themselves. Revisit if the feed proves hard to follow in practice.
+//
+.install-log {
+  background: #0a0f0a;
+  color: #51f17f;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace;
+  font-size: 0.8rem;
+  line-height: 1.35;
+  white-space: pre-wrap;
+  word-break: break-word;
+  max-height: 40vh;
+  overflow-y: auto;
+  margin-bottom: 0;
+}
+
+//
 // Log severity stripe.
 //
 // The severity column renders as a narrow colour bar instead of text, so the level of a

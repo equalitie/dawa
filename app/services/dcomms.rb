@@ -330,10 +330,11 @@ module Dcomms
   end
 
   #
-  # A chunk of job output, from `job/log` (registered but stubbed by the backend).
+  # A chunk of job output, from `job/log`.
   #
-  # `offset` is a byte cursor into the job's log; callers keep `next_offset` and pass
-  # it back to fetch only new output.
+  # `offset` is a byte cursor into the job's log; callers keep `next_offset` and pass it back
+  # to fetch only new output. Note the daemon only serves a RUNNING job's log -- see
+  # DcommsAdapter#job_log.
   #
   class JobLog
     attr_reader :log, :next_offset, :eof

@@ -26,7 +26,7 @@ class AppJobsControllerTest < ActionDispatch::IntegrationTest
       scoped = instance_id ? jobs.select { |j| j.instance_id == instance_id } : jobs
       scoped.reject { |j| active_only && j.terminal? }
     end
-    fake.define_singleton_method(:job_log) do |id:, instance_id:, offset: 0|
+    fake.define_singleton_method(:job_log) do |id:, offset: 0|
       raise job_log_raises if job_log_raises
       log
     end

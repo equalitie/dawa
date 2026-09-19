@@ -1,0 +1,4 @@
+= turbo_stream.update("modal-frame") do
+  = v.modal(t("app_installs.title"), subtitle: @entry.name, size: "md", close_button: true) do |modal|
+    = turbo_frame_tag "install-dialog" do
+      = render "form", modal: modal

@@ -29,8 +29,8 @@ class DcommsAdapterTest < ActiveSupport::TestCase
     def backup(id:) = record(:backup, id: id)
     def restore(id:) = record(:restore, id: id)
     def job_status(id:) = record(:job_status, id: id)
-    def job_log(id:, instance_id:, offset: 0)
-      record(:job_log, id: id, instance_id: instance_id, offset: offset)
+    def job_log(id:, offset: 0)
+      record(:job_log, id: id, offset: offset)
     end
     def job_list(instance_id: nil, active_only: false)
       record(:job_list, instance_id: instance_id, active_only: active_only)
@@ -97,7 +97,7 @@ class DcommsAdapterTest < ActiveSupport::TestCase
   test "every method the daemon implements is real, not mocked" do
     # Regression guard: each of these was mocked at some point while the daemon lacked it. If
     # one slips back into MOCKED, Dawa would silently stop talking to a backend that works.
-    assert_equal :from_client, @adapter.job_log(id: "j", instance_id: "i")
+    assert_equal :from_client, @adapter.job_log(id: "j")
     assert_equal :from_client, @adapter.job_list
     assert_equal :from_client, @adapter.job_status(id: "j")
     assert_equal :from_client, @adapter.apps_installed_list
@@ -172,19 +172,19 @@ class DcommsAdapterTest < ActiveSupport::TestCase
     assert_equal [ [ :install, { name: "peertube", domain: "pt.test" } ] ], @client.calls
   end
 
-  test "job_log forwards both identifiers and the offset" do
+  test "job_log forwards the job id and the offset" do
     # Real now, so it reaches the client rather than the mock -- but the routing is what is
     # under test here, and both identifiers must travel because the daemon keys its job map
     # on the pair.
-    @adapter.job_log(id: "j", instance_id: "inst-1", offset: 128)
+    @adapter.job_log(id: "j", offset: 128)
 
-    assert_equal [ [ :job_log, { id: "j", instance_id: "inst-1", offset: 128 } ] ], @client.calls
+    assert_equal [ [ :job_log, { id: "j", offset: 128 } ] ], @client.calls
   end
 
   test "job_log defaults the offset" do
-    @adapter.job_log(id: "j", instance_id: "inst-1")
+    @adapter.job_log(id: "j")
 
-    assert_equal [ [ :job_log, { id: "j", instance_id: "inst-1", offset: 0 } ] ], @client.calls
+    assert_equal [ [ :job_log, { id: "j", offset: 0 } ] ], @client.calls
   end
 
   test "job_list forwards its filters" do
@@ -222,7 +222,7 @@ class DcommsAdapterTest < ActiveSupport::TestCase
 
       assert_equal %i[catalog_list job_status].sort, adapter.mocked_methods.sort
       assert_equal :from_mock, adapter.catalog_list
-      assert_equal :from_client, adapter.job_log(id: "j", instance_id: "i")
+      assert_equal :from_client, adapter.job_log(id: "j")
     end
   end
 

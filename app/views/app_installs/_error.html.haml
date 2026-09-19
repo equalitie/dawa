@@ -1,0 +1,13 @@
+-#
+  A terminal failure: the install could not be started and there is nothing in the form for the
+  user to correct (the backend was unreachable, or the daemon refused the request). So this
+  drops the fields and keeps only the reason.
+
+  A validation failure does NOT use this partial -- it re-renders `new` with the form intact,
+  because there the user's next move is to fix the input. See AppInstallsController#render_form.
+
+= turbo_stream.update("modal-frame") do
+  = v.modal(t("app_installs.title"), size: "md", close_button: false) do |modal|
+    = v.alert("danger", icon: "x-circle") do
+      .mb-2.fw-bold= t("app_installs.failed")
+      %div= @error

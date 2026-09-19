@@ -1,0 +1,19 @@
+-#
+  The state of the install, replaced in place by AppInstallJob when it reaches a terminal
+  state (and rendered once at :running when the dialog first appears).
+
+  `message` carries the daemon's error text for a failure, or nil.
+
+-#
+  Colour per outcome. `running` uses a neutral info badge rather than reusing the job state
+  badge: this is the dialog's own summary of the stream, not the daemon's reported state, and
+  it has one more case (timeout) than a JobStatus does.
+- outcome_colors = { running: "info", succeeded: "success", failed: "danger", timeout: "warning" }
+
+%span.badge.rounded-pill{id: "install-status", class: "text-bg-#{outcome_colors.fetch(outcome, 'secondary')}"}
+  = t("jobs.install.#{outcome}")
+
+- if message.present?
+  .small.text-danger.mt-2= message
+- elsif outcome == :timeout
+  .small.text-muted.mt-2= t("jobs.install.timeout_hint")

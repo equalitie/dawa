@@ -25,7 +25,13 @@ Rails.application.routes.draw do
     # nested bc jobs are only valid in context of an instance.
     resources :jobs, only: :show, controller: "app_jobs"
   end
-  resources :catalog
+
+  resources :catalog, only: [ :index, :show ] do
+    member do
+      get :install, to: "app_installs#new"
+    end
+  end
+  post "apps/install", to: "app_installs#create", as: :install_app
 
   resources :backups, only: :index
   resources :containers

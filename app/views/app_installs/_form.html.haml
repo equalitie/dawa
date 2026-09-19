@@ -1,0 +1,27 @@
+-# locals: (modal: nil)
+-#
+  The install dialog's contents. Rendered inside the `install-dialog` turbo-frame that lives
+  in the modal body.
+
+  On a first open this is the plain form. On a validation failure the controller re-renders
+  it with an error, and the alert appears ABOVE the form -- the fields stay, because the
+  user's next move is to correct one of them, not to dismiss the dialog and start over.
+
+- if @error.present?
+  = v.alert("danger", icon: "x-circle") do
+    %div= @error
+
+- if @entry
+  = bootstrap_form_with(url: install_app_path, method: :post, id: "install-app") do |f|
+    = hidden_field_tag :app_id, @entry.id
+    = f.text_field :domain, value: @domain, label: t("apps.domain"), autofocus: true
+    - modal&.with_buttons do
+      = v.submit_button form: f.id, label: t("app_installs.submit"), icon: "download"
+
+- elsif @error.blank?
+  -#
+    Only reachable if the entry could not be looked up AND there is no error to explain it,
+    which should not happen -- `new` and `render_form` always set one or the other. Fail
+    loudly rather than rendering an empty dialog.
+  = v.alert("warning", icon: "exclamation-triangle") do
+    = t("app_installs.entry_missing")
