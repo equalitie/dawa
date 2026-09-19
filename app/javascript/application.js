@@ -4,6 +4,7 @@ import "controllers";
 
 import "@popperjs/core"; // must come before bootstrap
 import "bootstrap"; // see https://github.com/twbs/bootstrap/tree/main/js/src
+import "turbo_stream_actions";
 
 // vega charts
 import "vega";

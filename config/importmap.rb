@@ -1,5 +1,6 @@
 pin "application"
 pin "util"
+pin "turbo_stream_actions"
 
 # core rails
 pin "@hotwired/turbo-rails", to: "turbo.min.js"
