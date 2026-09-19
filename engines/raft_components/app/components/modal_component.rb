@@ -40,15 +40,17 @@ class ModalComponent < ApplicationComponent
               %h5.modal-title= @title
               - if @subtitle
                 = @subtitle
-            %button(type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close")
+            - if @close_button
+              %button(type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close")
           #modal-body.modal-body{class: @body_class}
             = content
           - if @close_button || buttons?
             .modal-footer
-              - if @close_button
-                %button.btn.btn-outline-dark(type="button" data-bs-dismiss="modal")
-                  = icon(icon: "x-lg", label: t("components.close"))
-              = buttons
+              .btn-toolbar
+                - if @close_button
+                  %button.btn.btn-outline-dark(type="button" data-bs-dismiss="modal")
+                    = icon(icon: "x-lg", label: t("components.close"))
+                = buttons
   HAML
 
   def initialize(title = "", subtitle: nil, close_button: true, show: true, size: nil, fullscreen: false, scroll: true, **args)
@@ -77,6 +79,9 @@ class ModalComponent < ApplicationComponent
       @html[:class] += " auto-open"
       @data["controller"] = "bootstrap"
       @data["bootstrap-target"] = "modal"
+    end
+    if @close_button == false
+      @data["bs-backdrop"] = "static" # prevent modal from closing
     end
   end
 
