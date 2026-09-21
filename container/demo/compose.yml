@@ -175,3 +175,4 @@ volumes:
   dawa_storage:
   log_storage:
   metrics_storage:
+  vector_storage:
