@@ -68,6 +68,9 @@ gem "faraday"                           # HTTP client
 gem "doorkeeper"                        # OAuth2 authorization server
 gem "doorkeeper-openid_connect"         # OpenID Connect (OIDC) layer on top of doorkeeper
 
+# temporary
+gem "faker"
+
 ##
 ## DEV & TEST
 ##
@@ -76,7 +79,7 @@ group :development, :test do
   # See https://guides.rubyonrails.org/debugging_rails_applications.html#debugging-with-the-debug-gem
   gem "debug", platforms: %i[ mri windows ], require: "debug/prelude"
 
-  gem "faker"
+  #gem "faker"
 
   gem "ostruct" # used for docker tests
 
