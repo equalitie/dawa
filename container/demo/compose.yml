@@ -135,7 +135,7 @@ services:
       - /var/log/journal:/var/log/journal:ro
       - /etc/machine-id:/etc/machine-id:ro
       # Checkpoint/state for the journald source's data_dir
-      - vector_data:/var/lib/vector
+      - vector_storage:/var/lib/vector
       # Provides process and system statistics
       - /proc:/host/proc:ro
       # Provides device and driver information
