@@ -33,6 +33,10 @@ class AppInstallJob < ApplicationJob
     "app_install:#{job_id}"
   end
 
+  def log(*msg)
+    Rails.logger.info(msg.join(" "))
+  end
+
   # @param job_id [String] dcommsctl's job id
   # @param instance_id [String] the instance the job belongs to; `job/log` needs BOTH
   def perform(job_id, instance_id)
@@ -79,6 +83,7 @@ class AppInstallJob < ApplicationJob
   def drain_log
     loop do
       chunk = adapter.job_log(id: @job_id, offset: @offset)
+      log("API LOG CHUNK", chunk)
       break if chunk.log.empty?
 
       @offset = chunk.next_offset

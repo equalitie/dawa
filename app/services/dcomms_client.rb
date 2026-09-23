@@ -323,6 +323,8 @@ class DcommsClient
       JSON.generate({ jsonrpc: "2.0", method: method, params: params }.compact.merge(id: request_id))
     )
 
+    Log.api("<-", response.inspect)
+
     if response.key?("error")
       raise_error_for(response["error"])
     end
@@ -368,6 +370,8 @@ class DcommsClient
     driver.on(:message) { |event| reply << event.data }
     driver.on(:error) { |event| protocol_error ||= event.message }
     driver.on(:open) { driver.text(payload) }
+
+    Log.api("->", payload)
 
     begin
       driver.start
