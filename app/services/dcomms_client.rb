@@ -175,7 +175,21 @@ class DcommsClient
     install_result
   end
 
-  # `inst/uninstall`
+  #
+  # `inst/uninstall` -- tear down an app instance.
+  #
+  # An ASYNC job like the other mutations: the daemon returns a job id and runs
+  # `docker compose down` under the instance's lock. The conflicting name is resolved there --
+  # a second job for the same instance is refused with "The job is in progress", which
+  # surfaces as `JobInProgress`.
+  #
+  # NOTE: this only stops and removes the app's containers. The daemon does not delete the
+  # instance's data, so the deployed volumes remain on disk, and Dawa must not claim otherwise
+  # (see the scope note on apps/uninstall.html.haml).
+  #
+  # @return [String] dcommsctl's job id
+  # @raise [EmptyResult] when the backend returned no job id at all
+  #
   def uninstall(id:) = job_id_from(call("inst/uninstall", { id: id }), "inst/uninstall")
 
   # `inst/start`

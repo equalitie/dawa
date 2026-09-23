@@ -166,6 +166,17 @@ class DcommsAdapterTest < ActiveSupport::TestCase
     assert_empty @mock.calls
   end
 
+  test "uninstall is real, not mocked" do
+    # `inst/uninstall` is registered in main.go and implemented in rpc_inst_uninstall.go, so it
+    # has no business being faked. Removing an app is destructive enough that the test pins the
+    # routing rather than trusting it.
+    refute @adapter.mocked?(:uninstall)
+    assert_equal :from_client, @adapter.uninstall(id: "peertube-zebu")
+
+    assert_equal [ [ :uninstall, { id: "peertube-zebu" } ] ], @client.calls
+    assert_empty @mock.calls
+  end
+
   test "install forwards both keywords to the real client" do
     @adapter.install(name: "peertube", domain: "pt.test")
 

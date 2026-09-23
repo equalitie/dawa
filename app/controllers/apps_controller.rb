@@ -1,16 +1,5 @@
 #
-# One installed app, and the jobs dcommsctl has run for it.
-#
-# An "app" here is a deployment with its own data (see the vocabulary note in dcomms.rb); the
-# index lists them all and this shows one.
-#
-# The daemon has no `inst/get`, so the instance is found by id within `inst/list`. That is
-# one extra call compared to a dedicated endpoint, but it keeps Dawa honest about what the
-# backend actually offers and it is what the index already pays for.
-#
-# Jobs come from `job/list`, which filters by `instance_id` server-side. The same call is
-# made twice -- once for in-flight work, once for everything -- because `active_only` is a
-# daemon-side filter and the two lists mean different things on the page.
+# Controller for dcomms backend app instances
 #
 class AppsController < BaseAdminController
   def index
@@ -22,9 +11,7 @@ class AppsController < BaseAdminController
 
   def show
     @app = find_app(params[:id])
-    # A missing instance is a 404, not an empty page: the id came from a link, so an absent
-    # one means the app was uninstalled or the URL is wrong. Reporting "no jobs" would be a
-    # different (and false) claim.
+    # A missing instance is a 404, not an empty page
     return head :not_found if @app.nil?
 
     all_jobs = jobs(active_only: false)
@@ -35,14 +22,111 @@ class AppsController < BaseAdminController
     @past_jobs = []
   end
 
+  #
+  # GET /apps/:id/uninstall -- uninstall confirmation page
+  #
+  def uninstall
+    @app = find_app(params[:id])
+    @error = t("apps.uninstall.not_installed") if @app.nil?
+  rescue DcommsClient::Error => e
+    @app = nil
+    @error = e.message
+  end
+
+  #
+  # DELETE /apps/:id/uninstall -- remove the app.
+  #
+  #
+  def destroy
+    @app = find_app(params[:app_id])
+
+    if @app.nil?
+      @error = t("apps.uninstall.not_installed")
+      return render_confirmation_error
+    end
+
+    unless confirmation_matches?
+      @error = t("apps.uninstall.name_mismatch", name: @app.id)
+      return render_confirmation_error
+    end
+
+    adapter.uninstall(id: @app.id)
+
+    redirect_to apps_path, notice: t("apps.uninstall.started", name: @app.id)
+  rescue DcommsClient::Error => e
+    # The daemon refused it: unreachable, or another job holds the instance's lock. The page keeps
+    # the reason and the field, so the user can read it and retry once the lock is free.
+    @error = e.message
+    render_confirmation_error
+  end
+
+  #
+  # The commands the state buttons may ask for. A whitelist rather than dispatching
+  # `params[:command]` straight at the adapter: only these two are meaningful, and naming them
+  # here keeps the request from reaching anything else on the adapter.
+  #
+  STATE_COMMANDS = %w[start stop].freeze
+
+  #
+  # PUT /apps/:id -- start or stop an instance, per `params[:command]`.
+  #
+  def update
+    command = params[:command].to_s
+    # Unreachable from the buttons, which only ever send the two names above; answered without a
+    # body because there is nothing to say to a caller that invented one.
+    return head :bad_request unless STATE_COMMANDS.include?(command)
+
+    app = find_app(params[:id])
+    # Nothing to start or stop: the instance is not in `inst/list`. The message goes into the box's
+    # slot, which also clears any in-flight button, since it replaces the element they live in.
+    return render_box_message(params[:id], t("apps.uninstall.not_installed")) if app.nil?
+
+    job_id = adapter.public_send(command, id: app.id)
+    AppStateJob.perform_later(job_id, app.id)
+
+    # The pressed button becomes a disabled spinner and the other one is disabled
+    render turbo_stream: turbo_stream.replace(
+      "app-box-#{app.id}",
+      partial: "apps/box", locals: { app: app, pending: command }
+    )
+  rescue DcommsClient::Error => e
+    # The daemon refused it, or the lookup itself failed. Either way the page has to be told,
+    # because nothing navigates.
+    if app.nil?
+      render_box_message(params[:id], e.message)
+    else
+      render turbo_stream: turbo_stream.replace(
+        "app-box-#{app.id}",
+        partial: "apps/box", locals: { app: app, message: e.message }
+      )
+    end
+  end
+
   private
 
-  # Split the jobs for one instance into in-flight and finished.
+  # True when the user typed name matches the instance in the url.
+  def confirmation_matches?
+    params[:confirm_id].to_s.strip == @app.id
+  end
+
+  def render_confirmation_error
+    render :uninstall, status: :unprocessable_entity
+  end
+
   #
-  # Partitioned here rather than by a second `active_only: true` call: two calls could
-  # disagree (a job can finish between them, appearing in the "past" list only), and
-  # `JobStatus` has no value equality, so subtracting one list from the other would compare
-  # by identity and silently remove nothing. One call is both cheaper and consistent.
+  # Replace an app's box with just the reason, for the case where there is no app to describe.
+  #
+  # The replacement carries the same id (`apps/box_message` puts it on the element) because the
+  # element it replaces is what later broadcasts target.
+  #
+  def render_box_message(instance_id, message)
+    render turbo_stream: turbo_stream.replace(
+      "app-box-#{instance_id}",
+      partial: "apps/box_message", locals: { instance_id: instance_id, message: message }
+    )
+  end
+
+  # Split the jobs for one instance into in-flight and finished.
   def partition_jobs(jobs)
     jobs.partition { |job| !job.terminal? }
   end

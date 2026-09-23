@@ -176,6 +176,52 @@ en:
       unknown: "Unknown"
     catalog_entry: "Catalog entry"
 
+    #
+    # Starting and stopping an instance. The buttons are driven by `inst/list`'s reported state, so
+    # the labels are the commands, and the in-flight labels are Dawa's own words for "a command is
+    # running" rather than a state the backend reported.
+    #
+    state:
+      start: "Start"
+      stop: "Stop"
+      starting: "Starting"
+      stopping: "Stopping"
+      # Shown when a command finishes for an instance `inst/list` no longer reports: someone removed
+      # it while the command ran, so there is no state left to describe.
+      gone: "%{name} is no longer reported by dcommsctl, so its state is unknown."
+      timeout: >-
+        Dawa stopped waiting for this command. It may still be running; reload the page to see
+        the current state.
+
+    #
+    # Uninstalling one app. "Remove" throughout rather than "uninstall", so the wording matches
+    # what the action does: the daemon takes the containers down and keeps the app's data (see
+    # scope_body).
+    #
+    # Confirming is typing the instance name, so the strings name the instance back to the user;
+    # `name_mismatch` is what a rejected attempt (or a typo) is told.
+    #
+    uninstall:
+      action: "Remove"
+      title: "Remove App"
+      heading: "Remove %{name}"
+      domain: "This instance serves %{domain}."
+      domain_unknown: "This instance's domain is not recorded."
+      confirm: "Remove"
+      field_label: "Type %{name} to confirm"
+      name_mismatch: "That does not match %{name}. Type the app's full name to continue."
+      not_installed: "This app is no longer installed, so there is nothing to remove."
+      # Reported after the daemon has accepted the job. It does NOT claim the app is gone: the
+      # removal is asynchronous and Dawa does not follow it (see AppsController#destroy).
+      started: >-
+        Removing %{name}. This runs in the background, so the app may take a moment to
+        disappear from the list.
+      # Spelled out because the daemon's uninstall is narrower than the word suggests.
+      scope_title: "What this does"
+      scope_body: >-
+        The app's containers are stopped and removed. Its data is kept, so the app can be
+        installed again with the same data still on disk.
+
     # the catalog index (installable entries)
     catalog_empty: "No installable apps were found in the catalog."
     catalog_unreachable: "Could not reach dcommsctl"

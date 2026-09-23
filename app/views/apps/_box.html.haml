@@ -1,0 +1,63 @@
+-# locals: (app:, pending: nil, message: nil)
+-#
+  an info box for an app instance.
+
+  this partial gets updated as the app instance state changes.
+
+  Locals:
+
+    app            the AppInstance to describe.
+    pending: nil   the command currently in flight ("start" or "stop"), which turns the pressed
+                   button into a disabled spinner and disables the other one. A display hint, NOT
+                   a state: the badge keeps reporting what the backend last said, because
+                   inventing "starting" as a status would claim something nobody has observed.
+    message: nil   a reason the command was refused or failed, so the user can read it and try
+                   again.
+
+= v.box(icon: "box-seam", size: "lg", id: "app-box-#{app.id}") do |box|
+  - if message.present?
+    = v.alert("danger", icon: "x-circle") do
+      %div= message
+
+  .d-flex
+    %h3.mb-0= app.id
+    .ms-3= v.app_status_badge(app)
+
+  - box.with_buttons do
+    - if pending == "start"
+      = v.button label: t("apps.state.starting"), icon: "spinner", disabled: true
+    - elsif pending == "stop"
+      = v.button label: t("apps.state.stopping"), icon: "spinner", disabled: true
+    - elsif app.running?
+      = v.button label: t("apps.state.start"), icon: "play-fill", disabled: true
+      = v.update_button label: t("apps.state.stop"), icon: "stop-fill",
+        data: { "stream-ready-target" => "button" },
+        url: app_path(app.id), params: { command: "stop" }
+    - elsif app.stopped?
+      = v.update_button label: t("apps.state.start"), icon: "play-fill",
+        data: { "stream-ready-target" => "button" },
+        url: app_path(app.id), params: { command: "start" }
+      = v.button label: t("apps.state.stop"), icon: "stop-fill", disabled: true
+    - else
+      = v.button label: t("apps.state.start"), icon: "play-fill", disabled: true
+      = v.button label: t("apps.state.stop"), icon: "stop-fill", disabled: true
+
+    = v.link_button label: t("apps.uninstall.action"), icon: "trash",
+      color: "danger", url: uninstall_app_path(app.id)
+
+  %dl.row.small.mb-0.mt-3
+    %dt.col-4.col-md-2.text-muted= t("apps.version")
+    %dd.col-8.col-md-10
+      - if app.version.present?
+        = app.version
+      - else
+        %em.text-muted{data: {placeholder: "true"}}= t("apps.version_unknown")
+    %dt.col-4.col-md-2.text-muted= t("apps.domain")
+    %dd.col-8.col-md-10
+      - if app.domain.present?
+        = app.domain
+      - else
+        %em.text-muted{data: {placeholder: "true"}}= t("apps.domain_unknown")
+    - if app.catalog_entry_id.present?
+      %dt.col-4.col-md-2.text-muted= t("apps.catalog_entry")
+      %dd.col-8.col-md-10= app.catalog_entry_id

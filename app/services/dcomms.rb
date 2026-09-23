@@ -192,7 +192,14 @@ module Dcomms
     # Same guard as CatalogEntry#available? - drop rows without an identity.
     def available? = id.present?
 
+    #
+    # The two states the backend reports, asked as a question rather than compared as a string so
+    # callers cannot drift on the spelling. Anything else -- including the blank status the daemon
+    # sends when it cannot reach docker compose -- is neither: see AppStatusBadgeComponent, and
+    # note that start/stop buttons are disabled in that third case rather than guessing.
+    #
     def running? = status == "running"
+    def stopped? = status == "stopped"
   end
 
   #

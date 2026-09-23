@@ -1,0 +1,11 @@
+-#
+  One app's card on the index, as its own element.
+
+  Local: app.
+
+  A partial with an id so a start/stop command can replace just this card when the app's state
+  changes (see AppStateJob). The grid column class lives here rather than in the index loop, so a
+  card rendered by a broadcast is laid out exactly like one rendered by the page: `.col` only means
+  something inside the `.row` the index provides, and the replacement lands in that same row.
+.col{id: "app-card-#{app.id}"}
+  = link_to v.app_card(app), app_path(app.id), class: "text-decoration-none"

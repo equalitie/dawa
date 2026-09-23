@@ -384,4 +384,43 @@ class AppsControllerTest < ActionDispatch::IntegrationTest
       assert_select "a[href=?]", catalog_index_path
     end
   end
+
+  ##
+  ## live state
+  ##
+
+  test "each card carries its own id, so a command can replace just that card" do
+    # AppStateJob broadcasts to `app-card-<id>` on the "apps" stream; a card without the id would
+    # leave the index showing the old state after a start or stop.
+    with_stubbed_adapter(apps: [ instance_(id: "peertube-zebu"), instance_(id: "mastodon-lion") ]) do
+      login_as(@user)
+      get apps_path
+
+      assert_response :success
+      assert_select "#app-card-peertube-zebu"
+      assert_select "#app-card-mastodon-lion"
+    end
+  end
+
+  test "the card keeps the grid column it is laid out in" do
+    # The replacement lands inside the same `.row`, so the column class has to come with the card
+    # rather than from the index loop.
+    with_stubbed_adapter(apps: [ instance_ ]) do
+      login_as(@user)
+      get apps_path
+
+      assert_response :success
+      assert_select ".row > .col > a[href=?]", app_path("peertube-zebu")
+    end
+  end
+
+  test "the index subscribes to the apps stream" do
+    with_stubbed_adapter(apps: [ instance_ ]) do
+      login_as(@user)
+      get apps_path
+
+      assert_response :success
+      assert_match(/turbo-cable-stream-source/, response.body)
+    end
+  end
 end

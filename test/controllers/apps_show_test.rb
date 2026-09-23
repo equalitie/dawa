@@ -273,4 +273,130 @@ class AppsShowTest < ActionDispatch::IntegrationTest
       assert_no_match(/= t\(/, response.body)
     end
   end
+
+  ##
+  ## start and stop
+  ##
+
+  test "a stopped app offers Start and not Stop" do
+    with_stubbed_adapter(apps: [ instance_(status: "stopped") ]) do
+      get_show
+
+      assert_response :success
+      # The command that would be sent, not just the label: a button wired to the wrong command
+      # would look identical.
+      assert_select "input[name='command'][value='start']"
+      assert_select "input[name='command'][value='stop']", count: 0
+      assert_select "button[disabled]", text: /Stop/
+    end
+  end
+
+  test "a running app offers Stop and not Start" do
+    with_stubbed_adapter(apps: [ instance_(status: "running") ]) do
+      get_show
+
+      assert_response :success
+      assert_select "input[name='command'][value='stop']"
+      assert_select "input[name='command'][value='start']", count: 0
+      assert_select "button[disabled]", text: /Start/
+    end
+  end
+
+  test "an app with no reported status offers neither command" do
+    # The daemon sends an empty status when it cannot ask docker compose. Either command could be
+    # the wrong one there, so neither is offered rather than guessing.
+    with_stubbed_adapter(apps: [ instance_(status: nil) ]) do
+      get_show
+
+      assert_response :success
+      assert_select "input[name='command']", count: 0
+      assert_select "button[disabled]", text: /Start/
+      assert_select "button[disabled]", text: /Stop/
+    end
+  end
+
+  test "the buttons submit to the app's own update url" do
+    with_stubbed_adapter(apps: [ instance_(status: "stopped") ]) do
+      get_show
+
+      assert_response :success
+      assert_select "form[action=?][method=post]", app_path("peertube-zebu") do
+        assert_select "input[name='_method'][value='put']"
+      end
+    end
+  end
+
+  test "the box is the target a start or stop command replaces" do
+    # AppStateJob replaces this element when the command finishes, so the id has to be on the box
+    # the page actually renders.
+    with_stubbed_adapter(apps: [ instance_(id: "peertube-zebu") ]) do
+      get_show
+
+      assert_response :success
+      assert_select "#app-box-peertube-zebu"
+    end
+  end
+
+  test "the page subscribes to the instance, so a command's result can reach it" do
+    with_stubbed_adapter(apps: [ instance_(id: "peertube-zebu") ]) do
+      get_show
+
+      assert_response :success
+      assert_match(/turbo-cable-stream-source/, response.body)
+      assert_select "div[data-controller='stream-ready']"
+    end
+  end
+
+  test "the buttons are stream-ready targets, so they stay disabled until subscribed" do
+    # A click before the subscription exists would start a command whose result the page cannot
+    # receive, leaving it stale until a reload.
+    with_stubbed_adapter(apps: [ instance_(status: "stopped") ]) do
+      get_show
+
+      assert_response :success
+      assert_select "button[data-stream-ready-target='button'][form]"
+    end
+  end
+
+  ##
+  ## removing the app
+  ##
+
+  test "the show page offers a way to remove the app" do
+    # The only entry point: the index cards are one big link, so a destructive control there
+    # would fire on a stray click on the card itself. From here it is a link to the confirmation
+    # page, not a dialog and not the removal itself.
+    with_stubbed_adapter(apps: [ instance_ ]) do
+      get_show
+
+      assert_response :success
+      assert_select "a[href=?]", uninstall_app_path("peertube-zebu"), text: /Remove/
+    end
+  end
+
+  test "the show page's remove control does not remove anything by itself" do
+    # The link only GETs the confirmation page. If it ever became a form that submitted the
+    # DELETE, a single click would be enough to start a removal, and the typed-name step would be
+    # gone. Scoped to the uninstall url: the page legitimately carries other forms (the logout
+    # button in the session bar, for one).
+    with_stubbed_adapter(apps: [ instance_ ]) do
+      get_show
+
+      assert_response :success
+      assert_select "form[action=?]", uninstall_app_path("peertube-zebu"), count: 0
+      assert_select "a[href=?]", uninstall_app_path("peertube-zebu")
+    end
+  end
+
+  test "the removal control absents itself when the backend failed" do
+    # `@app` is nil in the error branch, so a control built from it would raise. The banner is
+    # the whole page in that case.
+    with_stubbed_adapter(raises: DcommsClient::ConnectionError.new("no route to host")) do
+      get_show
+
+      assert_response :success
+      assert_select "button[form]", count: 0
+      assert_select "body", text: /no route to host/
+    end
+  end
 end

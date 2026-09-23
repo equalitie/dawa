@@ -247,7 +247,8 @@ class AppInstallsControllerTest < ActionDispatch::IntegrationTest
       assert_select "body", text: /A domain is required/
       assert_select "input[name='domain']", nil, "the field must survive the error"
       assert_select "input[name='app_id'][value='peertube']"
-      assert_select "button[type='submit']", text: /Install/
+      assert_select "turbo-stream[action='update'][target='install-dialog']",
+                    nil, "the dialog must be updated in place, not replaced"
     end
   end
 

@@ -117,6 +117,8 @@ class DcommsAdapter
     end
   end
 
+  # Real: `inst/uninstall` is registered (rpc_inst_uninstall.go) and runs `docker compose
+  # down`. Same shape as the other mutations -- fire it, get a job id back, watch the job.
   def uninstall(id:) = route(:uninstall, id: id)
   def start(id:) = route(:start, id: id)
   def stop(id:) = route(:stop, id: id)

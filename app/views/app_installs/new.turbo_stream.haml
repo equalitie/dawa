@@ -1,4 +1,9 @@
 = turbo_stream.update("modal-frame") do
-  = v.modal(t("app_installs.title"), subtitle: @entry.name, size: "md", close_button: true) do |modal|
+  -#
+    The backend failure path (`new` rescuing DcommsClient::Error) has no `@entry` to name,
+    so the subtitle falls back to the dialog title alone rather than raising on the way to
+    the error the user needs to see. The error itself is rendered inside the dialog by the
+    form partial, which renders it whether or not the entry was looked up.
+  = v.modal(t("app_installs.title"), subtitle: @entry&.name, size: "md", close_button: true) do |modal|
     = turbo_frame_tag "install-dialog" do
       = render "form", modal: modal

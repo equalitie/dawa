@@ -1,3 +1,8 @@
+-#
+  Subscribed so a start/stop command can refresh one app's card without a reload (see
+  AppStateJob). Every app's card is replaced on this stream, keyed by its own id.
+= turbo_stream_from "apps"
+
 = breadcrumbs
 
 .btn-toolbar.mb-3
@@ -19,5 +24,4 @@
 - else
   .row.row-cols-1.row-cols-md-2.row-cols-xl-3.g-3
     - @apps.each do |app|
-      .col
-        = link_to v.app_card(app), app_path(app.id), class: "text-decoration-none"
+      = render "apps/card", app: app

@@ -21,9 +21,17 @@ Rails.application.routes.draw do
   resources :invites
   resources :join, only: [:show, :update]
 
-  resources :apps, only: [ :index, :show ] do
+  resources :apps, only: [ :index, :show, :update ] do
     # nested bc jobs are only valid in context of an instance.
     resources :jobs, only: :show, controller: "app_jobs"
+
+    # Uninstalling: the confirmation page, then the removal itself. Confirming is typing the
+    # instance name (see AppsController#destroy), so the removal has to be a form submission and
+    # not something a stray GET could trigger.
+    member do
+      get :uninstall
+    end
+    delete "uninstall", to: "apps#destroy"
   end
 
   resources :catalog, only: [ :index, :show ] do

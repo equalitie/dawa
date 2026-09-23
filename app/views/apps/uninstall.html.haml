@@ -1,0 +1,50 @@
+= breadcrumbs do |bc|
+  - bc.with_crumb { link_to t("apps.index.title"), apps_path }
+  - if @app
+    - bc.with_crumb { link_to @app.id, app_path(@app.id) }
+  - bc.with_crumb(active: true) { t("apps.uninstall.title") }
+
+-#
+  Confirming a removal by TYPING the instance name.
+
+  A full page and a text field rather than a yes/no dialog, because that is the whole point of the
+  step: a prompt the user has to READ the name to satisfy is what makes a mis-click harmless, and
+  neither a `data-turbo-confirm` dialog nor the appended "are you sure?" step can do that.
+
+  `@app` is nil when the backend no longer reports the instance (someone else removed it, or the
+  daemon is unreachable). Then there is nothing to confirm and no field to offer, so the page is
+  just the reason.
+
+- if @error.present?
+  = v.alert("danger", icon: "x-circle") do
+    %div= @error
+
+- if @app
+  = v.box(icon: "trash", size: "lg") do
+    %h3.mb-1= t("apps.uninstall.heading", name: @app.id)
+    %p.mb-3
+      - if @app.domain.present?
+        = t("apps.uninstall.domain", domain: @app.domain)
+      - else
+        = t("apps.uninstall.domain_unknown")
+
+    -#
+      What removal does, in the daemon's own terms. `inst/uninstall` runs `docker compose down`
+      and keeps the instance's data, so this must not promise more than that -- no "deletes
+      everything", no "cannot be undone".
+    = v.alert("warning", icon: "exclamation-triangle") do
+      .mb-2.fw-bold= t("apps.uninstall.scope_title")
+      %div= t("apps.uninstall.scope_body")
+
+    -#
+      `value: params[:confirm_id]` echoes back a rejected attempt, so a typo can be corrected
+      rather than retyped. It is empty on the first visit.
+    = bootstrap_form_with(url: uninstall_app_path(@app.id), method: :delete, id: "uninstall-app") do |f|
+      = f.text_field :confirm_id, value: params[:confirm_id],
+        label: t("apps.uninstall.field_label", name: @app.id),
+        autofocus: true, autocomplete: "off"
+
+      .btn-toolbar
+        = v.cancel_button_link label: t("nav.cancel"), url: app_path(@app.id)
+        = v.submit_button form: f.id, label: t("apps.uninstall.confirm"), icon: "trash",
+          color: "danger", fill: true

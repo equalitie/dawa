@@ -304,6 +304,24 @@ class DcommsClientTest < ActiveSupport::TestCase
     end
   end
 
+  test "uninstall sends the instance id and returns the job id" do
+    stub_exchange(result: { "job_id" => "uninstall-09-12.10:00:00" }) do
+      assert_equal "uninstall-09-12.10:00:00", @client.uninstall(id: "peertube-zebu")
+
+      assert_equal "inst/uninstall", @sent.last["method"]
+      assert_equal({ "id" => "peertube-zebu" }, @sent.last["params"])
+    end
+  end
+
+  test "uninstall raises EmptyResult when the backend returns no job id" do
+    # The daemon's uninstall handler returns a zero-value result with no error in some paths, so
+    # a job id is the only evidence that anything was started. Without this guard the caller
+    # would enqueue a job that follows nothing and render a progress dialog for it.
+    stub_exchange(result: { "job_id" => "" }) do
+      assert_raises(DcommsClient::EmptyResult) { @client.uninstall(id: "peertube-zebu") }
+    end
+  end
+
   ##
   ## jobs
   ##
