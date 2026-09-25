@@ -82,14 +82,27 @@ class DcommsMockTest < ActiveSupport::TestCase
     assert_equal 4, behind.next_offset, "should report where the client actually is"
   end
 
-  test "job_log eof means caught up, not finished" do
+  test "job_log draining the log is not finished while the job runs" do
     @mock.script_job(id: "j1", chunks: [], running_for: 5)
 
     chunk = @mock.job_log(id: "j1", offset: 0)
 
     assert chunk.empty?
-    assert chunk.eof
-    refute @mock.job_status(id: "j1").terminal?, "eof must not imply completion"
+    refute chunk.finished, "caught up must not imply the job ended"
+  end
+
+  test "job_log finished once the job has ended and every chunk is served" do
+    @mock.script_job(id: "j1", chunks: [ "done\n" ], running_for: 0)
+
+    first = @mock.job_log(id: "j1", offset: 0)
+    assert_equal "done\n", first.log
+    refute first.finished, "the job has not been polled to its terminal state yet"
+
+    @mock.job_status(id: "j1") # drive it terminal
+
+    last = @mock.job_log(id: "j1", offset: first.next_offset)
+    assert last.empty?
+    assert last.finished
   end
 
   ##

@@ -12,9 +12,6 @@
     %div= @error
 
 - elsif @log.nil?
-  -#
-    The daemon only serves a RUNNING job's log (see AppJobsController). Say so plainly
-    rather than showing an empty log, which would read as "this job produced no output".
   = v.alert("warning", icon: "exclamation-triangle") do
     .mb-2.fw-bold= t("jobs.log_finished")
     %div= t("jobs.log_finished_hint")
@@ -33,5 +30,5 @@
     %pre.bg-body-tertiary.border.rounded.p-3{style: "max-height: 60vh; overflow: auto;"}
       %code= @log.log
 
-  - unless @log.eof
+  - unless @log.finished
     .small.text-muted.mt-2= t("jobs.log_more")

@@ -289,13 +289,14 @@ en:
     duration_unknown: "Unknown duration"
     duration_instant: "Took under a second"
     failed: "Failed"
-    # only offered for in-flight jobs; a finished job's log is not served by the daemon
+    # only offered for in-flight jobs; Dawa shows output as it is produced, so a finished
+    # job's log is not shown here
     view_log: "View log"
     log_expired: "Not available"
     log_finished: "This job has finished"
     log_finished_hint: |-
-      Only a running job's output can be read: dcommsctl renames a finished job's log file
-      but keeps pointing at the old path, so its log is no longer retrievable.
+      This view shows a job's output while it runs. The job has ended, so its output is no longer
+      shown here.
     log_unavailable: "Could not read the job log"
     log_empty: "This job has not produced any output yet."
     log_more: "Showing the first chunk of output; more follows."

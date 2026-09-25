@@ -3,12 +3,6 @@
 #
 #   = render "jobs/row", job: job, app: app
 #
-# The log link is offered ONLY for in-flight jobs. This is not a UI preference: the daemon
-# serves a finished job's log from a path it no longer updates (it renames `.partial.log` to
-# `.log` but leaves the recorded path alone), so `job/log` fails with "no such file" once a
-# job completes. A link that can only ever error is worse than no link, so past jobs show
-# their outcome instead and no log affordance. See DcommsAdapter#job_log.
-#
 class JobRowComponent < ApplicationComponent
   haml_template <<~HAML
     = v.table_row(data: {job_id: @job.id}) do |row|

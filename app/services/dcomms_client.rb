@@ -231,36 +231,45 @@ class DcommsClient
   #
   # `job/log` - a chunk of a job's output.
   #
-  # Takes ONLY the job id. The daemon looks the instance up itself (`instanceIDForJob`) and
-  # rejects an id it does not know, so the wire name is `id` -- NOT `job_id`, and there is no
-  # `instance_id`. Sending the older pair leaves `id` empty on the wire, which the daemon
-  # reports as `unknown job:` with a blank id.
+  # Takes ONLY the job id. The daemon looks the instance up itself (`instanceIDForJob`) and rejects
+  # an id it does not know, so the wire name is `id` -- NOT `job_id`, and there is no
+  # `instance_id`. Sending the older pair leaves `id` empty on the wire, which the daemon reports
+  # as `unknown job:` with a blank id.
   #
-  # The reply carries only `log`. The intended contract also has `next_offset` and `eof`,
-  # which the daemon does not send, so they are derived here:
+  # The reply carries `log`, `next_offset` and `done`:
   #
-  #   * `next_offset` is the byte cursor the client should pass next: the offset it asked
-  #     from, plus the bytes it just received. Deriving it (rather than trusting the daemon
-  #     to echo it) is safe because the daemon reads from exactly that offset and the log is
-  #     an opaque byte stream.
-  #   * `eof` means "caught up for now". The daemon caps a reply at 64KB, so an EMPTY chunk
-  #     is the only honest signal that there is nothing more to read. That is a guess in the
-  #     strict sense -- a genuinely empty reply and a short read look alike -- but the
-  #     alternative (always reporting eof: false) would make every caller poll forever.
+  #   * `next_offset` is the cursor to pass next. The daemon hands it back rather than the caller
+  #     counting bytes, so a multi-byte chunk cannot put the two out of step.
+  #   * `done` is the daemon saying the LOG IS FINISHED: the job has ended and this reply reached
+  #     the end of its output, so nothing more will ever be appended. A job that is still running
+  #     answers with `done: false` even when the chunk is empty, which is what makes completion a
+  #     fact instead of a guess -- an empty chunk alone cannot be told apart from a quiet job.
+  #     See Dcomms::JobLog#finished.
   #
-  # Completion is NEVER signalled here regardless: that is `job/status#state`.
-  #
-  # Note the daemon only serves a RUNNING job's log -- see DcommsAdapter#job_log.
+  # A cursor at or past the end of a log is not an error: the daemon answers with an empty chunk,
+  # so a caller that has read everything can ask again without handling a failure.
   #
   # @param id [String] the job id, as returned by `inst/install` or listed by `job/list`
   # @param offset [Integer] byte offset to read from
   # @return [Dcomms::JobLog]
   #
   def job_log(id:, offset: 0)
-    raw = call("job/log", { id: id, offset: offset.to_i })
-    text = raw.is_a?(Hash) ? raw["log"].to_s : ""
+    offset = offset.to_i
+    raw = call("job/log", { id: id, offset: offset })
+    raw = {} unless raw.is_a?(Hash)
 
-    Dcomms::JobLog.new(log: text, next_offset: offset.to_i + text.bytesize, eof: text.empty?)
+    text = raw["log"].to_s
+
+    Dcomms::JobLog.new(
+      log: text,
+      # The daemon's cursor. Deriving it is only a fallback for a daemon older than the field:
+      # the cursor is just bytes read, so counting them is safe, whereas reusing a stale offset
+      # would replay output the caller already has.
+      next_offset: raw["next_offset"] || offset + text.bytesize,
+      # An absent flag means "not finished", never "finished": a caller that stops reading early
+      # loses the tail of a failed job's output, which is the part a log is read for.
+      finished: raw["done"] == true
+    )
   end
 
   # `job/list` - the jobs the daemon knows about.

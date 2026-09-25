@@ -37,7 +37,9 @@ class AppInstallJobTest < ActiveSupport::TestCase
         @log_raises_after && @log_calls.size > @log_raises_after
 
       text = @chunks[offset].to_s
-      Dcomms::JobLog.new(log: text, next_offset: offset + text.bytesize, eof: text.empty?)
+      # The fake reports the log FINISHED once it has nothing more to hand over, which is what the
+      # daemon says when its cursor reaches the end of a log whose job has ended.
+      Dcomms::JobLog.new(log: text, next_offset: offset + text.bytesize, finished: text.empty?)
     end
   end
 

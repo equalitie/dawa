@@ -5,7 +5,7 @@ require_relative "../test_helper"
 #
 # The adapter is stubbed so these run without a live dcommsctl. What matters here is the
 # page's behaviour: it shows one app, it separates in-flight jobs from finished ones, and it
-# never offers a log link for a job whose log the daemon cannot serve.
+# offers a log link only for jobs whose output is still being produced.
 #
 class AppsShowTest < ActionDispatch::IntegrationTest
   def setup
@@ -226,8 +226,8 @@ class AppsShowTest < ActionDispatch::IntegrationTest
   end
 
   test "a finished job offers no log link" do
-    # The daemon cannot serve a finished job's log (it renames the file but keeps the old
-    # path), so a link here could only ever error. Regression guard for that rule.
+    # The job page follows live output, so a finished job is offered no link to it; the row
+    # says the log is not available instead. Regression guard for that rule.
     jobs = { "peertube-zebu" => [ job(id: "install-0", state: "done", finished_at: "2026-09-16T10:01:00Z") ] }
 
     with_stubbed_adapter(apps: [ instance_ ], jobs: jobs) do

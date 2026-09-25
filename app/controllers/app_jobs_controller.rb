@@ -6,13 +6,6 @@
 # DcommsClient#job_log) -- but the instance is still what scopes the job lookup below, so a
 # job id from another app cannot be read through this URL.
 #
-# The daemon only serves the log of a job that is still RUNNING: it renames a finished job's
-# `.partial.log` to `.log` but records the new path on the wrong map entry, so `job/log`
-# fails with "no such file" once a job completes. That is a daemon bug Dawa cannot work
-# around, which is why the show page only links here for in-flight jobs. The check below
-# restates that rule at the boundary, so a hand-typed URL for a finished job gets an honest
-# message instead of a raw backend error.
-#
 class AppJobsController < BaseAdminController
   def show
     @app = find_app(params[:app_id])

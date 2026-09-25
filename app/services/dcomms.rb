@@ -339,29 +339,29 @@ module Dcomms
   #
   # A chunk of job output, from `job/log`.
   #
-  # `offset` is a byte cursor into the job's log; callers keep `next_offset` and pass it back
-  # to fetch only new output. Note the daemon only serves a RUNNING job's log -- see
-  # DcommsAdapter#job_log.
+  # `next_offset` is the byte cursor the daemon will serve from next. It is handed back rather than
+  # counted by the caller, so the two cannot disagree about a multi-byte chunk.
+  #
+  # `finished` means the LOG IS COMPLETE: the job has ended and this chunk reached the end of its
+  # output, so nothing more will ever be appended. It is not the same as "nothing new right now" --
+  # a running job that has printed nothing yet answers with an empty chunk and `finished: false` --
+  # and it is the daemon's answer rather than the client's guess. An earlier version inferred
+  # completion from an empty chunk, which cannot be told apart from a job that is merely quiet.
   #
   class JobLog
-    attr_reader :log, :next_offset, :eof
+    attr_reader :log, :next_offset, :finished
 
-    def initialize(log:, next_offset:, eof:)
+    def initialize(log:, next_offset:, finished: false)
       @log = log.to_s
       @next_offset = next_offset.to_i
-      @eof = eof ? true : false
-    end
-
-    def self.from_json(raw)
-      next_offset = raw["next_offset"] || raw["offset"] || 0
-      new(log: raw["log"], next_offset: next_offset, eof: raw["eof"])
+      @finished = finished ? true : false
     end
 
     # No new output in this chunk.
     def empty? = log.empty?
 
-    # NOTE: `eof` means "caught up for now", NOT "the job finished" -- completion is
-    # only ever signalled by JobStatus#state.
-    def to_s = "JobLog(bytes=#{log.bytesize} next_offset=#{next_offset} eof=#{eof})"
+    # NOTE: `finished` is about the LOG, not the job. It says the daemon has no more output to
+    # give; whether the job SUCCEEDED is only ever `JobStatus#state`.
+    def to_s = "JobLog(bytes=#{log.bytesize} next_offset=#{next_offset} finished=#{finished})"
   end
 end

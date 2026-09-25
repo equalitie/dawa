@@ -31,10 +31,9 @@ class DcommsAdapter
   #
   # Sharp edges that remain in the REAL methods (none of them are missing methods):
   #
-  #  * `job/log` only works for a job that is still RUNNING. The daemon renames a finished
-  #    job's log from `.partial.log` to `.log` but records the new path on the wrong map
-  #    entry, so `job/log` fails with "no such file" for every completed job. Dawa cannot
-  #    fix that; it is a daemon bug.
+  #  * `job/log` has no "offset too far" failure: a cursor at or past the end of a log is answered
+  #    with an empty chunk, and the reply reports whether the log has ENDED (`done`), so a caller
+  #    stops on a fact rather than by guessing from an empty read.
   #  * `job/status` raises for an unknown id rather than returning a zero-value status.
   #  * `inst/list` is real and returns full rows (id, app, domain, version, status). Note
   #    `version` is the CATALOG version, not what is actually running, and `status` is empty
@@ -136,11 +135,9 @@ class DcommsAdapter
   #
   def job_status(id:) = route(:job_status, id: id)
 
-  # Real, with a caveat: the daemon only serves the log of a RUNNING job. A finished job's
-  # log is renamed to `.log` while the recorded path keeps saying `.partial.log`, so this
-  # fails with "no such file" once the job completes. That is a daemon bug, not something
-  # the client can work around -- and harmless for the intended use, which is watching a job
-  # that is in flight.
+  # Real. The daemon serves the log of a finished job as well as a running one, and reports the end
+  # of a log with `done`, so a caller can stop reading on the daemon's word rather than on an empty
+  # chunk. See DcommsClient#job_log.
   #
   # Takes only the job id: the daemon resolves the instance itself. See DcommsClient#job_log.
   #

@@ -384,11 +384,10 @@ class DcommsClientTest < ActiveSupport::TestCase
     assert_equal 42, @sent.last["params"]["offset"]
   end
 
-  test "job_log derives next_offset from the byte length of the chunk" do
-    # The daemon replies with only `log`; the intended contract's `next_offset` is not sent,
-    # so the client computes it: the offset asked from plus the bytes received. Safe because
-    # the daemon reads from exactly that offset and a log is an opaque byte stream.
-    stub_exchange(result: { "log" => "hello" }) do
+  test "job_log reads the cursor the daemon hands back" do
+    # The daemon owns the cursor: it reads from exactly this offset next, so taking its number is
+    # what keeps the two in step.
+    stub_exchange(result: { "log" => "hello", "next_offset" => 15, "done" => false }) do
       chunk = @client.job_log(id: "j", offset: 10)
 
       assert_equal "hello", chunk.log
@@ -396,9 +395,11 @@ class DcommsClientTest < ActiveSupport::TestCase
     end
   end
 
-  test "job_log measures the cursor in bytes, not characters" do
-    # Multi-byte UTF-8 is the case a character count would get wrong, and the daemon's
-    # offset is a byte offset (it uses ReadAt).
+  test "job_log counts bytes when the daemon omits the cursor" do
+    # A fallback for a daemon older than the `next_offset` field: the cursor is just bytes read, so
+    # counting them is safe, whereas reusing a stale offset would replay output. Multi-byte UTF-8
+    # is the case a character count would get wrong, and the daemon's offsets are byte offsets (it
+    # reads with ReadAt).
     text = "caf\u00e9\u00e9"
 
     stub_exchange(result: { "log" => text }) do
@@ -409,21 +410,30 @@ class DcommsClientTest < ActiveSupport::TestCase
     end
   end
 
-  test "an empty chunk means caught up" do
-    # `eof` is not sent either. The daemon caps a reply at 64KB, so an empty chunk is the
-    # only honest "nothing more right now". It is NOT completion -- that is job/status.
-    stub_exchange(result: { "log" => "" }) do
+  test "job_log reports the log finished when the daemon says so" do
+    stub_exchange(result: { "log" => "last\n", "next_offset" => 5, "done" => true }) do
+      assert @client.job_log(id: "j", offset: 0).finished
+    end
+  end
+
+  test "an empty chunk is not the end of the log while the job runs" do
+    # This is the distinction the old client could not see. The daemon caps a reply at 64KB, so it
+    # answers an up-to-date cursor with an empty chunk, and that says nothing about whether the log
+    # has ENDED -- `done` is what says so.
+    stub_exchange(result: { "log" => "", "next_offset" => 42, "done" => false }) do
       chunk = @client.job_log(id: "j", offset: 42)
 
       assert chunk.empty?
-      assert chunk.eof
+      refute chunk.finished
       assert_equal 42, chunk.next_offset, "an empty chunk must not move the cursor"
     end
   end
 
-  test "a non-empty chunk is not eof" do
-    stub_exchange(result: { "log" => "more\n" }) do
-      refute @client.job_log(id: "j").eof
+  test "a missing done means the log is not finished" do
+    # The safe direction: a caller that stops reading early loses the tail of a failed job's
+    # output, which is the part a log is read for.
+    stub_exchange(result: { "log" => "text\n" }) do
+      refute @client.job_log(id: "j").finished
     end
   end
 

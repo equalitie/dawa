@@ -3,9 +3,10 @@ require_relative "../test_helper"
 #
 # Integration tests for the job log page.
 #
-# The log is only readable while a job runs (the daemon renames a finished job's log but
-# keeps pointing at the old path), so the boundary check -- and the honest message when it
-# is crossed -- are the things worth pinning here.
+# The log is only shown while a job runs. dcommsctl serves a finished job's log too, so
+# this is Dawa's choice rather than a backend limit: this page follows output as it is
+# produced. The boundary check, and the honest message when it is crossed, are what is
+# worth pinning here.
 #
 class AppJobsControllerTest < ActionDispatch::IntegrationTest
   def setup
@@ -51,8 +52,8 @@ class AppJobsControllerTest < ActionDispatch::IntegrationTest
     )
   end
 
-  def job_log(text: "Cloning into 'peertube'...\n", eof: true)
-    Dcomms::JobLog.new(log: text, next_offset: text.bytesize, eof: eof)
+  def job_log(text: "Cloning into 'peertube'...\n", finished: true)
+    Dcomms::JobLog.new(log: text, next_offset: text.bytesize, finished: finished)
   end
 
   def get_log(app_id: "peertube-zebu", job_id: "install-1")
@@ -85,10 +86,9 @@ class AppJobsControllerTest < ActionDispatch::IntegrationTest
     end
   end
 
-  test "a finished job explains why its log cannot be read" do
-    # The daemon renames a finished job's log to `.log` but keeps recording the
-    # `.partial.log` path, so `job/log` fails with "no such file". This is the honest
-    # explanation for a hand-typed URL to a completed job.
+  test "a finished job explains why its log is not shown" do
+    # A hand-typed URL to a completed job lands here. dcommsctl could serve the log, but this
+    # page is for following live output, so it declines and says so plainly.
     finished = job(state: "done")
 
     with_stubbed_adapter(apps: [ instance_ ], jobs: [ finished ], log: job_log) do

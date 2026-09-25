@@ -61,12 +61,16 @@ class DcommsMock
       @chunks.first(@served).sum(&:bytesize)
     end
 
-    # Hand out the next unserved chunk, or nil when caught up.
+    # Hand out the next unserved chunk, or nil when caught up. Does not advance the
+    # cursor past the end, so `pending_chunks?` stays an honest "is there more to read".
     def next_chunk
       chunk = @chunks[@served]
       @served += 1 if chunk
       chunk
     end
+
+    # Whether any scripted chunk is still unserved.
+    def pending_chunks? = !@chunks[@served].nil?
 
     def status
       Dcomms::JobStatus.new(
@@ -166,12 +170,15 @@ class DcommsMock
   def job_log(id:, offset: 0)
     job = fetch_job(id)
 
+    # Behind the cursor: there are no new bytes for this client. Keep the cursor where it
+    # is rather than replaying; `finished` still reflects whether the job itself ended,
+    # because a behind client may simply have missed the tail.
     if offset < job.served_bytes
-      return Dcomms::JobLog.new(log: "", next_offset: job.served_bytes, eof: true)
+      return Dcomms::JobLog.new(log: "", next_offset: job.served_bytes, finished: log_finished?(job))
     end
 
     text = job.next_chunk.to_s
-    Dcomms::JobLog.new(log: text, next_offset: job.served_bytes, eof: true)
+    Dcomms::JobLog.new(log: text, next_offset: job.served_bytes, finished: log_finished?(job))
   end
 
   # MOCK(dcommsctl): job/list (§D).
@@ -225,6 +232,12 @@ class DcommsMock
 
   def fetch_job(id)
     @jobs[id] || raise(DcommsClient::ServerError.new(code: -32000, message: "unknown job: #{id}"))
+  end
+
+  # A log is finished only when the job has ended AND every chunk has been served. An
+  # empty chunk while the job is still running means "caught up", not "done".
+  def log_finished?(job)
+    !job.pending_chunks? && job.terminal?
   end
 
   # The catalog itself is real; these are the extra entries the detail mock can describe.
