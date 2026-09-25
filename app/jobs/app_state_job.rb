@@ -17,49 +17,30 @@
 # page that is briefly stale.
 #
 class AppStateJob < ApplicationJob
+  include WaitsForDcommsJob
+
   queue_as :default
-
-  POLL_INTERVAL = 1.5
-
-  # `compose up -d` can pull images and wait on healthchecks, so this is nowhere near the 30s
-  # ContainerJob allows for a local docker start/stop. Matches the install job's ceiling.
-  MAX_DURATION = 1.hour
 
   # @param job_id [String] dcommsctl's job id, from `inst/start` or `inst/stop`
   # @param instance_id [String] the instance the command was issued for
   def perform(job_id, instance_id)
-    @job_id = job_id
     @instance_id = instance_id
-    @deadline = deadline_for_testing || Time.current + MAX_DURATION
 
-    loop do
-      status = fetch_status
-      # `job/status` raising means the daemon no longer knows the job (it restarted, or the job
-      # aged out). There is nothing left to wait for, so report the state as it now stands rather
-      # than hanging on it.
-      return finish(nil) if status.nil?
+    status = wait_for_dcomms_job(job_id)
 
-      return finish(status.failed? ? status.error : nil) if status.terminal?
-      return finish(I18n.t("apps.state.timeout")) if Time.current > @deadline
+    # `job/status` raising means the daemon no longer knows the job (it restarted, or the job aged
+    # out). There is nothing left to wait for, so report the state as it now stands rather than
+    # hanging on it.
+    return finish(nil) if status.nil?
 
-      sleep POLL_INTERVAL
-    end
+    finish(status.failed? ? status.error : nil)
+  rescue WaitsForDcommsJob::TimedOut
+    finish(I18n.t("apps.state.timeout"))
   rescue DcommsClient::Error => e
     finish(e.message)
   end
 
   private
-
-  # Overridden by tests to start the job already past its limit. nil in production, where
-  # `MAX_DURATION` decides.
-  def deadline_for_testing = nil
-
-  # nil when the daemon does not know the job (it raised), so the caller can stop waiting.
-  def fetch_status
-    adapter.job_status(id: @job_id)
-  rescue DcommsClient::EmptyResult
-    nil
-  end
 
   #
   # Report the instance as it now stands.
@@ -101,9 +82,5 @@ class AppStateJob < ApplicationJob
   # The instance as `inst/list` reports it now, or nil when it is gone.
   def find_app
     adapter.apps_installed_list.find { |app| app.id == @instance_id }
-  end
-
-  def adapter
-    @adapter ||= DcommsAdapter.new
   end
 end

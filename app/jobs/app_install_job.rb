@@ -12,21 +12,13 @@
 #     have to hold;
 #   * the same broadcast can feed the modal now and the app's show page later.
 #
-# COMPLETION IS DECIDED BY `job/status`, NEVER BY THE LOG. A finished job's log becomes
-# unreadable -- the daemon renames `.partial.log` to `.log` but keeps recording the old path -
-# so treating a log error as "done" would end the stream early and lose the tail, and
-# treating it as "keep going" would poll forever. `job/status` is the only honest signal.
+# Waiting for the job to end is `WaitsForDcommsJob`'s business; what is specific to an install is
+# the log feed and what its outcomes are called.
 #
 class AppInstallJob < ApplicationJob
+  include WaitsForDcommsJob
+
   queue_as :default
-
-  # How long to wait before asking again. The install script sleeps between steps, so a
-  # sub-second interval mostly returns nothing; the daemon's per-call timeout is 10s.
-  POLL_INTERVAL = 1.5
-
-  # Give up after this long and say so, rather than polling a wedged job forever. Matches the
-  # daemon's own job timeout (Conf.dcomms_job_timeout).
-  MAX_DURATION = 1.hour
 
   # A stream name unique to one job run.
   def self.stream_name(job_id)
@@ -43,43 +35,33 @@ class AppInstallJob < ApplicationJob
     @job_id = job_id
     @instance_id = instance_id
     @offset = 0
-    @deadline = deadline_for_testing || Time.current + MAX_DURATION
 
-    loop do
-      drain_log
+    status = wait_for_dcomms_job(job_id) { drain_log }
 
-      status = fetch_status
-      # `job/status` raises for an unknown job, which means it is gone rather than running.
-      # `I18n.t` rather than the view helper: a job has no ActionView context.
-      return finish(:failed, I18n.t("jobs.install.status_unknown")) if status.nil?
+    # `job/status` raising for an unknown job means it is gone rather than running.
+    # `I18n.t` rather than the view helper: a job has no ActionView context.
+    return finish(:failed, I18n.t("jobs.install.status_unknown")) if status.nil?
 
-      if status.terminal?
-        # One more read before stopping: output written since the last poll is still
-        # fetchable while the job is technically finished but the file has not been renamed
-        # yet, and losing the final lines of a failed install is exactly when they matter.
-        drain_log
-        return finish(status.failed? ? :failed : :succeeded, status.error)
-      end
+    # One more read before stopping: output written between the last poll and the job ending is
+    # still there to fetch, and losing the final lines of a failed install is exactly when they
+    # matter.
+    drain_log
 
-      return finish(:timeout, nil) if Time.current > @deadline
-
-      sleep POLL_INTERVAL
-    end
+    finish(status.failed? ? :failed : :succeeded, status.error)
+  rescue WaitsForDcommsJob::TimedOut
+    finish(:timeout, nil)
   rescue DcommsClient::Error => e
     finish(:failed, e.message)
   end
 
   private
 
-  # Overridden by tests to start the job already past its limit. nil in production, where
-  # `MAX_DURATION` decides.
-  def deadline_for_testing = nil
-
   # Read whatever output has appeared since the last offset, and broadcast it.
   #
   # Loops while chunks are not empty: the daemon caps a reply at 64KB, so a burst of output
-  # needs several reads to catch up. `JobLog#eof` means "nothing more for now", not "the job
-  # finished" -- see DcommsClient#job_log.
+  # needs several reads to catch up. `JobLog#finished` reports that the log has ENDED, so the loop
+  # can stop on the daemon's word; an empty chunk with `finished: false` only means there is
+  # nothing new YET -- see DcommsClient#job_log.
   def drain_log
     loop do
       chunk = adapter.job_log(id: @job_id, offset: @offset)
@@ -88,20 +70,13 @@ class AppInstallJob < ApplicationJob
 
       @offset = chunk.next_offset
       broadcast_lines(chunk.log)
-      break if chunk.eof
+      break if chunk.finished
     end
   rescue DcommsClient::Error => e
     # A log read failing while the job is still running is a real problem, but not a reason
     # to stop following: the daemon may be mid-rename. Record it and let `job/status` decide
     # the outcome, so the feed does not end on a transient read error.
     Rails.logger.warn "[AppInstallJob] log read failed for #{@job_id}: #{e.class}: #{e.message}"
-  end
-
-  # nil when the daemon does not know the job (it raised), so the caller can stop.
-  def fetch_status
-    adapter.job_status(id: @job_id)
-  rescue DcommsClient::EmptyResult
-    nil
   end
 
   def broadcast_lines(text)
@@ -118,9 +93,5 @@ class AppInstallJob < ApplicationJob
       target: "install-status",
       partial: "app_installs/status",
       locals: { outcome: outcome, message: message })
-  end
-
-  def adapter
-    @adapter ||= DcommsAdapter.new
   end
 end
