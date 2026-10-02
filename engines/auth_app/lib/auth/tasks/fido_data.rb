@@ -1,5 +1,4 @@
 require "open-uri"
-require "fido_metadata"
 
 ROOT_DIR = File.expand_path("../../../tmp", __dir__)
 OUTPUT_FILE = File.expand_path("../aaguid.rb", __dir__)
@@ -50,6 +49,7 @@ end
 
 desc "Generate fido2 identification map"
 task "generate" do
+  require "fido_metadata"
   entries = {}
 
   FidoMetadata.configure do |config|

@@ -3,7 +3,7 @@ source "https://gem.coop"
 # Specify your gem's dependencies in blah.gemspec.
 gemspec
 
-gem "secrets_helper", path: File.expand_path("../../gems/secrets_helper", __dir__)
+gem "secrets_helper", path: "../../gems/secrets_helper"
 
 # for updating webauthn aaguid definitions
 gem "fido_metadata"

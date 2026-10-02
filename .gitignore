@@ -40,3 +40,5 @@ notes
 AGENTS.md
 .agents
 vendor/bundle
+.gitlab-ci-local-variables.yml
+.gitlab-ci-local

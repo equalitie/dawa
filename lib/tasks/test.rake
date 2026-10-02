@@ -53,9 +53,9 @@ namespace :test do
         next unless Dir.exist?("#{engine}/test")
         puts
         if Dir.exist?("#{engine}/test/dummy")
-          status = run_rake_test(engine)
+          status &&= run_rake_test(engine)
         else
-          status = run_rails_test(engine)
+          status &&= run_rails_test(engine)
         end
         puts
       end

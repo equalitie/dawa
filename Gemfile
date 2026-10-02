@@ -1,11 +1,14 @@
+ruby "3.4.4"
 source "https://gem.coop"
 
 ##
 ## RAILS STANDARD
 ##
 
+#gem "json", "~> 2.9"
+
 # Bundle edge Rails instead: gem "rails", github: "rails/rails", branch: "main"
-gem "rails", "~> 8.1.3"
+gem "rails", "~> 8.1.4"
 # The modern asset pipeline for Rails [https://github.com/rails/propshaft]
 gem "propshaft"
 # Use sqlite3 as the database for Active Record
@@ -46,7 +49,7 @@ gem "image_processing", "~> 1.2"
 ## DAWA
 ##
 
-gem "haml-rails", "~> 2.1"             # haml templates
+gem "haml-rails", "~> 3.1"             # haml templates
 gem "dartsass-rails", "~> 0.5"         # sass stylesheets
 gem "bootstrap", "~> 5.3.8"            # css framework
 gem "commonmarker"                     # markdown support
