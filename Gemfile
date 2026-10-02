@@ -1,11 +1,9 @@
-ruby "3.4.4"
+ruby "3.4.11"
 source "https://gem.coop"
 
 ##
 ## RAILS STANDARD
 ##
-
-#gem "json", "~> 2.9"
 
 # Bundle edge Rails instead: gem "rails", github: "rails/rails", branch: "main"
 gem "rails", "~> 8.1.4"

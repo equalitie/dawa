@@ -21,7 +21,7 @@
 # whole reason this image exists.
 #
 
-ARG RUBY_VERSION=3.4.4
+ARG RUBY_VERSION=3.4.11
 FROM docker.io/library/ruby:${RUBY_VERSION}-slim
 
 RUN apt-get update -qq && \
