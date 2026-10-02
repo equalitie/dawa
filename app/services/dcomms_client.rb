@@ -8,12 +8,22 @@ require "securerandom"
 # JSON-RPC 2.0 client for the dcommsctl backend (a Go daemon that installs and
 # supervises docker-compose applications for Dawa).
 #
-# Transport: **one WebSocket connection per call** -- open, send one request, read the
-# reply, close. dcommsctl speaks JSON-RPC over `ws://host:6006/ws`.
+# Transport: **one WebSocket connection, reused across calls**. The socket is opened lazily on the
+# first call and kept until something closes it, at which point the next call opens a fresh one and
+# retries once. dcommsctl speaks JSON-RPC over `ws://host:6006/ws`.
 #
-# Deliberately stateless. Every long-running call is made from a background job (not
-# from a web request), so there is nothing to keep a socket alive for; a per-call
-# connection avoids a reader thread and an id→reply correlation map entirely.
+# Why reused rather than per-call: following a job polled `job/status` and `job/log` on a timer,
+# and every poll paid a TCP connect plus a WebSocket handshake twice over -- which is what made a
+# fast poll interval expensive. Reusing the socket makes each poll a couple of frames.
+#
+# This is still request/response, NOT streaming. The client sends one request and waits for its
+# reply before returning, so there is no reader thread and no id-to-reply correlation map: exactly
+# one request is ever in flight. That keeps the robustness of polling -- a dropped connection is
+# recoverable, because the caller's state (the log offset) lives outside the socket -- while
+# removing the per-call cost.
+#
+# Not thread-safe, deliberately. Each caller builds its own client; a shared one would need the
+# in-flight guarantee above to be enforced rather than assumed.
 #
 # It wraps `websocket-driver`, which is already present via ActionCable, so no new gem
 # is required.
@@ -335,7 +345,7 @@ class DcommsClient
   end
 
   #
-  # Perform one JSON-RPC exchange on a fresh connection.
+  # Perform one JSON-RPC exchange.
   #
   # @return [Object] the `result` payload (Hash, Array, ...), or nil when absent.
   #
@@ -376,75 +386,41 @@ class DcommsClient
     end
   end
 
-  # Open a socket, write the request, read exactly one message, close.
+  # Send one request and return its response, over the held connection.
+  #
+  # Retries ONCE on a connection that turns out to be dead. That single retry is the whole
+  # robustness story: it distinguishes "the socket died since the last call" (expected -- the daemon
+  # restarted, or an idle connection was reaped) from "the daemon is not answering" (which surfaces
+  # as ConnectionError). Only the first is worth retrying, and retrying more than once would turn a
+  # daemon that is down into a slow failure.
   def exchange(payload)
-    uri = URI.parse(@url)
-    raise ConnectionError, "unsupported dcommsctl URL: #{@url.inspect}" unless uri.is_a?(URI::WS) || uri.is_a?(URI::HTTP)
-
-    socket = open_socket(uri)
-    driver = WebSocket::Driver.client(SocketDelegate.new(socket, @url))
-
-    # A shared mutable box, not a bare local: the :message handler is called from
-    # inside read_reply, and rebinding a local of *this* method there would be
-    # invisible to the read loop (Ruby passes values, not references).
-    reply = []
-    protocol_error = nil
-
-    driver.on(:message) { |event| reply << event.data }
-    driver.on(:error) { |event| protocol_error ||= event.message }
-    driver.on(:open) { driver.text(payload) }
-
-    Log.api("->", payload)
+    attempts = 0
 
     begin
-      driver.start
-      read_reply(socket, driver, reply, protocol_error)
-    ensure
-      close_socket(socket)
-    end
+      attempts += 1
+      connection.exchange(payload)
+    rescue ConnectionError => e
+      # Retry only what is worth retrying. A stale socket leaving the connection dead IS worth
+      # retrying; a daemon we could not reach at all is not -- there was never a connection to
+      # blame, and retrying would just make an unreachable daemon fail slowly. `opened?` is the
+      # discriminator because the failure path closes the connection before we see the error,
+      # which makes `established?` uselessly false in both cases.
+      raise if attempts > 1 || !connection.opened?
 
-    raise ProtocolError, "dcommsctl WebSocket error: #{protocol_error}" if protocol_error
-
-    message = reply.first
-    raise ProtocolError, "dcommsctl closed the connection without replying" if message.nil? || message.empty?
-
-    parse_response(message)
-  end
-
-  def open_socket(uri)
-    TCPSocket.new(uri.host, uri.port || default_port(uri))
-  rescue SystemCallError, SocketError => e
-    raise ConnectionError, "could not reach dcommsctl at #{@url}: #{e.message}"
-  end
-
-  def default_port(uri)
-    uri.scheme == "wss" ? 443 : 80
-  end
-
-  # Pump the socket until a message arrives or we exceed the timeout.
-  #
-  # `reply` is a mutable box shared with the :message handler, so it is read as
-  # `reply.empty?` rather than being assigned here.
-  def read_reply(socket, driver, reply, protocol_error)
-    deadline = monotonic + @timeout
-
-    while reply.empty? && protocol_error.nil?
-      raise ConnectionError, "dcommsctl did not reply within #{@timeout}s" if monotonic > deadline
-
-      begin
-        driver.parse(socket.read_nonblock(READ_CHUNK))
-      rescue IO::WaitReadable
-        IO.select([ socket ], nil, nil, 0.2)
-      rescue EOFError
-        break
-      end
+      close_connection
+      retry
     end
   end
 
-  def close_socket(socket)
-    socket.close
-  rescue IOError, SystemCallError
-    # already closed by the peer; nothing to do
+  # The held connection, opened on first use.
+  def connection
+    @connection ||= Connection.new(@url, @timeout)
+  end
+
+  # Drop the held connection so the next call opens a fresh one.
+  def close_connection
+    @connection&.close
+    @connection = nil
   end
 
   def parse_response(raw)
@@ -457,6 +433,191 @@ class DcommsClient
   end
 
   def monotonic = Process.clock_gettime(Process::CLOCK_MONOTONIC)
+
+  #
+  # One WebSocket connection to the daemon, reused across calls.
+  #
+  # Opened lazily by the first `exchange`, and left open until it fails or `close` is called.
+  # Each exchange sends one request and blocks for its reply, so at most one request is in flight
+  # and replies cannot be confused with each other -- which is why there is no id correlation here
+  # even though the connection outlives a single call.
+  #
+  # A dead connection is DETECTED, not prevented: the peer may have closed it while idle, and the
+  # only reliable moment to find out is on the next write or read. Both are treated as
+  # `ConnectionError`, and the client retries once on a fresh socket.
+  #
+  class Connection
+    def initialize(url, timeout)
+      @url = url
+      @timeout = timeout
+      @opened = false
+    end
+
+    # True once a socket has been open and not known to be dead.
+    def established? = !@socket.nil?
+
+    # True once this connection ever got a socket open. Unlike `established?` this survives a
+    # failure: on any transport error the connection closes itself, so by the time the error
+    # reaches the caller `established?` is always false. This says "there was a real socket to
+    # blame", which is the question the retry decision actually needs answered.
+    def opened? = !!@opened
+
+    # Send a request and return the parsed response.
+    def exchange(payload)
+      connect unless established?
+
+      # Clear the reply slot BEFORE sending. The connection is reused, so without this the FIRST
+      # reply ever received stays at the head of `@reply` and every later exchange returns it: the
+      # cursor never advances, so a log follower re-broadcasts the same chunk forever. `read_response`
+      # cannot tell a stale reply from a fresh one, because the client deliberately does not correlate
+      # replies with request ids (one request is in flight at a time).
+      @reply = []
+      @protocol_error = nil
+
+      write(payload)
+      read_response
+    rescue ConnectionError
+      # Any transport failure invalidates the connection, so the next call opens a new one rather
+      # than retrying a socket we already know is broken.
+      close
+      raise
+    end
+
+    def close
+      @socket&.close
+    rescue IOError, SystemCallError
+      # already closed by the peer; nothing to do
+    ensure
+      @socket = nil
+      @driver = nil
+    end
+
+    private
+
+    def connect
+      uri = URI.parse(@url)
+      unless uri.is_a?(URI::WS) || uri.is_a?(URI::HTTP)
+        raise ConnectionError, "unsupported dcommsctl URL: #{@url.inspect}"
+      end
+
+      # A socket is a stated fact as soon as it is opened, so `@opened` is set before the handshake
+      # rather than after it. The handshake is exactly where a peer that closed an idle connection
+      # is discovered, and the client decides whether to retry by asking whether a socket was ever
+      # opened. Setting the flag only on a successful handshake made a dropped idle connection
+      # indistinguishable from an unreachable daemon, which lost the request instead of retrying.
+      socket = TCPSocket.new(uri.host, uri.port || default_port(uri))
+      @socket = socket
+      @opened = true
+
+      begin
+        handshake(socket)
+      rescue ConnectionError
+        close
+        raise
+      end
+    rescue SystemCallError, SocketError => e
+      close
+      raise ConnectionError, "could not reach dcommsctl at #{@url}: #{e.message}"
+    end
+
+    def handshake(socket)
+      @driver = WebSocket::Driver.client(SocketDelegate.new(socket, @url))
+
+      # A shared mutable box, not a bare local: the :message handler is called from inside the read
+      # loop, and rebinding a local there would be invisible to it (Ruby passes values, not
+      # references). Reset per exchange, not just here -- see `exchange`.
+      @reply = []
+      @protocol_error = nil
+
+      @driver.on(:message) { |event| @reply << event.data }
+      @driver.on(:error) { |event| @protocol_error ||= event.message }
+
+      @driver.start
+      await_open
+    end
+
+    # Wait for the handshake to complete before the first request goes out.
+    #
+    # Sending before `:open` would be a protocol violation, and `websocket-driver` does not queue
+    # frames written early -- so this waits, and a daemon that accepts the TCP connection but never
+    # completes the handshake fails here rather than hanging on a request that was never sent.
+    def await_open
+      deadline = monotonic + @timeout
+
+      until @driver.state == :open
+        if monotonic > deadline
+          raise ConnectionError, "dcommsctl did not complete its handshake within #{@timeout}s"
+        end
+
+        # pump returns false at EOF, which during a handshake means the peer closed on us.
+        raise ConnectionError, "dcommsctl closed the connection during its handshake" unless pump
+      end
+    end
+
+    def write(payload)
+      Log.api("->", payload)
+      @driver.text(payload)
+    rescue IOError, SystemCallError => e
+      raise ConnectionError, "dcommsctl connection failed while sending: #{e.message}"
+    end
+
+    def read_response
+      deadline = monotonic + @timeout
+
+      while @reply.empty? && @protocol_error.nil?
+        if monotonic > deadline
+          raise ConnectionError, "dcommsctl did not reply within #{@timeout}s"
+        end
+
+        break unless pump
+      end
+
+      raise ProtocolError, "dcommsctl WebSocket error: #{@protocol_error}" if @protocol_error
+
+      # `first`, not `shift`: `exchange` resets `@reply` before every send, so this reply cannot be
+      # read a second time. Resetting in one place is what makes the reuse correct; consuming here as
+      # well would be a second mechanism guarding the same invariant, and the two could drift.
+      message = @reply.first
+      if message.nil? || message.empty?
+        # EOF mid-exchange. The daemon closed the connection, or died.
+        raise ConnectionError, "dcommsctl closed the connection without replying"
+      end
+
+      parse_response(message)
+    end
+
+    # Read whatever is available and feed it to the driver.
+    #
+    # Returns false at EOF, which is how a closed peer is noticed. Sockets are read with
+    # read_nonblock + select rather than blocking reads so the timeout above is enforced: a peer
+    # that accepts the connection and then goes silent would otherwise block here indefinitely.
+    def pump
+      @driver.parse(@socket.read_nonblock(DcommsClient::READ_CHUNK))
+      true
+    rescue IO::WaitReadable
+      IO.select([ @socket ], nil, nil, 0.2)
+      true
+    rescue EOFError
+      false
+    rescue IOError, SystemCallError => e
+      raise ConnectionError, "dcommsctl connection failed while reading: #{e.message}"
+    end
+
+    def default_port(uri)
+      uri.scheme == "wss" ? 443 : 80
+    end
+
+    def parse_response(raw)
+      parsed = JSON.parse(raw)
+      raise ProtocolError, "dcommsctl sent a non-object response: #{raw[0, 120]}" unless parsed.is_a?(Hash)
+
+      parsed
+    rescue JSON::ParserError => e
+      raise ProtocolError, "dcommsctl sent malformed JSON: #{e.message}"
+    end
+
+    def monotonic = Process.clock_gettime(Process::CLOCK_MONOTONIC)
+  end
 
   # `websocket-driver`'s client calls `write` on its delegate and reads its `url`.
   # A TCPSocket supplies the former; we carry the latter.

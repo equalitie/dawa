@@ -562,16 +562,80 @@ class DcommsClientTest < ActiveSupport::TestCase
     with_echo_server { |url| assert_client_round_trip(url) }
   end
 
-  test "exchanges one request per call on a fresh connection" do
+  test "reuses one connection across calls" do
     requests = []
+    connections = []
 
-    with_echo_server(requests: requests) do |url|
+    with_echo_server(requests: requests, connections: connections) do |url|
       client = DcommsClient.new(url: url, timeout: 3)
       3.times { assert_equal [], client.catalog_list }
     end
 
-    assert_equal 3, requests.size, "each call must open its own connection"
+    assert_equal 3, requests.size
     assert_equal %w[app/list app/list app/list], requests.map { |r| r["method"] }
+    assert_equal 1, connections.size, "every call must share the one held connection"
+    assert_equal 3, connections.first[0], "the one connection served all three calls"
+  end
+
+  test "each call on a reused connection sees its own reply, not the first one" do
+    # THE REGRESSION GUARD for a log feed that repeats its first chunk forever. With a reused
+    # connection, the reply buffer is no longer recreated per call, so a `read_response` that peeked
+    # instead of consuming handed the FIRST reply to every later request. The offset never advanced
+    # and the pane showed the same line on a loop.
+    #
+    # The reuse test above cannot catch this: its server answers identically every time, so a replayed
+    # reply is indistinguishable from a fresh one. This server answers DIFFERENTLY per request.
+    requests = []
+
+    with_echo_server(requests: requests, reply_for: lambda { |request|
+      offset = request.dig("params", "offset").to_i
+      { "log" => "line at #{offset}\n", "next_offset" => offset + 10, "done" => false }
+    }) do |url|
+      client = DcommsClient.new(url: url, timeout: 3)
+
+      first = client.job_log(id: "dummy", offset: 0)
+      second = client.job_log(id: "dummy", offset: first.next_offset)
+      third = client.job_log(id: "dummy", offset: second.next_offset)
+
+      assert_equal "line at 0\n", first.log
+      assert_equal "line at 10\n", second.log, "the second call must see its own reply"
+      assert_equal "line at 20\n", third.log
+      assert_equal [ 10, 20, 30 ], [ first.next_offset, second.next_offset, third.next_offset ]
+    end
+
+    assert_equal 3, requests.size
+    assert_equal [ 0, 10, 20 ], requests.map { |r| r.dig("params", "offset") },
+                 "each call must send the offset it was given, not a stale one"
+  end
+
+  test "reconnects and re-sends when the peer closed an idle connection" do
+    # The daemon reaping an idle connection is the expected failure this design exists for. The
+    # client must notice on the next exchange, open a fresh socket, and re-send -- losing the
+    # request here would make every job poll fail after any quiet period.
+    requests = []
+    connections = []
+
+    with_echo_server(requests: requests, connections: connections,
+                     drop_first: true) do |url|
+      client = DcommsClient.new(url: url, timeout: 3)
+
+      assert_equal [], client.catalog_list
+    end
+
+    assert_equal %w[app/list], requests.map { |r| r["method"] }
+    assert_equal 2, connections.size, "the retry must land on a second connection"
+    assert_equal [ 0, 1 ], connections.map { |count| count[0] },
+                 "the dropped connection served nothing; the retry was re-sent on the next one"
+  end
+
+  test "does not retry a daemon that is unreachable" do
+    server = TCPServer.new("127.0.0.1", 0)
+    port = server.addr[1]
+    server.close
+
+    client = DcommsClient.new(url: "ws://127.0.0.1:#{port}/ws", timeout: 1)
+
+    assert_raises(DcommsClient::ConnectionError) { client.catalog_list }
   end
 
   test "raises ConnectionError when nothing is listening" do
@@ -584,20 +648,26 @@ class DcommsClientTest < ActiveSupport::TestCase
 
     assert_raises(DcommsClient::ConnectionError) { client.catalog_list }
   end
-
   #
   # A minimal WebSocket echo server: does the handshake, and answers each JSON-RPC
   # request with `result: {applications: []}`.
   #
   # Accepts connections until the server socket is closed by `with_echo_server`, so
-  # it can serve tests that make several calls (the client opens one per call).
+  # it can serve tests that make several calls (the client holds one connection).
   #
   # @param requests [Array<Hash>, nil] collects the decoded requests the server saw.
+  # @param connections [Array<Integer>, nil] collects the call count each connection served, in
+  #   order of acceptance. `[3]` is one reused connection; `[1, 2]` is a reconnect.
+  # @param drop_first [Boolean] closes the first connection before it replies, which is how an
+  #   idle-connection reap is simulated.
+  # @param reply_for [Proc, nil] maps a decoded request to the `result` payload to answer with.
+  #   Defaults to a fixed `{applications: []}`, which is fine for tests that only count calls but
+  #   useless for detecting a replayed reply -- those need a result that VARIES per request.
   #
-  def with_echo_server(requests: nil)
+  def with_echo_server(requests: nil, connections: nil, drop_first: false, reply_for: nil)
     server = TCPServer.new("127.0.0.1", 0)
     port = server.addr[1]
-    thread = Thread.new { serve_echo_connections(server, requests) }
+    thread = Thread.new { serve_echo_connections(server, requests, connections, drop_first, reply_for) }
 
     yield "ws://127.0.0.1:#{port}/ws"
   ensure
@@ -605,16 +675,31 @@ class DcommsClientTest < ActiveSupport::TestCase
     thread&.join(2)
   end
 
-  def serve_echo_connections(server, requests)
-    loop { serve_echo_connection(server.accept, requests) }
+  def serve_echo_connections(server, requests, connections, drop_first, reply_for)
+    index = 0
+    loop do
+      index += 1
+      count = [ 0 ]
+      connections&.<<(count)
+      serve_echo_connection(server.accept, requests, count, drop_first && index == 1, reply_for)
+    end
   rescue IOError, SystemCallError
     # server closed by with_echo_server; no more connections to serve
   end
 
-  def serve_echo_connection(socket, requests)
+  def serve_echo_connection(socket, requests, count, drop, reply_for)
+    if drop
+      sleep 0.05
+      socket.close
+      return
+    end
+
     driver = WebSocket::Driver.server(socket)
     driver.on(:connect) { driver.start }
-    driver.on(:message) { |event| reply_to(socket, driver, event.data, requests) }
+    driver.on(:message) do |event|
+      count[0] += 1
+      reply_to(socket, driver, event.data, requests, reply_for)
+    end
 
     loop do
       begin
@@ -627,12 +712,13 @@ class DcommsClientTest < ActiveSupport::TestCase
     end
   end
 
-  def reply_to(socket, driver, data, requests)
+  def reply_to(socket, driver, data, requests, reply_for)
     request = JSON.parse(data)
     requests << request if requests
 
-    driver.text(JSON.generate({ "jsonrpc" => "2.0", "id" => request["id"],
-                                "result" => { "applications" => [] } }))
+    result = reply_for ? reply_for.call(request) : { "applications" => [] }
+
+    driver.text(JSON.generate({ "jsonrpc" => "2.0", "id" => request["id"], "result" => result }))
   rescue IOError, SystemCallError
     socket.close
   end

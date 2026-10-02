@@ -2,8 +2,7 @@
 # Waiting for a dcommsctl job to finish.
 #
 # The daemon runs every mutation as a job and hands back its id, so "did it work?" is answered by
-# `job/status` and nothing else. That is a small protocol with several traps in it, and this is
-# where they live so each job does not re-learn them:
+# `job/status` and nothing else.
 #
 #   * COMPLETION IS `JobStatus#terminal?`, never inferred from the log. An empty chunk only
 #     means the cursor is caught up, and even `job/log`'s `finished` says the LOG ended, not
@@ -13,26 +12,17 @@
 #     will never arrive.
 #   * WAITING IS BOUNDED, so a wedged job cannot hold a worker.
 #
-# The caller owns the OUTCOME: this models only the wait, because what a finished job means differs
-# per job (an install reports the daemon's error text, a state change re-reads the instance and
-# re-renders it).
-#
 module WaitsForDcommsJob
   extend ActiveSupport::Concern
 
-  # Raised when the wait outlasted `MAX_DURATION`. Its own class rather than a flag, so a job can
-  # `rescue` the timeout instead of carrying a fourth branch through its loop, and so it cannot be
-  # mistaken for a `DcommsClient::Error` (which means the backend could not be asked at all).
+  # Raised when the wait outlasted `MAX_DURATION`.
   class TimedOut < StandardError; end
 
-  # How long to wait before asking again. Both users follow jobs whose scripts sleep between steps,
-  # so a sub-second interval mostly returns nothing; the daemon's per-call timeout is 10s.
-  POLL_INTERVAL = 1.5
+  # How long to wait before asking again.
+  POLL_INTERVAL = 0.2
 
   # Give up after this long and say so, rather than polling a wedged job forever. Matches the
-  # daemon's own job timeout (`Conf.dcomms_job_timeout`), and is generous on purpose: `compose up
-  # -d` can pull images and wait on healthchecks, so the 30s ContainerJob allows itself for a local
-  # docker start/stop would be far too short here.
+  # daemon's own job timeout (`Conf.dcomms_job_timeout`).
   MAX_DURATION = 1.hour
 
   #
