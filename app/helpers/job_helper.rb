@@ -10,8 +10,7 @@ module JobHelper
       [ :grow, :nowrap, t("jobs.type") ],
       [ :shrink, t("jobs.state_label") ],
       [ :shrink, :hide_sm, :nowrap, t("jobs.started") ],
-      [ :grow, t("jobs.outcome") ],
-      [ :shrink, t("jobs.log") ]
+      [ :grow, t("jobs.outcome") ]
     ]
   end
 end

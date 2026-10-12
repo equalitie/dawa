@@ -3,7 +3,7 @@
   = turbo_stream_from @app.id
 
 = breadcrumbs do |bc|
-  - bc.with_crumb(active: true) { @app&.id || params[:id] }
+  - bc.with_crumb(active: true) { @app&.domain&.presence || params[:id] }
 
 - if @error.present?
   = v.alert("danger", icon: "x-circle") do

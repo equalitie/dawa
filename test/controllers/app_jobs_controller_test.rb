@@ -3,11 +3,6 @@ require_relative "../test_helper"
 #
 # Integration tests for the job log page.
 #
-# The log is only shown while a job runs. dcommsctl serves a finished job's log too, so
-# this is Dawa's choice rather than a backend limit: this page follows output as it is
-# produced. The boundary check, and the honest message when it is crossed, are what is
-# worth pinning here.
-#
 class AppJobsControllerTest < ActionDispatch::IntegrationTest
   def setup
     @user = User.create!(username: "app-jobs-#{SecureRandom.hex(4)}", is_admin: true, is_active: true)
@@ -76,8 +71,19 @@ class AppJobsControllerTest < ActionDispatch::IntegrationTest
     end
   end
 
-  test "a job that has produced no output says so rather than showing an empty box" do
-    with_stubbed_adapter(apps: [ instance_ ], jobs: [ job ], log: job_log(text: "")) do
+  test "a daemon-style job id (with dots and colons) routes to the right job" do
+    daemon_id = "install-10-12.00:49:44.758956-2"
+
+    with_stubbed_adapter(apps: [ instance_ ], jobs: [ job(id: daemon_id) ], log: job_log) do
+      get_log(job_id: daemon_id)
+
+      assert_response :success
+      assert_select "pre code", text: /Cloning into 'peertube'/
+    end
+  end
+
+  test "a running job that has produced no output says so rather than showing an empty box" do
+    with_stubbed_adapter(apps: [ instance_ ], jobs: [ job ], log: job_log(text: "", finished: false)) do
       get_log
 
       assert_response :success
@@ -86,22 +92,30 @@ class AppJobsControllerTest < ActionDispatch::IntegrationTest
     end
   end
 
-  test "a finished job explains why its log is not shown" do
-    # A hand-typed URL to a completed job lands here. dcommsctl could serve the log, but this
-    # page is for following live output, so it declines and says so plainly.
+  test "a finished job that produced no output says so" do
+    finished = job(state: "done")
+
+    with_stubbed_adapter(apps: [ instance_ ], jobs: [ finished ], log: job_log(text: "", finished: true)) do
+      get_log
+
+      assert_response :success
+      assert_select "body", text: /produced no output/
+      assert_select "pre", count: 0
+    end
+  end
+
+  test "a finished job's log is shown" do
     finished = job(state: "done")
 
     with_stubbed_adapter(apps: [ instance_ ], jobs: [ finished ], log: job_log) do
       get_log
 
       assert_response :success
-      assert_select "body", text: /This job has finished/
-      assert_select "pre", count: 0
+      assert_select "pre code", text: /Cloning into 'peertube'/
     end
   end
 
   test "the job must belong to the app in the URL" do
-    # A job id from another instance must not be readable through this app's URL.
     other = job(id: "install-1", instance_id: "other-app")
 
     with_stubbed_adapter(apps: [ instance_ ], jobs: [ other ], log: job_log) do

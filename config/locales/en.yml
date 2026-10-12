@@ -165,6 +165,7 @@ en:
     version_number: "Version %{version}"
     domain: "Domain"
     domain_unknown: "Unknown"
+    instance_id: "Instance ID"
     index:
       title: "Apps"
       empty: "No apps are installed yet."
@@ -264,7 +265,6 @@ en:
     state_label: "State"
     started: "Started"
     outcome: "Outcome"
-    log: "Log"
     # job states (dcommsctl JobState)
     state:
       pending: "Pending"
@@ -289,17 +289,12 @@ en:
     duration_unknown: "Unknown duration"
     duration_instant: "Took under a second"
     failed: "Failed"
-    # only offered for in-flight jobs; Dawa shows output as it is produced, so a finished
-    # job's log is not shown here
-    view_log: "View log"
-    log_expired: "Not available"
-    log_finished: "This job has finished"
-    log_finished_hint: |-
-      This view shows a job's output while it runs. The job has ended, so its output is no longer
-      shown here.
     log_unavailable: "Could not read the job log"
+    log_unavailable_hint: "The backend did not return this job's output. Try again once it is reachable."
     log_empty: "This job has not produced any output yet."
+    log_empty_finished: "This job produced no output."
     log_more: "Showing the first chunk of output; more follows."
+    log_complete: "End of log."
   users:
     active: "Active"
     inactive: "Disabled"

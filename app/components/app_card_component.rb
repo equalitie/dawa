@@ -16,7 +16,7 @@ class AppCardComponent < ApplicationComponent
   haml_template <<~HAML
     = v.box(icon: @icon, size: "lg", class: "h-100") do |box|
       .d-flex.justify-content-between.align-items-baseline.gap-2
-        .fw-semibold.text-truncate= @app.id
+        .fw-semibold.text-truncate= @app.domain.presence || t("apps.domain_unknown")
         - if @app.catalog_entry_id.present?
           %code.small.text-muted.text-nowrap= @app.catalog_entry_id
       .mb-2= v.app_status_badge(@app)
@@ -27,12 +27,8 @@ class AppCardComponent < ApplicationComponent
             = @app.version
           - else
             %em.text-muted{data: {placeholder: "true"}}= t("apps.version_unknown")
-        %dt.col-4.text-muted= t("apps.domain")
-        %dd.col-8.mb-1
-          - if @app.domain.present?
-            = @app.domain
-          - else
-            %em.text-muted{data: {placeholder: "true"}}= t("apps.domain_unknown")
+        %dt.col-4.text-muted= t("apps.instance_id")
+        %dd.col-8.mb-1= @app.id
   HAML
 
   #

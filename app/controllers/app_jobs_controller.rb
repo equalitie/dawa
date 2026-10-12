@@ -33,9 +33,10 @@ class AppJobsController < BaseAdminController
     adapter.job_list(instance_id: @app.id).find { |job| job.id == id.to_s }
   end
 
+  # dcommsctl serves a finished job's log as well as a running one, so "completed" is not a
+  # reason to withhold it: the whole point of this page is to let an operator read a job's
+  # output, which matters most for one that failed.
   def fetch_log
-    return nil unless @job.running?
-
     adapter.job_log(id: @job.id)
   end
 

@@ -3,7 +3,7 @@
   -#
     `@app` is nil when the backend was unreachable and `@job` is nil when the job is not
     this app's, so both crumbs fall back to the ids from the URL.
-  - bc.with_crumb { link_to(@app&.id || params[:app_id], app_path(@app&.id || params[:app_id])) }
+  - bc.with_crumb { link_to(@app&.domain.presence || params[:app_id], app_path(@app&.id || params[:app_id])) }
   - bc.with_crumb(active: true) { @job&.id || params[:id] }
 
 - if @error.present?
@@ -13,8 +13,8 @@
 
 - elsif @log.nil?
   = v.alert("warning", icon: "exclamation-triangle") do
-    .mb-2.fw-bold= t("jobs.log_finished")
-    %div= t("jobs.log_finished_hint")
+    .mb-2.fw-bold= t("jobs.log_unavailable")
+    %div= t("jobs.log_unavailable_hint")
 
 - else
   .d-flex.justify-content-between.align-items-baseline.gap-2.mb-2
@@ -25,10 +25,12 @@
 
   - if @log.empty?
     = v.alert("info", icon: "info-circle") do
-      = t("jobs.log_empty")
+      = @log.finished ? t("jobs.log_empty_finished") : t("jobs.log_empty")
   - else
     %pre.bg-body-tertiary.border.rounded.p-3{style: "max-height: 60vh; overflow: auto;"}
       %code= @log.log
 
-  - unless @log.finished
+  - if @log.finished
+    .small.text-muted.mt-2= t("jobs.log_complete")
+  - else
     .small.text-muted.mt-2= t("jobs.log_more")

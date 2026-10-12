@@ -225,17 +225,44 @@ class AppsShowTest < ActionDispatch::IntegrationTest
     end
   end
 
-  test "a finished job offers no log link" do
-    # The job page follows live output, so a finished job is offered no link to it; the row
-    # says the log is not available instead. Regression guard for that rule.
+  test "a finished job still offers a log link" do
+    # dcommsctl serves a finished job's log too, so the row links to it for completed jobs as
+    # well as running ones; a failed job's output is exactly what an operator comes here to read.
     jobs = { "peertube-zebu" => [ job(id: "install-0", state: "done", finished_at: "2026-09-16T10:01:00Z") ] }
 
     with_stubbed_adapter(apps: [ instance_ ], jobs: jobs) do
       get_show
 
       assert_response :success
-      assert_select "a[href=?]", app_job_path("peertube-zebu", "install-0"), count: 0
-      assert_select "tr[data-job-id='install-0']", text: /Not available/
+      assert_select "a[href=?]", app_job_path("peertube-zebu", "install-0")
+    end
+  end
+
+  test "a job link survives a daemon id containing dots and colons" do
+    # dcommsctl ids look like "install-10-12.00:49:44.758956-2". The link must carry the whole
+    # id, and the route must accept it: an unconstrained :id split the trailing "." into
+    # :format and the colons stopped it matching, so the link 404'd.
+    daemon_id = "install-10-12.00:49:44.758956-2"
+    jobs = { "peertube-zebu" => [ job(id: daemon_id, state: "done", finished_at: "2026-09-16T10:01:00Z") ] }
+
+    with_stubbed_adapter(apps: [ instance_ ], jobs: jobs) do
+      get_show
+
+      assert_response :success
+      assert_select "a[href=?]", app_job_path("peertube-zebu", daemon_id)
+    end
+  end
+
+  test "the whole job row is a link to the job's log page" do
+    jobs = { "peertube-zebu" => [ job(id: "install-1", state: "running") ] }
+
+    with_stubbed_adapter(apps: [ instance_ ], jobs: jobs) do
+      get_show
+
+      assert_response :success
+      assert_select "tr[data-job-id='install-1'] td.position-relative a.stretched-link[href=?]",
+                    app_job_path("peertube-zebu", "install-1"), minimum: 1
+      assert_select "tr[data-job-id='install-1'] a.btn", count: 0
     end
   end
 

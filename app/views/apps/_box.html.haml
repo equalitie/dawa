@@ -20,7 +20,7 @@
       %div= message
 
   .d-flex
-    %h3.mb-0= app.id
+    %h3.mb-0= link_to_app_domain(app)
     .ms-3= v.app_status_badge(app)
 
   - box.with_buttons do
@@ -46,18 +46,14 @@
       color: "danger", url: uninstall_app_path(app.id)
 
   %dl.row.small.mb-0.mt-3
+    %dt.col-4.col-md-2.text-muted= t("apps.instance_id")
+    %dd.col-8.col-md-10= app.id
     %dt.col-4.col-md-2.text-muted= t("apps.version")
     %dd.col-8.col-md-10
       - if app.version.present?
         = app.version
       - else
         %em.text-muted{data: {placeholder: "true"}}= t("apps.version_unknown")
-    %dt.col-4.col-md-2.text-muted= t("apps.domain")
-    %dd.col-8.col-md-10
-      - if app.domain.present?
-        = app.domain
-      - else
-        %em.text-muted{data: {placeholder: "true"}}= t("apps.domain_unknown")
     - if app.catalog_entry_id.present?
-      %dt.col-4.col-md-2.text-muted= t("apps.catalog_entry")
+      %dt.col-4.col-md-2.text-muted= t("apps.app")
       %dd.col-8.col-md-10= app.catalog_entry_id
