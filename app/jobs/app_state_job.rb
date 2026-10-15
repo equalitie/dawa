@@ -1,11 +1,14 @@
 #
-# Waits for a start/stop command to finish, then reports the instance's new state.
+# Waits for a start/stop/restart command to finish, then reports the instance's new state.
 #
 # The analogue of ContainerJob, which polls `docker inspect` until the container reaches its target
 # status. Apps differ in one decisive way: the daemon ALREADY gives us a job id and tracks the job
 # in memory, whereas the only way to read an app's state (`inst/list`) shells out to
 # `docker compose ps` for EVERY instance, each with its own 5 second timeout. So this waits on the
 # job and reads `inst/list` once at the end, instead of polling the state.
+#
+# RESTART IS SEQUENCED HERE, not by the daemon, which has no `inst/restart`. It is a stop followed
+# by a start: the stop job is waited on first, and only once it is terminal is the start issued.
 #
 # Broadcast targets:
 #
@@ -21,10 +24,14 @@ class AppStateJob < ApplicationJob
 
   queue_as :default
 
-  # @param job_id [String] dcommsctl's job id, from `inst/start` or `inst/stop`
+  # @param job_id [String] dcommsctl's job id, from `inst/start`, `inst/stop`, or
+  #   the stop half of a restart
   # @param instance_id [String] the instance the command was issued for
-  def perform(job_id, instance_id)
+  # @param command [String] "start", "stop" or "restart". Defaults to a plain start/stop so an
+  #   older enqueued job (from before restart existed) still runs.
+  def perform(job_id, instance_id, command = nil)
     @instance_id = instance_id
+    @command = command.to_s.presence || "start"
 
     status = wait_for_dcomms_job(job_id)
 
@@ -33,7 +40,17 @@ class AppStateJob < ApplicationJob
     # hanging on it.
     return finish(nil) if status.nil?
 
-    finish(status.failed? ? status.error : nil)
+    # A failed stop means the restart stops here: starting now would either be refused by the
+    # lock or start on top of a container the stop could not bring down.
+    return finish(status.error) if status.failed?
+
+    if @command == "restart"
+      # The stop half succeeded, so issue and wait on the start half the same way.
+      restart_start
+    else
+      # A plain start or stop is done: the state it landed in is the report.
+      finish(nil)
+    end
   rescue WaitsForDcommsJob::TimedOut
     finish(I18n.t("apps.state.timeout"))
   rescue DcommsClient::Error => e
@@ -41,6 +58,26 @@ class AppStateJob < ApplicationJob
   end
 
   private
+
+  #
+  # Issue the start half of a restart and wait for it.
+  #
+  # A failure to even issue the start (the daemon unreachable, or the lock still held) is reported
+  # as the reason, which is what the box shows. The instance is stopped at this point, so saying so
+  # is more useful than leaving the page claiming it is running.
+  #
+  def restart_start
+    start_job_id = adapter.start(id: @instance_id)
+
+    status = wait_for_dcomms_job(start_job_id)
+    finish(status&.failed? ? status.error : nil)
+  rescue WaitsForDcommsJob::TimedOut
+    # The stop half already happened, so the instance is down: say the start did not complete
+    # rather than reusing the generic timeout, which would imply nothing had changed.
+    finish(I18n.t("apps.state.restart_timeout"))
+  rescue DcommsClient::Error => e
+    finish(e.message)
+  end
 
   #
   # Report the instance as it now stands.

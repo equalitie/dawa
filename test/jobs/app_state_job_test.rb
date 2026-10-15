@@ -11,13 +11,14 @@ require_relative "../test_helper"
 class AppStateJobTest < ActiveSupport::TestCase
   # A scripted adapter: one status per poll (the last repeating), and a scripted `inst/list`.
   class FakeAdapter
-    attr_reader :status_calls, :list_calls
+    attr_reader :status_calls, :list_calls, :start_calls
 
     def initialize(statuses:, installed: [ true ])
       @statuses = statuses
       @installed = installed
       @status_calls = 0
       @list_calls = 0
+      @start_calls = 0
     end
 
     def job_status(id:)
@@ -26,6 +27,13 @@ class AppStateJobTest < ActiveSupport::TestCase
       raise DcommsClient::EmptyResult, "unknown job #{id}" if spec == :unknown
 
       Dcomms::JobStatus.new(**{ id: id, state: "running" }.merge(spec))
+    end
+
+    # The start half of a restart. The job issues it after the stop reports terminal; the id it
+    # returns is then waited on like any other job.
+    def start(id:)
+      @start_calls += 1
+      "start-job-1"
     end
 
     def apps_installed_list
@@ -40,7 +48,7 @@ class AppStateJobTest < ActiveSupport::TestCase
 
   # Run the job with the poll interval squashed so tests do not sleep. `deadline:` starts the job
   # already past its limit. The broadcasts are captured as decoded partial locals.
-  def run_job(adapter, job_id: "start-job-1", instance_id: "peertube-zebu", deadline: nil)
+  def run_job(adapter, job_id: "start-job-1", instance_id: "peertube-zebu", command: nil, deadline: nil)
     job = AppStateJob.new
     job.define_singleton_method(:adapter) { adapter }
     job.define_singleton_method(:sleep) { |_| }
@@ -49,7 +57,7 @@ class AppStateJobTest < ActiveSupport::TestCase
     job.define_singleton_method(:stream_replace_to) do |stream, target:, partial:, locals:|
       broadcasts << [ stream, target, partial, locals ]
     end
-    job.perform(job_id, instance_id)
+    job.perform(job_id, instance_id, command)
     broadcasts
   end
 
@@ -176,6 +184,74 @@ class AppStateJobTest < ActiveSupport::TestCase
     assert_equal [ "app-box-peertube-zebu" ], targets(broadcasts)
     assert_equal "apps/box_message", broadcasts.first[2]
     assert_match(/no route to host/, broadcasts.first[3][:message])
+  end
+
+  ##
+  ## restart (a stop followed by a start)
+  ##
+
+  test "a restart issues the start half only after the stop is terminal" do
+    adapter = FakeAdapter.new(statuses: [ { state: "running" }, { state: "done" } ])
+
+    broadcasts = run_job(adapter, command: "restart")
+
+    # Two polls for the stop (running, then done) and one for the start job, which the last
+    # repeating status reports done.
+    assert_equal 3, adapter.status_calls
+    assert_equal 1, adapter.start_calls
+    assert_equal "apps/box", box(broadcasts)[2]
+    assert_nil box(broadcasts)[3][:message]
+  end
+
+  test "a failed stop does not issue the start half" do
+    # Starting on top of a container the stop could not bring down would either be refused by the
+    # lock or leave two of them racing.
+    adapter = FakeAdapter.new(statuses: [ { state: "failed", error: "compose down exited 1" } ])
+
+    broadcasts = run_job(adapter, command: "restart")
+
+    assert_equal 0, adapter.start_calls
+    assert_equal "compose down exited 1", box(broadcasts)[3][:message]
+  end
+
+  test "a restart whose start half fails reports the start's error" do
+    # The stop succeeded, so the instance is down: the start's failure is the fact that matters.
+    adapter = FakeAdapter.new(statuses: [ { state: "done" }, { state: "failed", error: "compose up exited 1" } ])
+
+    broadcasts = run_job(adapter, command: "restart")
+
+    assert_equal 1, adapter.start_calls
+    assert_equal "compose up exited 1", box(broadcasts)[3][:message]
+  end
+
+  test "a restart that cannot issue its start half reports why" do
+    adapter = Class.new do
+      def initialize = @calls = 0
+
+      def job_status(id:)
+        @calls += 1
+        Dcomms::JobStatus.new(id: id, state: "done")
+      end
+
+      def start(id:) = raise(DcommsClient::JobInProgress.new(code: -32603, message: "The job is in progress"))
+
+      def apps_installed_list = [ Dcomms::AppInstance.new(id: "peertube-zebu", status: "stopped") ]
+    end.new
+
+    broadcasts = run_job(adapter, command: "restart")
+
+    assert_equal "apps/box", box(broadcasts)[2]
+    assert_match(/job is in progress/, box(broadcasts)[3][:message])
+  end
+
+  test "a plain start does not issue a second start" do
+    # The command name defaults to a plain command, so the pre-restart behaviour is unchanged.
+    adapter = FakeAdapter.new(statuses: [ { state: "done" } ])
+
+    broadcasts = run_job(adapter, command: "start")
+
+    assert_equal 0, adapter.start_calls
+    assert_equal "apps/box", box(broadcasts)[2]
   end
 
   ##

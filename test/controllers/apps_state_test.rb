@@ -25,7 +25,10 @@ class AppsStateTest < ActionDispatch::IntegrationTest
 
       apps
     end
-    %i[start stop].each do |name|
+    # `restart` is composed from `stop`, so the stub records it as its own name: that is what the
+    # controller calls, and recording the composed call is how a test can tell a restart apart from
+    # a plain stop.
+    %i[start stop restart].each do |name|
       fake.define_singleton_method(name) do |id:|
         # Recorded before any raise, so an empty list means "the daemon was never asked" rather
         # than "the stub happened to fail".
@@ -100,13 +103,44 @@ class AppsStateTest < ActionDispatch::IntegrationTest
     assert_equal [ [ :stop, "peertube-zebu" ] ], commands
   end
 
+  test "restart sends inst/stop first, since the daemon has no inst/restart" do
+    # The stop half is issued by the controller. The start half is issued by AppStateJob once the
+    # stop reports terminal, so only the stop is observable at request time.
+    commands, = with_stubbed_adapter(apps: [ instance_(status: "running") ]) do
+      with_recorded_job_enqueue { send_command("restart") }
+    end
+
+    assert_equal [ [ :restart, "peertube-zebu" ] ], commands
+  end
+
+  test "restart hands the command name to the follower so the start half runs" do
+    with_stubbed_adapter(apps: [ instance_(status: "running") ]) do
+      enqueued = with_recorded_job_enqueue { send_command("restart") }
+
+      assert_equal [ [ "restart-job-1", "peertube-zebu", "restart" ] ], enqueued
+    end
+  end
+
+  test "a restart in flight shows one restarting button, not start or stop" do
+    with_stubbed_adapter(apps: [ instance_(status: "running") ]) do
+      with_recorded_job_enqueue { send_command("restart") }
+
+      assert_match(/target="app-box-peertube-zebu"/, response.body)
+      assert_select "body", text: /Restarting/
+      # The in-flight branch renders a single disabled button, so the other commands cannot be sent
+      # while the restart holds the instance's lock.
+      assert_select "button[disabled]", count: 1
+    end
+  end
+
   test "the daemon's job id and the instance are handed to the follower" do
     # Without this the page would never learn the new state: the job is what polls `job/status` and
-    # broadcasts the result.
+    # broadcasts the result. The command name travels too, because a restart is sequenced as two
+    # jobs and the follower has to know which one it is running.
     with_stubbed_adapter(apps: [ instance_ ]) do
       enqueued = with_recorded_job_enqueue { send_command("start") }
 
-      assert_equal [ [ "start-job-1", "peertube-zebu" ] ], enqueued
+      assert_equal [ [ "start-job-1", "peertube-zebu", "start" ] ], enqueued
     end
   end
 

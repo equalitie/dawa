@@ -7,8 +7,8 @@
   Locals:
 
     app            the AppInstance to describe.
-    pending: nil   the command currently in flight ("start" or "stop"), which turns the pressed
-                   button into a disabled spinner and disables the other one. A display hint, NOT
+    pending: nil   the command currently in flight ("start", "stop" or "restart"), which turns the
+                   pressed button into a disabled spinner and disables the others. A display hint, NOT
                    a state: the badge keeps reporting what the backend last said, because
                    inventing "starting" as a status would claim something nobody has observed.
     message: nil   a reason the command was refused or failed, so the user can read it and try
@@ -28,19 +28,26 @@
       = v.button label: t("apps.state.starting"), icon: "spinner", disabled: true
     - elsif pending == "stop"
       = v.button label: t("apps.state.stopping"), icon: "spinner", disabled: true
+    - elsif pending == "restart"
+      = v.button label: t("apps.state.restarting"), icon: "spinner", disabled: true
     - elsif app.running?
       = v.button label: t("apps.state.start"), icon: "play-fill", disabled: true
       = v.update_button label: t("apps.state.stop"), icon: "stop-fill",
         data: { "stream-ready-target" => "button" },
         url: app_path(app.id), params: { command: "stop" }
+      = v.update_button label: t("apps.state.restart"), icon: "arrow-clockwise",
+        data: { "stream-ready-target" => "button" },
+        url: app_path(app.id), params: { command: "restart" }
     - elsif app.stopped?
       = v.update_button label: t("apps.state.start"), icon: "play-fill",
         data: { "stream-ready-target" => "button" },
         url: app_path(app.id), params: { command: "start" }
       = v.button label: t("apps.state.stop"), icon: "stop-fill", disabled: true
+      = v.button label: t("apps.state.restart"), icon: "arrow-clockwise", disabled: true
     - else
       = v.button label: t("apps.state.start"), icon: "play-fill", disabled: true
       = v.button label: t("apps.state.stop"), icon: "stop-fill", disabled: true
+      = v.button label: t("apps.state.restart"), icon: "arrow-clockwise", disabled: true
 
     = v.link_button label: t("apps.uninstall.action"), icon: "trash",
       color: "danger", url: uninstall_app_path(app.id)

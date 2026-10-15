@@ -62,17 +62,20 @@ class AppsController < BaseAdminController
 
   #
   # The commands the state buttons may ask for. A whitelist rather than dispatching
-  # `params[:command]` straight at the adapter: only these two are meaningful, and naming them
+  # `params[:command]` straight at the adapter: only these are meaningful, and naming them
   # here keeps the request from reaching anything else on the adapter.
   #
-  STATE_COMMANDS = %w[start stop].freeze
+  # `restart` is composed here rather than sent to the daemon, which has no `inst/restart`:
+  # it is a stop followed by a start, sequenced by AppStateJob.
+  #
+  STATE_COMMANDS = %w[start stop restart].freeze
 
   #
-  # PUT /apps/:id -- start or stop an instance, per `params[:command]`.
+  # PUT /apps/:id -- start, stop or restart an instance, per `params[:command]`.
   #
   def update
     command = params[:command].to_s
-    # Unreachable from the buttons, which only ever send the two names above; answered without a
+    # Unreachable from the buttons, which only ever send the names above; answered without a
     # body because there is nothing to say to a caller that invented one.
     return head :bad_request unless STATE_COMMANDS.include?(command)
 
@@ -82,7 +85,7 @@ class AppsController < BaseAdminController
     return render_box_message(params[:id], t("apps.uninstall.not_installed")) if app.nil?
 
     job_id = adapter.public_send(command, id: app.id)
-    AppStateJob.perform_later(job_id, app.id)
+    AppStateJob.perform_later(job_id, app.id, command)
 
     # The pressed button becomes a disabled spinner and the other one is disabled
     render turbo_stream: turbo_stream.replace(

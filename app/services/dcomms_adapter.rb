@@ -44,7 +44,11 @@ class DcommsAdapter
   MOCKED = [].freeze
 
   # Fully-implemented methods, listed so tests can assert the split is deliberate.
-  REAL = %i[catalog_list catalog_entry install uninstall start stop backup restore job_log
+  #
+  # `restart` is here because it is composed from `stop` (below), not because the daemon
+  # implements it: there is no `inst/restart`, so nothing about it can regress to a stub.
+  #
+  REAL = %i[catalog_list catalog_entry install uninstall start stop restart backup restore job_log
             job_list job_status apps_installed_list].freeze
 
   def initialize(client: nil, mock: nil)
@@ -123,6 +127,15 @@ class DcommsAdapter
   def stop(id:) = route(:stop, id: id)
   def backup(id:) = route(:backup, id: id)
   def restore(id:) = route(:restore, id: id)
+
+  #
+  # Restart is composed, not sent: the daemon has no `inst/restart`. The stop half is issued
+  # here and the start half is issued by AppStateJob once the stop job reports terminal, so the
+  # two run in order against the instance's job lock rather than racing for it.
+  #
+  # Returns the STOP job id, because that is the job the caller then waits on.
+  #
+  def restart(id:) = stop(id: id)
 
   ##
   ## jobs

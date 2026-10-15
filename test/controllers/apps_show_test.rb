@@ -329,6 +329,40 @@ class AppsShowTest < ActionDispatch::IntegrationTest
     end
   end
 
+  test "a running app offers Stop and Restart and not Start" do
+    with_stubbed_adapter(apps: [ instance_(status: "running") ]) do
+      get_show
+
+      assert_response :success
+      assert_select "input[name='command'][value='stop']"
+      assert_select "input[name='command'][value='restart']"
+      assert_select "input[name='command'][value='start']", count: 0
+      assert_select "button[disabled]", text: /Start/
+    end
+  end
+
+  test "a stopped app does not offer Restart" do
+    # Restarting a stopped app would only be a start, so the button is present but disabled rather
+    # than a second way to do the same thing.
+    with_stubbed_adapter(apps: [ instance_(status: "stopped") ]) do
+      get_show
+
+      assert_response :success
+      assert_select "input[name='command'][value='restart']", count: 0
+      assert_select "button[disabled]", text: /Restart/
+    end
+  end
+
+  test "an app with no reported status does not offer Restart" do
+    with_stubbed_adapter(apps: [ instance_(status: nil) ]) do
+      get_show
+
+      assert_response :success
+      assert_select "input[name='command'][value='restart']", count: 0
+      assert_select "button[disabled]", text: /Restart/
+    end
+  end
+
   test "an app with no reported status offers neither command" do
     # The daemon sends an empty status when it cannot ask docker compose. Either command could be
     # the wrong one there, so neither is offered rather than guessing.

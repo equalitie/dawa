@@ -183,6 +183,16 @@ class DcommsAdapterTest < ActiveSupport::TestCase
     assert_equal [ [ :install, { name: "peertube", domain: "pt.test" } ] ], @client.calls
   end
 
+  test "restart composes to stop rather than calling the daemon" do
+    # The daemon has no `inst/restart`, so the adapter issues the stop half and AppStateJob issues
+    # the start half once the stop is terminal. That the adapter sends `stop` (not `restart`) is
+    # the whole mechanism, so it is pinned here.
+    assert_equal :from_client, @adapter.restart(id: "peertube-zebu")
+
+    assert_equal [ [ :stop, { id: "peertube-zebu" } ] ], @client.calls
+    assert_empty @mock.calls
+  end
+
   test "job_log forwards the job id and the offset" do
     # Real now, so it reaches the client rather than the mock -- but the routing is what is
     # under test here, and both identifiers must travel because the daemon keys its job map

@@ -185,14 +185,22 @@ en:
     state:
       start: "Start"
       stop: "Stop"
+      restart: "Restart"
       starting: "Starting"
       stopping: "Stopping"
+      restarting: "Restarting"
       # Shown when a command finishes for an instance `inst/list` no longer reports: someone removed
       # it while the command ran, so there is no state left to describe.
       gone: "%{name} is no longer reported by dcommsctl, so its state is unknown."
       timeout: >-
-        Dawa stopped waiting for this command. It may still be running; reload the page to see
+        We stopped waiting for this command. It may still be running; reload the page to see
         the current state.
+      # A restart is a stop and then a start. This is the second half timing out, which is
+      # different from the generic timeout because the stop already succeeded: the instance is
+      # down, not merely unconfirmed.
+      restart_timeout: >-
+        The instance was stopped, but we stopped waiting for it to start again. Reload the
+        page to see the current state.
 
     #
     # Uninstalling one app. "Remove" throughout rather than "uninstall", so the wording matches
