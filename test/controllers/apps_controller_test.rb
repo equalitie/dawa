@@ -141,14 +141,17 @@ class AppsControllerTest < ActionDispatch::IntegrationTest
     end
   end
 
-  test "a missing domain is marked as a placeholder" do
+  test "a missing domain is shown as an unknown label, not left blank" do
+    # The card's heading is the domain, so a missing one falls back to the unknown label.
+    # It is not marked as a placeholder there: the heading is prose, and an `em[data-placeholder]`
+    # inside an h-level heading would read as emphasis rather than "no data".
     with_stubbed_adapter(apps: [ instance_(domain: nil) ]) do
       login_as(@user)
       get apps_path
 
       assert_response :success
-      assert_select "body", text: /Domain/
-      assert_select "em[data-placeholder='true']", minimum: 1
+      assert_select ".card", text: /Unknown/
+      assert_select ".card a", count: 0, message: "a missing domain must not render a link"
     end
   end
 
@@ -159,7 +162,8 @@ class AppsControllerTest < ActionDispatch::IntegrationTest
 
       assert_response :success
       assert_select "body", text: /6\.3\.0/
-      assert_select "em[data-placeholder='true']", text: "Unknown", count: 1
+      # The version is present, so no version placeholder renders.
+      assert_select "em[data-placeholder='true']", count: 0
     end
   end
 
@@ -257,6 +261,8 @@ class AppsControllerTest < ActionDispatch::IntegrationTest
   end
 
   test "the status badge is on the card for the app it describes" do
+    # The card's heading is the domain and the id is an Instance ID row BELOW the badge, so the
+    # badge no longer follows the id in the markup. Scope to the card and assert both are in it.
     with_stubbed_adapter(apps: [
       instance_(id: "peertube-zebu", status: "running"),
       instance_(id: "mastodon-lion", status: "stopped")
@@ -265,8 +271,12 @@ class AppsControllerTest < ActionDispatch::IntegrationTest
       get apps_path
 
       assert_response :success
-      assert_select ".card", text: /peertube-zebu.*Running/m
-      assert_select ".card", text: /mastodon-lion.*Stopped/m
+      assert_select ".card", text: /peertube-zebu/ do
+        assert_select ".badge", text: "Running"
+      end
+      assert_select ".card", text: /mastodon-lion/ do
+        assert_select ".badge", text: "Stopped"
+      end
     end
   end
 

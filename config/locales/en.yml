@@ -175,6 +175,8 @@ en:
       # The daemon sends an empty status when it cannot reach docker compose, which is
       # "we do not know", not "stopped".
       unknown: "Unknown"
+    # The catalog entry an instance was created from (the appdef id).
+    app: "App"
     catalog_entry: "Catalog entry"
 
     #
