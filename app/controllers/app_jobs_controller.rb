@@ -1,47 +1,21 @@
-#
-# One job's log output.
-#
-# Nested under an app for the URL's sake, and because the page it belongs to is the app's. The
-# RPC call itself takes only the job id -- the daemon resolves the instance (see
-# DcommsClient#job_log) -- but the instance is still what scopes the job lookup below, so a
-# job id from another app cannot be read through this URL.
-#
 class AppJobsController < BaseAdminController
+  include DcommsClientConcern
+
   def show
-    @app = find_app(params[:app_id])
+    @app = app_get(params[:app_id])
     return head :not_found if @app.nil?
 
-    @job = find_job(params[:id])
+    @job = job_get(params[:id])
     return head :not_found if @job.nil?
 
-    @log = fetch_log
+    @log = log_get(@job)
   rescue DcommsClient::Error => e
     @error = e.message
     @log = nil
   end
 
-  private
-
-  def find_app(id)
-    adapter.apps_installed_list.find { |app| app.id == id.to_s }
-  end
-
-  # The job must belong to THIS instance and to the instance's own job list, so a job id from
-  # another app cannot be read through this URL. The RPC call no longer needs the instance,
-  # but this scoping is the reason the route is nested.
-  def find_job(id)
-    adapter.job_list(instance_id: @app.id).find { |job| job.id == id.to_s }
-  end
-
-  # dcommsctl serves a finished job's log as well as a running one, so "completed" is not a
-  # reason to withhold it: the whole point of this page is to let an operator read a job's
-  # output, which matters most for one that failed.
-  def fetch_log
-    adapter.job_log(id: @job.id)
-  end
-
-  # Never talk to DcommsClient directly; the adapter owns the real/mock decision.
-  def adapter
-    @adapter ||= DcommsAdapter.new
+  def index
+    @app = app_get(params[:app_id])
+    @jobs = sort_jobs(jobs(@app))
   end
 end

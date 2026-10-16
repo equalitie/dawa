@@ -303,6 +303,8 @@ module Dcomms
     # Only a job that reached a terminal state stops being polled.
     def terminal? = TERMINAL_STATES.include?(state)
 
+    def dom_id = "job-#{id.to_s.gsub(/[^a-zA-Z0-9\-_:.]/, "_")}"
+
     # Only `done` means success; `failed` carries an exit code and a message.
     def success? = state == "done"
     def failed? = state == "failed"

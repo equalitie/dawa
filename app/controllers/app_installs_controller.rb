@@ -42,13 +42,10 @@ class AppInstallsController < BaseAdminController
       return render_form(error: t("app_installs.domain_required"))
     end
 
-    @install = adapter.install(name: params[:app_id], domain: @domain)
-
-    # Follow the job server-side and stream its output into the dialog. Enqueued AFTER the
-    # install call returns the ids it needs, and before rendering, so the first broadcast
-    # cannot arrive before the dialog exists to receive it (it would be dropped harmlessly,
-    # but the ordering removes the question).
-    AppInstallJob.perform_later(@install.job_id, @install.instance_id)
+    install_job = adapter.install(name: params[:app_id], domain: @domain)
+    @job_id = install_job.job_id
+    @app_id = install_job.instance_id
+    AppInstallJob.perform_later(job_id: @job_id, app_id: @app_id)
   rescue DcommsClient::Error => e
     # A backend failure is terminal for this attempt: there is nothing to correct in the form,
     # so the dialog keeps the reason and drops the fields. The user closes and retries.

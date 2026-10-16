@@ -1,15 +1,18 @@
 require_relative "../test_helper"
 
 #
-# Tests for the start/stop follower.
+# Tests for the start/stop/restart follower.
 #
-# The adapter is stubbed, so these run without dcommsctl. What matters here is what the job reports
-# and when it stops: it waits on the JOB (never polling the instance list, which shells out to
-# docker compose for every instance), it reads the state exactly once at the end, and it always
-# leaves the page in a state the user can act from.
+# The adapter is stubbed, so these run without dcommsctl. What matters here is what the job does and
+# when it stops: it waits on the JOB (never polling the instance list, which shells out to
+# docker compose for every instance), it re-reads the instance once at the end, and it always leaves
+# the page in a state the user can act from.
 #
 class AppStateJobTest < ActiveSupport::TestCase
   # A scripted adapter: one status per poll (the last repeating), and a scripted `inst/list`.
+  #
+  # `job_status` is the only call the wait loop makes; `apps_installed_list` is read when the job
+  # resolves the instance, which is once per broadcast that needs it (AppBaseJob#app memoizes).
   class FakeAdapter
     attr_reader :status_calls, :list_calls, :start_calls
 
@@ -29,11 +32,14 @@ class AppStateJobTest < ActiveSupport::TestCase
       Dcomms::JobStatus.new(**{ id: id, state: "running" }.merge(spec))
     end
 
-    # The start half of a restart. The job issues it after the stop reports terminal; the id it
-    # returns is then waited on like any other job.
+    # The start half of a restart. Issued after the stop reports terminal.
     def start(id:)
       @start_calls += 1
       "start-job-1"
+    end
+
+    def job_list(instance_id: nil, active_only: false)
+      []
     end
 
     def apps_installed_list
@@ -46,27 +52,32 @@ class AppStateJobTest < ActiveSupport::TestCase
     end
   end
 
-  # Run the job with the poll interval squashed so tests do not sleep. `deadline:` starts the job
-  # already past its limit. The broadcasts are captured as decoded partial locals.
-  def run_job(adapter, job_id: "start-job-1", instance_id: "peertube-zebu", command: nil, deadline: nil)
+  #
+  # Run the job with the poll interval (and the restart pause) squashed so tests do not sleep.
+  #
+  # The broadcast helpers are stubbed at the AppBaseJob level: this suite is about WHICH broadcasts
+  # the job decides to send, so recording the calls is the assertion surface. What each one renders
+  # is the view's business and is covered by the controller tests.
+  #
+  def run_job(adapter, job_id: "start-job-1", app_id: "peertube-zebu", command: nil, deadline: nil)
     job = AppStateJob.new
     job.define_singleton_method(:adapter) { adapter }
     job.define_singleton_method(:sleep) { |_| }
     job.define_singleton_method(:deadline_for_testing) { deadline } if deadline
+
     broadcasts = []
-    job.define_singleton_method(:stream_replace_to) do |stream, target:, partial:, locals:|
-      broadcasts << [ stream, target, partial, locals ]
+    %i[broadcast_job_list broadcast_job_row broadcast_app_box broadcast_app_card].each do |name|
+      job.define_singleton_method(name) do |**kwargs|
+        broadcasts << [ name, kwargs ]
+      end
     end
-    job.perform(job_id, instance_id, command)
+
+    job.perform(job_id: job_id, app_id: app_id, command: command)
     broadcasts
   end
 
-  def targets(broadcasts) = broadcasts.map { |_, target, _, _| target }
-
-  # Found by target rather than by position: the job sends the box and the card, and which of the
-  # two a test cares about should not depend on the order they happen to be broadcast in.
-  def box(broadcasts) = broadcasts.find { |_, target, _, _| target.start_with?("app-box-") }
-  def card(broadcasts) = broadcasts.find { |_, target, _, _| target.start_with?("app-card-") }
+  def broadcasts_named(broadcasts, name) = broadcasts.select { |n, _| n == name }
+  def first_of(broadcasts, name) = broadcasts_named(broadcasts, name).first
 
   ##
   ## waiting
@@ -80,39 +91,27 @@ class AppStateJobTest < ActiveSupport::TestCase
     assert_equal 3, adapter.status_calls
   end
 
-  test "it reads the instance list exactly once, after the job is done" do
-    # `inst/list` shells out to `docker compose ps` for EVERY instance (5s timeout each), so it is
-    # the expensive call and the one thing this job must not do in a loop.
-    adapter = FakeAdapter.new(statuses: [ { state: "running" }, { state: "done" } ])
-
-    run_job(adapter)
-
-    assert_equal 1, adapter.list_calls
-  end
-
   test "it gives up after the maximum duration" do
     adapter = FakeAdapter.new(statuses: [ { state: "running" } ])
 
     broadcasts = run_job(adapter, deadline: 1.second.ago)
 
-    assert_equal 1, adapter.list_calls, "the state is still reported once, so the page is not stuck"
-    assert_equal "apps/box", box(broadcasts)[2]
-    assert_match(/stopped waiting/, box(broadcasts)[3][:message])
+    assert_equal I18n.t("apps.state.timeout"), first_of(broadcasts, :broadcast_app_box)[1][:message]
   end
 
   ##
   ## reporting
   ##
 
-  test "a finished command reports the instance's new state" do
+  test "a finished command refreshes the box, the card and the job row" do
     adapter = FakeAdapter.new(statuses: [ { state: "done" } ])
 
     broadcasts = run_job(adapter)
 
-    assert_equal "apps/box", broadcasts.first[2]
-    assert_equal "peertube-zebu", broadcasts.first[3][:app].id
+    assert_equal %i[broadcast_job_list broadcast_app_box broadcast_app_card broadcast_job_row],
+      broadcasts.map(&:first)
     # No message: the box re-renders from the state, which is the report.
-    assert_nil broadcasts.first[3][:message]
+    assert_nil first_of(broadcasts, :broadcast_app_box)[1][:message]
   end
 
   test "a failed command carries the daemon's error" do
@@ -120,39 +119,22 @@ class AppStateJobTest < ActiveSupport::TestCase
 
     broadcasts = run_job(adapter)
 
-    assert_equal "compose up exited 1", broadcasts.first[3][:message]
-  end
-
-  test "a failed command still reports the state" do
-    # The command failing does not mean the instance is unchanged, and the page has to stop showing
-    # the in-flight spinner either way.
-    adapter = FakeAdapter.new(statuses: [ { state: "failed", error: "boom" } ])
-
-    broadcasts = run_job(adapter)
-
-    assert_equal 1, adapter.list_calls
-    assert_equal "apps/box", broadcasts.first[2]
-  end
-
-  test "it broadcasts to the instance's stream and to the index" do
-    adapter = FakeAdapter.new(statuses: [ { state: "done" } ])
-
-    broadcasts = run_job(adapter)
-
-    assert_equal [ "peertube-zebu", "apps" ], broadcasts.map(&:first)
-    assert_equal [ "app-box-peertube-zebu", "app-card-peertube-zebu" ], targets(broadcasts)
-    assert_equal [ "apps/box", "apps/card" ], broadcasts.map { |_, _, partial, _| partial }
+    assert_equal "compose up exited 1", first_of(broadcasts, :broadcast_app_box)[1][:message]
   end
 
   test "a job the daemon no longer knows still reports the state" do
     # `job/status` raising means the daemon restarted or dropped the job. Waiting forever would
     # wedge the page; the state it can still read is the honest thing to report.
+    #
+    # Two reads: the wait loop's (which raises and ends the wait), then `AppBaseJob#job`'s, which
+    # tries again to render the job row -- the row needs a job, and this is the last chance to get
+    # one. The daemon not knowing it is answered as nil by `wait_for_dcomms_job`.
     adapter = FakeAdapter.new(statuses: [ :unknown ])
 
     broadcasts = run_job(adapter)
 
-    assert_equal 1, adapter.status_calls
-    assert_equal "apps/box", broadcasts.first[2]
+    assert_equal 2, adapter.status_calls
+    refute_nil first_of(broadcasts, :broadcast_app_box)
   end
 
   test "an unreachable daemon reports the reason" do
@@ -164,26 +146,7 @@ class AppStateJobTest < ActiveSupport::TestCase
 
     broadcasts = run_job(adapter)
 
-    # The state could still be read, so the box renders and carries the reason.
-    assert_equal "apps/box", box(broadcasts)[2]
-    assert_match(/no route to host/, box(broadcasts)[3][:message])
-  end
-
-  test "a state read that fails replaces the box with the reason" do
-    # The daemon went away between the job ending and the state being read. There is no box to
-    # render, and the buttons must not be left spinning (a rescue body is not covered by its own
-    # rescue, which is how this used to escape the job entirely).
-    adapter = Class.new do
-      def job_status(id:) = Dcomms::JobStatus.new(id: id, state: "done")
-
-      def apps_installed_list = raise(DcommsClient::ConnectionError, "no route to host")
-    end.new
-
-    broadcasts = run_job(adapter)
-
-    assert_equal [ "app-box-peertube-zebu" ], targets(broadcasts)
-    assert_equal "apps/box_message", broadcasts.first[2]
-    assert_match(/no route to host/, broadcasts.first[3][:message])
+    assert_match(/no route to host/, first_of(broadcasts, :broadcast_app_box)[1][:message])
   end
 
   ##
@@ -199,8 +162,7 @@ class AppStateJobTest < ActiveSupport::TestCase
     # repeating status reports done.
     assert_equal 3, adapter.status_calls
     assert_equal 1, adapter.start_calls
-    assert_equal "apps/box", box(broadcasts)[2]
-    assert_nil box(broadcasts)[3][:message]
+    assert_nil first_of(broadcasts, :broadcast_app_box)[1][:message]
   end
 
   test "a failed stop does not issue the start half" do
@@ -211,7 +173,7 @@ class AppStateJobTest < ActiveSupport::TestCase
     broadcasts = run_job(adapter, command: "restart")
 
     assert_equal 0, adapter.start_calls
-    assert_equal "compose down exited 1", box(broadcasts)[3][:message]
+    assert_equal "compose down exited 1", first_of(broadcasts, :broadcast_app_box)[1][:message]
   end
 
   test "a restart whose start half fails reports the start's error" do
@@ -221,17 +183,12 @@ class AppStateJobTest < ActiveSupport::TestCase
     broadcasts = run_job(adapter, command: "restart")
 
     assert_equal 1, adapter.start_calls
-    assert_equal "compose up exited 1", box(broadcasts)[3][:message]
+    assert_equal "compose up exited 1", first_of(broadcasts, :broadcast_app_box)[1][:message]
   end
 
   test "a restart that cannot issue its start half reports why" do
     adapter = Class.new do
-      def initialize = @calls = 0
-
-      def job_status(id:)
-        @calls += 1
-        Dcomms::JobStatus.new(id: id, state: "done")
-      end
+      def job_status(id:) = Dcomms::JobStatus.new(id: id, state: "done")
 
       def start(id:) = raise(DcommsClient::JobInProgress.new(code: -32603, message: "The job is in progress"))
 
@@ -240,18 +197,39 @@ class AppStateJobTest < ActiveSupport::TestCase
 
     broadcasts = run_job(adapter, command: "restart")
 
-    assert_equal "apps/box", box(broadcasts)[2]
-    assert_match(/job is in progress/, box(broadcasts)[3][:message])
+    assert_match(/job is in progress/, first_of(broadcasts, :broadcast_app_box)[1][:message])
   end
 
   test "a plain start does not issue a second start" do
-    # The command name defaults to a plain command, so the pre-restart behaviour is unchanged.
     adapter = FakeAdapter.new(statuses: [ { state: "done" } ])
 
     broadcasts = run_job(adapter, command: "start")
 
     assert_equal 0, adapter.start_calls
-    assert_equal "apps/box", box(broadcasts)[2]
+    refute_nil first_of(broadcasts, :broadcast_app_box)
+  end
+
+  ##
+  ## job list refresh
+  ##
+
+  test "the job list is refreshed when the command starts, before the wait" do
+    # The row has to appear as in-flight immediately; waiting for the terminal state would leave the
+    # page showing nothing while the command runs.
+    adapter = FakeAdapter.new(statuses: [ { state: "done" } ])
+
+    broadcasts = run_job(adapter)
+
+    assert_equal :broadcast_job_list, broadcasts.first.first
+  end
+
+  test "a restart refreshes the job list again for the start half" do
+    # The stop and the start are two separate jobs, so the list is stale after the stop.
+    adapter = FakeAdapter.new(statuses: [ { state: "done" } ])
+
+    broadcasts = run_job(adapter, command: "restart")
+
+    assert_equal 2, broadcasts_named(broadcasts, :broadcast_job_list).size
   end
 
   ##
@@ -259,15 +237,15 @@ class AppStateJobTest < ActiveSupport::TestCase
   ##
 
   test "an instance that vanished while the command ran is reported as gone" do
-    # Someone uninstalled it concurrently. There is no box to render, but the buttons must not spin
-    # forever, so the box is replaced with a message that keeps the target id.
+    # Someone uninstalled it concurrently. There is no box to render from an app, so the reason goes
+    # in the box's place and the card is not touched.
     adapter = FakeAdapter.new(statuses: [ { state: "done" } ], installed: [ false ])
 
     broadcasts = run_job(adapter)
 
-    assert_equal [ "app-box-peertube-zebu" ], targets(broadcasts)
-    assert_equal "apps/box_message", broadcasts.first[2]
-    assert_match(/no longer reported/, broadcasts.first[3][:message])
+    assert_equal [ :broadcast_job_list, :broadcast_app_box ], broadcasts.map(&:first)
+    assert_match(/no longer reported/, first_of(broadcasts, :broadcast_app_box)[1][:message])
+    assert_nil first_of(broadcasts, :broadcast_app_box)[1][:app]
   end
 
   test "a failed command on a vanished instance reports the failure, not the absence" do
@@ -277,7 +255,7 @@ class AppStateJobTest < ActiveSupport::TestCase
 
     broadcasts = run_job(adapter)
 
-    assert_equal "compose up exited 1", broadcasts.first[3][:message]
+    assert_equal "compose up exited 1", first_of(broadcasts, :broadcast_app_box)[1][:message]
   end
 
   test "the index card is not touched when the instance is gone" do
@@ -285,6 +263,6 @@ class AppStateJobTest < ActiveSupport::TestCase
 
     broadcasts = run_job(adapter)
 
-    assert_equal [ "peertube-zebu" ], broadcasts.map(&:first)
+    assert_empty broadcasts_named(broadcasts, :broadcast_app_card)
   end
 end

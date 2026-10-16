@@ -1,5 +1,0 @@
--# locals: (message:, instance_id:)
--# An empty app status box that just diplays a message (used when the app doesn't exist)
-= v.box(icon: "box-seam", size: "lg", id: "app-box-#{instance_id}") do
-  = v.alert("danger", icon: "x-circle") do
-    %div= message

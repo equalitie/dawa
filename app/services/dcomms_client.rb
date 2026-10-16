@@ -214,6 +214,9 @@ class DcommsClient
   # `inst/restore`
   def restore(id:) = job_id_from(call("inst/restore", { id: id }), "inst/restore")
 
+  # restart is not part of the api. we send a stop, then later send a start.
+  def restart(id:) = job_id_from(call("inst/stop", { id: id }), "inst/stop")
+
   #
   ##
   ## Jobs

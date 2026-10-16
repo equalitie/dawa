@@ -47,25 +47,27 @@ class AppInstallJobTest < ActiveSupport::TestCase
   #
   # `deadline:` lets a test start the job already past its time limit; the default keeps the
   # real one.
-  def run_job(adapter, job_id: "install-1", instance_id: "peertube-zebu", deadline: nil)
+  #
+  # The broadcast helpers are stubbed at the AppBaseJob level: this suite is about the log loop's
+  # contract, not about what the log/status partials render.
+  def run_job(adapter, job_id: "install-1", app_id: "peertube-zebu", deadline: nil)
     job = AppInstallJob.new
     job.define_singleton_method(:adapter) { adapter }
     job.define_singleton_method(:sleep) { |_| }
     job.define_singleton_method(:deadline_for_testing) { deadline } if deadline
     broadcasts = []
-    job.define_singleton_method(:stream_append_to) do |stream, target:, partial:, locals:|
-      broadcasts << [ :append, stream, target, locals[:text] ]
+    job.define_singleton_method(:broadcast_job_lines) do |stream, text|
+      broadcasts << [ :lines, stream, text ]
     end
-    job.define_singleton_method(:stream_replace_to) do |stream, target:, partial:, locals:|
-      broadcasts << [ :replace, stream, target, locals ]
+    job.define_singleton_method(:broadcast_job_status) do |stream, outcome, message|
+      broadcasts << [ :status, stream, outcome, message ]
     end
-    job.perform(job_id, instance_id)
+    job.perform(job_id: job_id, app_id: app_id)
     broadcasts
   end
 
-  def status_broadcasts(broadcasts)
-    broadcasts.select { |kind, _| kind == :replace }
-  end
+  def line_broadcasts(broadcasts) = broadcasts.select { |kind, _| kind == :lines }
+  def status_broadcasts(broadcasts) = broadcasts.select { |kind, _| kind == :status }
 
   ##
   ## reading the log
@@ -92,7 +94,7 @@ class AppInstallJobTest < ActiveSupport::TestCase
     )
 
     broadcasts = run_job(adapter)
-    appended = broadcasts.select { |kind, _| kind == :append }.map(&:last)
+    appended = line_broadcasts(broadcasts).map(&:last)
 
     assert_equal [ "one\n", "two\n" ], appended
   end
@@ -127,18 +129,18 @@ class AppInstallJobTest < ActiveSupport::TestCase
   test "a successful job reports success" do
     adapter = FakeAdapter.new(statuses: [ { state: "done" } ])
 
-    outcome = status_broadcasts(run_job(adapter)).last.last
+    outcome = status_broadcasts(run_job(adapter)).last
 
-    assert_equal :succeeded, outcome[:outcome]
+    assert_equal :succeeded, outcome[2]
   end
 
   test "a failed job reports the daemon's error" do
     adapter = FakeAdapter.new(statuses: [ { state: "failed", error: "port in use" } ])
 
-    outcome = status_broadcasts(run_job(adapter)).last.last
+    outcome = status_broadcasts(run_job(adapter)).last
 
-    assert_equal :failed, outcome[:outcome]
-    assert_equal "port in use", outcome[:message]
+    assert_equal :failed, outcome[2]
+    assert_equal "port in use", outcome[3]
   end
 
   test "it reads the log one final time after the job is terminal" do
@@ -151,20 +153,20 @@ class AppInstallJobTest < ActiveSupport::TestCase
     )
 
     broadcasts = run_job(adapter)
-    appended = broadcasts.select { |kind, _| kind == :append }.map(&:last)
+    appended = line_broadcasts(broadcasts).map(&:last)
 
     assert_equal [ "first\n", "last gasp\n" ], appended
   end
 
   test "a job the daemon no longer knows ends the loop" do
-    # `job/status` raises for an unknown id. Treating that as "keep polling" would spin
+    # `job/status` raising for an unknown id. Treating that as "keep polling" would spin
     # forever; it has to end the job.
     adapter = FakeAdapter.new(statuses: [ :unknown ])
 
-    outcome = status_broadcasts(run_job(adapter)).last.last
+    outcome = status_broadcasts(run_job(adapter)).last
 
-    assert_equal :failed, outcome[:outcome]
-    assert_not_nil outcome[:message]
+    assert_equal :failed, outcome[2]
+    assert_not_nil outcome[3]
   end
 
   ##
@@ -180,9 +182,9 @@ class AppInstallJobTest < ActiveSupport::TestCase
       log_raises_after: 1
     )
 
-    outcome = status_broadcasts(run_job(adapter)).last.last
+    outcome = status_broadcasts(run_job(adapter)).last
 
-    assert_equal :succeeded, outcome[:outcome]
+    assert_equal :succeeded, outcome[2]
   end
 
   test "an unreachable daemon ends the loop and reports it" do
@@ -194,10 +196,10 @@ class AppInstallJobTest < ActiveSupport::TestCase
       def job_log(**) = raise(DcommsClient::ConnectionError, "no route to host")
     end.new
 
-    outcome = status_broadcasts(run_job(adapter)).last.last
+    outcome = status_broadcasts(run_job(adapter)).last
 
-    assert_equal :failed, outcome[:outcome]
-    assert_match(/no route to host/, outcome[:message])
+    assert_equal :failed, outcome[2]
+    assert_match(/no route to host/, outcome[3])
   end
 
   test "it gives up after the maximum duration rather than polling forever" do
@@ -206,11 +208,11 @@ class AppInstallJobTest < ActiveSupport::TestCase
 
     broadcasts = run_job(adapter, deadline: 1.second.ago)
 
-    assert_equal :timeout, status_broadcasts(broadcasts).last.last[:outcome]
+    assert_equal :timeout, status_broadcasts(broadcasts).last[2]
   end
 
   ##
-  ## the stream name
+  ## the log stream
   ##
 
   test "the chunk partial preserves newlines exactly" do
@@ -220,12 +222,16 @@ class AppInstallJobTest < ActiveSupport::TestCase
     vc = ApplicationController.new.view_context
 
     assert_equal "<span class=\"install-log-chunk\">a\nb</span>\n",
-                 vc.render(partial: "app_installs/log_chunk", locals: { text: "a\nb" })
+                 vc.render(partial: "app_jobs/log_chunk", locals: { text: "a\nb" })
   end
 
-  test "the stream name is scoped to the job" do
-    # Two installs running at once must not broadcast into each other's dialog.
-    assert_equal "app_install:install-1", AppInstallJob.stream_name("install-1")
-    refute_equal AppInstallJob.stream_name("install-1"), AppInstallJob.stream_name("install-2")
+  test "log lines are broadcast to the JOB's own stream, not the app's" do
+    # Two installs running at once must not broadcast into each other's dialog, so the stream is
+    # the job id.
+    adapter = FakeAdapter.new(statuses: [ { state: "done" } ], chunks: { 0 => "out\n" })
+
+    streams = line_broadcasts(run_job(adapter, job_id: "install-42")).map { |_, stream, _| stream }
+
+    assert_equal [ "install-42" ], streams.uniq
   end
 end

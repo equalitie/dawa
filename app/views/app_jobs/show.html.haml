@@ -1,9 +1,7 @@
 = breadcrumbs do |bc|
   - bc.with_crumb { link_to t("apps.index.title"), apps_path }
-  -#
-    `@app` is nil when the backend was unreachable and `@job` is nil when the job is not
-    this app's, so both crumbs fall back to the ids from the URL.
-  - bc.with_crumb { link_to(@app&.domain.presence || params[:app_id], app_path(@app&.id || params[:app_id])) }
+  - bc.with_crumb { link_to_app(@app) }
+  - bc.with_crumb { link_to_app_jobs(@app) }
   - bc.with_crumb(active: true) { @job&.id || params[:id] }
 
 - if @error.present?

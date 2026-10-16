@@ -24,7 +24,7 @@ Rails.application.routes.draw do
   resources :apps, only: [ :index, :show, :update ] do
     # Jobs are nested bc they are only valid in context of an instance.
     # constraint is require for ":" chars in job id
-    resources :jobs, only: :show, controller: "app_jobs", constraints: { id: /[^\/]+/ }
+    resources :jobs, only: [:show, :index], controller: "app_jobs", constraints: { id: /[^\/]+/ }
 
     # Uninstalling: the confirmation page, then the removal itself. Confirming is typing the
     # instance name (see AppsController#destroy), so the removal has to be a form submission and

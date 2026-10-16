@@ -44,6 +44,17 @@ class ApplicationJob < ActiveJob::Base
     )
   end
 
+  def stream_prepend_to(stream_name, target:, content: nil, partial: nil, locals: nil)
+    Turbo::StreamsChannel.broadcast_action_to(
+      stream_name,
+      action: :prepend,
+      target: target,
+      content: content,
+      partial: partial,
+      locals: locals
+    )
+  end
+
   def stream_replace_to(stream_name, target:, content: nil, partial: nil, locals: nil)
     Turbo::StreamsChannel.broadcast_action_to(
       stream_name,

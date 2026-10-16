@@ -173,7 +173,7 @@ class AppInstallsControllerTest < ActionDispatch::IntegrationTest
         AppInstallJob.singleton_class.send(:remove_method, :perform_later)
       end
 
-      assert_equal [ [ "install-9", "peertube-zebu" ] ], enqueued
+      assert_equal [ [ { job_id: "install-9", app_id: "peertube-zebu" } ] ], enqueued
     end
   end
 
@@ -188,10 +188,11 @@ class AppInstallsControllerTest < ActionDispatch::IntegrationTest
       end
 
       assert_response :success
-      # The subscription, and the two elements the job broadcasts into.
+      # The subscription, and the two elements the job broadcasts into. The log pane is
+      # `#job-lines` (the job's own stream target name), not the old `#install-log`.
       assert_match(/turbo-cable-stream-source/, response.body)
-      assert_select "#install-log"
-      assert_select "#install-status"
+      assert_select "#job-lines"
+      assert_select "#job-status"
     end
   end
 

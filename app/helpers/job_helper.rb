@@ -1,15 +1,12 @@
 module JobHelper
   #
-  # Columns for the job tables on the app show page.
-  #
-  # Type and Started are hidden below md/lg so the tables stay readable on a phone; the
-  # state badge and outcome are what a narrow screen needs most.
+  # Columns for the job table on the app show page.
   #
   def job_columns
     [
-      [ :grow, :nowrap, t("jobs.type") ],
-      [ :shrink, t("jobs.state_label") ],
       [ :shrink, :hide_sm, :nowrap, t("jobs.started") ],
+      [ :shrink, :nowrap, t("jobs.state_label") ],
+      [ :grow, t("jobs.action") ],
       [ :grow, t("jobs.outcome") ]
     ]
   end

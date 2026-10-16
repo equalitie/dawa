@@ -1,0 +1,5 @@
+-# locals: (jobs:, app: @app)
+#app-jobs-list
+  = v.table(title: t("jobs.title"), columns: job_columns) do |t|
+    - jobs.each do |job|
+      = render "app_jobs/job_row", job: job, app: app

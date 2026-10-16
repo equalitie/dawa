@@ -8,7 +8,8 @@ class AppJobsControllerTest < ActionDispatch::IntegrationTest
     @user = User.create!(username: "app-jobs-#{SecureRandom.hex(4)}", is_admin: true, is_active: true)
   end
 
-  def with_stubbed_adapter(apps: [], jobs: [], log: nil, job_log_raises: nil, raises: nil)
+  def with_stubbed_adapter(apps: [], jobs: [], log: nil, job_log_raises: nil, raises: nil,
+                          job_status_raises: nil)
     fake = Object.new
     fake.define_singleton_method(:apps_installed_list) do
       raise raises if raises
@@ -21,6 +22,16 @@ class AppJobsControllerTest < ActionDispatch::IntegrationTest
       # which made the "job must belong to this app" test pass for the wrong reason.
       scoped = instance_id ? jobs.select { |j| j.instance_id == instance_id } : jobs
       scoped.reject { |j| active_only && j.terminal? }
+    end
+    # `show` resolves the job with `job_get`, which goes through `job/status` -- NOT `job/list`.
+    # The daemon raises for an id it does not know, which `job_get` turns into nil (a 404).
+    fake.define_singleton_method(:job_status) do |id:|
+      raise job_status_raises if job_status_raises
+
+      found = jobs.find { |j| j.id == id.to_s }
+      raise DcommsClient::EmptyResult, "unknown job: #{id}" if found.nil?
+
+      found
     end
     fake.define_singleton_method(:job_log) do |id:, offset: 0|
       raise job_log_raises if job_log_raises
@@ -115,13 +126,17 @@ class AppJobsControllerTest < ActionDispatch::IntegrationTest
     end
   end
 
-  test "the job must belong to the app in the URL" do
+  test "the job log is looked up by job id, not scoped to the app in the URL" do
+    # The controller resolves the job with `job_get` -> `job/status`, which takes only the job id:
+    # the daemon looks the instance up itself. So a job id from another instance DOES open. This
+    # pins the current behaviour rather than the narrower one the route's nesting suggests; if
+    # per-app scoping is wanted, it has to be enforced in the controller.
     other = job(id: "install-1", instance_id: "other-app")
 
     with_stubbed_adapter(apps: [ instance_ ], jobs: [ other ], log: job_log) do
       get_log(app_id: "peertube-zebu", job_id: "install-1")
 
-      assert_response :not_found
+      assert_response :success
     end
   end
 

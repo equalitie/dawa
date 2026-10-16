@@ -14,24 +14,11 @@
   = v.controller("stream-ready") do
     = render "apps/box", app: @app
 
-  %h4= t("jobs.active")
+  = v.flex_bar do |bar|
+    - bar.shrink do
+      %h4.m-0= t("jobs.title")
+    - if @show_more_jobs
+      - bar.grow do
+        = link_to t("nav.view_all"), app_jobs_path(@app.id)
 
-  - if @active_jobs.any?
-    = v.table(t("jobs.active")) do |t|
-      - t.columns job_columns
-      - @active_jobs.each do |job|
-        = t.v.job_row(job, @app)
-  - else
-    = v.alert("info", icon: "info-circle") do
-      %p= t("jobs.no_active")
-
-  %h4= t("jobs.past")
-
-  - if @past_jobs.any?
-    = v.table(t("jobs.past")) do |t|
-      - t.columns job_columns
-      - @past_jobs.each do |job|
-        = t.v.job_row(job, @app)
-  - else
-    = v.alert("info", icon: "info-circle") do
-      %p= t("jobs.no_past")
+  = render "app_jobs/jobs_list", jobs: @jobs

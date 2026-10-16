@@ -1,36 +1,18 @@
--#
-  The install progress dialog, shown immediately after `inst/install` returns.
-
-  The job streams into two targets inside the body:
-    #install-log     -- appended to as output arrives
-    #install-status  -- replaced when the job reaches a terminal state
-
-  `turbo_stream_from` subscribes this dialog to the job's stream. It is inside the modal body
-  rather than the layout because the subscription is only wanted while this dialog is open;
-  when it is dismissed the element is removed and the client unsubscribes.
-
-  `close_button: false` suppresses the modal's own footer button so the footer's Close is the
-  single documented way out. Close always goes to the app's show page, whether or not the job
-  has finished; the job continues in the background either way.
-
+-# The install progress dialog, shown immediately after `inst/install` returns.
 = turbo_stream.update("modal-frame") do
   = v.modal(t("app_installs.progress_title"), size: "lg", close_button: false) do |modal|
-    = turbo_stream_from AppInstallJob.stream_name(@install.job_id)
+    = turbo_stream_from @job_id
 
     %dl.row.small.mb-3
       %dt.col-4.col-md-3.text-muted= t("apps.name")
-      %dd.col-8.col-md-9= @install.instance_id
+      %dd.col-8.col-md-9= @app_id
       %dt.col-4.col-md-3.text-muted= t("jobs.state_label")
       %dd.col-8.col-md-9
-        = render "app_installs/status", outcome: :running, message: nil
+        = render "app_jobs/status", outcome: :running, message: nil
 
-    -#
-      The pane the job appends to. It starts with a prompt so an empty log does not read as a
-      broken feed; the first appended chunk will not remove it (append, not replace), so it
-      simply scrolls out of view.
-    %pre.mb-3.install-log{id: "install-log"}
+    %pre.mb-3.install-log{id: "job-lines"}
       .text-muted= t("app_installs.awaiting_output")
 
     .btn-toolbar
       = v.link_button(label: t("app_installs.close"), icon: "arrow-right",
-                      url: app_path(@install.instance_id), color: "primary", fill: true)
+                      url: app_path(@app_id), color: "primary", fill: true)

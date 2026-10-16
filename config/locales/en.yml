@@ -60,6 +60,7 @@ en:
   attr:
     color: "Color"
     highlight_color: "Highlight Color"
+
   nav:
     next: "Next"
     prev: "Prev"
@@ -84,6 +85,7 @@ en:
     no: "No"
     yes: "Yes"
     none: "None"
+    view_all: "View All"
   notice:
     saved: "Changes Saved"
     created: "Record Created"
@@ -170,27 +172,22 @@ en:
       title: "Apps"
       empty: "No apps are installed yet."
     status:
+      # actual statuses
       running: "Running"
       stopped: "Stopped"
-      # The daemon sends an empty status when it cannot reach docker compose, which is
-      # "we do not know", not "stopped".
-      unknown: "Unknown"
-    # The catalog entry an instance was created from (the appdef id).
-    app: "App"
-    catalog_entry: "Catalog entry"
-
-    #
-    # Starting and stopping an instance. The buttons are driven by `inst/list`'s reported state, so
-    # the labels are the commands, and the in-flight labels are Dawa's own words for "a command is
-    # running" rather than a state the backend reported.
-    #
-    state:
+      # synthetic & buttons
       start: "Start"
       stop: "Stop"
       restart: "Restart"
       starting: "Starting"
       stopping: "Stopping"
       restarting: "Restarting"
+      unknown: "Unknown"
+    # The catalog entry an instance was created from (the appdef id).
+    app: "App"
+    catalog_entry: "Catalog entry"
+
+    state:
       # Shown when a command finishes for an instance `inst/list` no longer reports: someone removed
       # it while the command ran, so there is no state left to describe.
       gone: "%{name} is no longer reported by dcommsctl, so its state is unknown."
@@ -266,12 +263,13 @@ en:
     entry_missing: "This catalog entry could not be loaded."
 
   jobs:
-    active: "Active Jobs"
-    past: "Past Jobs"
-    no_active: "No jobs are running for this app."
-    no_past: "No jobs have been run for this app yet."
+    title: "Jobs"
+    none: "No jobs have been run for this app yet."
+    # Shown when the list is capped; the count is the TOTAL, so the operator knows how many
+    # there are before deciding to open the full list.
+    show_all: "Show all %{count} jobs"
     # table columns
-    type: "Type"
+    action: "Action"
     state_label: "State"
     started: "Started"
     outcome: "Outcome"
@@ -305,6 +303,7 @@ en:
     log_empty_finished: "This job produced no output."
     log_more: "Showing the first chunk of output; more follows."
     log_complete: "End of log."
+
   users:
     active: "Active"
     inactive: "Disabled"

@@ -1,0 +1,10 @@
+-# locals: (outcome:, message: nil)
+- outcome_colors = { running: "info", succeeded: "success", failed: "danger", timeout: "warning" }
+
+%span.badge.rounded-pill{id: "job-status", class: "text-bg-#{outcome_colors.fetch(outcome, 'secondary')}"}
+  = t("jobs.install.#{outcome}")
+
+- if message.present?
+  .small.text-danger.mt-2= message
+- elsif outcome == :timeout
+  .small.text-muted.mt-2= t("jobs.install.timeout_hint")

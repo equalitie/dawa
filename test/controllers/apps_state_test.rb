@@ -117,7 +117,7 @@ class AppsStateTest < ActionDispatch::IntegrationTest
     with_stubbed_adapter(apps: [ instance_(status: "running") ]) do
       enqueued = with_recorded_job_enqueue { send_command("restart") }
 
-      assert_equal [ [ "restart-job-1", "peertube-zebu", "restart" ] ], enqueued
+      assert_equal [ [ { job_id: "restart-job-1", app_id: "peertube-zebu", command: "restart" } ] ], enqueued
     end
   end
 
@@ -125,11 +125,11 @@ class AppsStateTest < ActionDispatch::IntegrationTest
     with_stubbed_adapter(apps: [ instance_(status: "running") ]) do
       with_recorded_job_enqueue { send_command("restart") }
 
-      assert_match(/target="app-box-peertube-zebu"/, response.body)
+      assert_match(/target="app-box"/, response.body)
       assert_select "body", text: /Restarting/
-      # The in-flight branch renders a single disabled button, so the other commands cannot be sent
-      # while the restart holds the instance's lock.
-      assert_select "button[disabled]", count: 1
+      # Only the restart button spins: the other two are present but disabled.
+      assert_select "button[disabled]", count: 3
+      assert_select "button:not([disabled])", count: 0
     end
   end
 
@@ -140,7 +140,7 @@ class AppsStateTest < ActionDispatch::IntegrationTest
     with_stubbed_adapter(apps: [ instance_ ]) do
       enqueued = with_recorded_job_enqueue { send_command("start") }
 
-      assert_equal [ [ "start-job-1", "peertube-zebu", "start" ] ], enqueued
+      assert_equal [ [ { job_id: "start-job-1", app_id: "peertube-zebu", command: "start" } ] ], enqueued
     end
   end
 
@@ -150,7 +150,7 @@ class AppsStateTest < ActionDispatch::IntegrationTest
     with_stubbed_adapter(apps: [ instance_ ]) do
       with_recorded_job_enqueue { send_command("start") }
 
-      assert_match(/turbo-stream action="replace" target="app-box-peertube-zebu"/, response.body)
+      assert_match(/turbo-stream action="replace" target="app-box"/, response.body)
       assert_select "body", text: /Starting/
     end
   end
@@ -201,7 +201,7 @@ class AppsStateTest < ActionDispatch::IntegrationTest
       send_command("start")
 
       assert_response :success
-      assert_match(/target="app-box-peertube-zebu"/, response.body)
+      assert_match(/target="app-box"/, response.body)
       assert_select "body", text: /The job is in progress/
       # The buttons are still there, so the user can retry once the lock frees.
       assert_select "button[form]", text: /Start/

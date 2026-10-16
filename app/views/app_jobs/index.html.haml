@@ -1,0 +1,6 @@
+= breadcrumbs do |bc|
+  - bc.with_crumb { link_to t("apps.index.title"), apps_path }
+  - bc.with_crumb { link_to_app(@app) }
+  - bc.with_crumb(active: true) { t("jobs.title") }
+
+= render "app_jobs/jobs_list", jobs: @jobs
