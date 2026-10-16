@@ -3,11 +3,11 @@ name: dawa_demo
 services:
   dawa:
     image: dawa
-    container_name: dawa
     ports:
       - "127.0.0.1:3000:3000"
     labels:
-      - "dc_app=internal"
+      - "dc_internal=true"
+      - "dc_app=dawa"
     expose:
       - 3000
     environment:
@@ -40,9 +40,8 @@ services:
   # For rootless with podman, see: https://github.com/linuxserver/docker-socket-proxy
   docker-proxy:
     image: lscr.io/linuxserver/socket-proxy:latest
-    container_name: docker-proxy
     labels:
-      - "dc_app=internal"
+      - "dc_internal=true"
     expose:
       - 2375
     environment:
@@ -73,7 +72,7 @@ services:
     image: lifailon/logporter:latest
     container_name: logporter
     labels:
-      - "dc_app=internal"
+      - "dc_internal=true"
     restart: always
     expose:
       - 9333
@@ -90,7 +89,8 @@ services:
     image: victoriametrics/victoria-metrics:latest
     container_name: victoriametrics
     labels:
-      - "dc_app=internal"
+      - "dc_internal=true"
+      - "dc_app=metrics"
     restart: unless-stopped
     expose:
       - 8428
@@ -123,7 +123,8 @@ services:
     image: timberio/vector:latest-debian
     container_name: vector
     labels:
-      - "dc_app=internal"
+      - "dc_internal=true"
+      - "dc_app=metrics"
     volumes:
       - ./vector.yml:/etc/vector/vector.yaml:ro
       # To access Docker logs
@@ -160,7 +161,8 @@ services:
     image: victoriametrics/victoria-logs:latest
     container_name: victorialogs
     labels:
-      - "dc_app=internal"
+      - "dc_internal=true"
+      - "dc_app=metrics"
     expose:
       - 9428
     volumes:

@@ -11,9 +11,8 @@ services:
   # For rootless with podman, see: https://github.com/linuxserver/docker-socket-proxy
   docker-proxy:
     image: lscr.io/linuxserver/socket-proxy:latest
-    container_name: docker-proxy
     labels:
-      - "dc_app=internal"
+      - "dc_internal=true"
     expose:
       - 2375
     environment:
@@ -42,9 +41,9 @@ services:
   # exports container metrics with support for labels
   logporter:
     image: lifailon/logporter:latest
-    container_name: logporter
     labels:
-      - "dc_app=internal"
+      - "dc_internal=true"
+      - "dc_app=metrics"
     restart: always
     expose:
       - 9333
@@ -52,16 +51,16 @@ services:
       LOG_LEVEL: info
       DOCKER_HOST: tcp://docker-proxy:2375
       DOCKER_METRICS_PORT: 9333
-      DOCKER_METRICS_CUSTOM_LABELS: "dc_app,dc_version,dc_inst,dc_env"
+      DOCKER_METRICS_CUSTOM_LABELS: "dc_app,dc_version,dc_inst,dc_internal"
     depends_on:
       - docker-proxy
 
   # time series metrics database
   victoriametrics:
     image: victoriametrics/victoria-metrics:latest
-    container_name: victoriametrics
     labels:
-      - "dc_app=internal"
+      - "dc_internal=true"
+      - "dc_app=metrics"
     restart: unless-stopped
     #extra_hosts:
     #  host.docker.internal: host-gateway # allow access to host's ip
@@ -96,9 +95,9 @@ services:
     # The Debian-based image ships with journalctl, which Vector's
     # journald source requires (the *-distroless-static image does not include journalctl).
     image: timberio/vector:latest-debian
-    container_name: vector
     labels:
-      - "dc_app=internal"
+      - "dc_internal=true"
+      - "dc_app=metrics"
     volumes:
       - ./vector.yml:/etc/vector/vector.yaml:ro
       # To access Docker logs
@@ -133,9 +132,9 @@ services:
   # centralized log database
   victorialogs:
     image: victoriametrics/victoria-logs:latest
-    container_name: victorialogs
     labels:
-      - "dc_app=internal"
+      - "dc_internal=true"
+      - "dc_app=metrics"
     expose:
       - 9428
     ports:
