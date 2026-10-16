@@ -19,16 +19,20 @@ class StateBadgeComponent < ApplicationComponent
 
   def initialize(object = nil, field: nil, map: nil, **args)
     super(**args)
-    field_map       = HashWithIndifferentAccess.new(map || self.class.map)
-    if object
-      object_field    = field || self.class.field
-      field_value     = object&.send(object_field)&.to_s
+    field_map = HashWithIndifferentAccess.new(map || self.class.map)
+    if self.respond_to?(:field_value)
+      value = field_value(object)
+    elsif object
+      object_field = field || self.class.field
+      value = object&.send(object_field)&.to_s
+    else
+      value = nil
     end
-    color_n_label = [ field_map[field_value] ].flatten.compact
+    color_n_label = [ field_map[value] ].flatten.compact
     if color_n_label.any?
       if color_n_label.length == 1
         @badge_state_class = "text-bg-primary"
-        @badge_state_label = field_value
+        @badge_state_label = value
       else
         @badge_state_class = "text-bg-" + color_n_label.first
         @badge_state_label = color_n_label.last

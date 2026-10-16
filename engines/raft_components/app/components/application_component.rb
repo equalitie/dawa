@@ -164,7 +164,7 @@ class ApplicationComponent < ViewComponent::Base
   end
 
   def component_context
-    @factory.component_context
+    @factory&.component_context
   end
 
   protected

@@ -38,7 +38,7 @@ module RaftComponents
     end
 
     def component_context
-      @args[:component_context]
+      @args&.fetch(:component_context)
     end
 
     def method_missing(component_name, *args, **named_args, &block)

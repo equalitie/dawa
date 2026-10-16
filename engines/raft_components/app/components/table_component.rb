@@ -21,16 +21,6 @@ class TableComponent < TableBaseComponent
   eager_content
 
   haml_template <<~HAML
-    -#
-      @data carries `data:` attributes (Stimulus targets/actions); @html carries raw
-      attributes (id, style, data-*). `class` is excluded from the splat because
-      table_classes already merges it, and duplicating the key would override the computed
-      table classes.
-      Rows live in a real <tbody>. Browsers synthesize one anyway, but being explicit gives
-      a valid insertion point for rows added by script: prepending to <table> would place a
-      row before the header row, and the parser would hoist it out of the table entirely.
-      @body_data lands on that <tbody>, so a script appending rows can target the row
-      container rather than the table.
     %table{class: table_classes, data: @data, **@html.except("class")}
       - if column_labels?
         %thead
@@ -38,7 +28,8 @@ class TableComponent < TableBaseComponent
             - columns_definition.each do |column|
               %th{class: column[:class]}
                 = column[:label]
-      %tbody{data: @body_data}
+      - body_attrs = @body_id.present? ? { id: @body_id, data: @body_data } : { data: @body_data }
+      %tbody{**body_attrs}
         - if rows?
           - rows.each do |row|
             = row
@@ -53,11 +44,12 @@ class TableComponent < TableBaseComponent
                 = t("components.none")
   HAML
 
-  def initialize(label = nil, hover: true, centered: true, body_data: {}, **kwargs)
+  def initialize(label = nil, hover: true, centered: true, body_data: {}, body_id: nil, **kwargs)
     @hover = hover
     @label = label
     @centered = centered
     @body_data = body_data
+    @body_id = body_id
     super(**kwargs)
   end
 

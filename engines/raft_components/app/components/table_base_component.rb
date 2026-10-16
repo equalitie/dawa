@@ -2,9 +2,28 @@
 # abstract superclass of table components
 #
 class TableBaseComponent < ApplicationComponent
-  attr_accessor :columns_definition, :hover
+  attr_accessor :hover
 
-  def columns(array)
+  def initialize(columns: nil, **kwargs)
+    if columns
+      self.define_columns(columns)
+    end
+    super(**kwargs)
+  end
+
+  # use either the explicitly set columns definition or attempt to grab
+  # a valid one from the component's parent or component context.
+  def columns_definition
+    @columns_definition ||
+    parent&.columns_definition&.presence ||
+    component_context&.columns_definition
+  end
+
+  def columns_definition=(coldef)
+    @columns_definition = coldef
+  end
+
+  def define_columns(array)
     array.each do |col|
       column(*col)
     end
