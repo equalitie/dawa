@@ -1,6 +1,5 @@
 - d(container, "Container") # init decorator
-= v.table_row(id: "container-row-#{container.id}") do |r|
-  - r.columns container_columns
+= v.table_row(id: "container-row-#{container.id}", columns: container_columns) do |r|
   - r.with_cell do
     = d(container).state_badge
   - r.with_cell do

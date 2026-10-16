@@ -5,7 +5,6 @@
 - if defined?(@error) && @error
   .alert.alert-danger= @error
 
-= v.table do |t|
-  - t.columns container_columns
+= v.table(columns: container_columns) do |t|
   - @containers.each do |container|
     = render "row", container: container

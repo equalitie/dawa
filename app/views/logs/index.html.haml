@@ -88,11 +88,11 @@
       The refresh target goes on the <tbody>, not the <table>: rows must be inserted into
       the row container. Prepending to the table would put a row before the header and the
       parser would hoist it out of the table.
-    = v.table(t(".title"), body_data: {"logs-explorer-target": "rows"}) do |t|
-      -#
-        Column order comes from the catalog. An unlabelled column (severity) still needs its
-        header cell, so the stripe keeps its place; it just carries no text. The list lives in
-        `logs_table_columns` so the refresh endpoint can derive the same row classes from it.
-      - logs_table_columns(t)
+
+      Column order comes from `logs_table_columns`, passed to the constructor. An unlabelled
+      column (severity) still needs its header cell, so the stripe keeps its place; it just
+      carries no text.
+    = v.table(t(".title"), columns: logs_table_columns,
+      body_data: {"logs-explorer-target": "rows"}) do |t|
       - @logs.each do |record|
         = render "logs/row", record: record
