@@ -15,6 +15,9 @@ class MetricsController < BaseAdminController
     @metrics_poll_interval_ms = helpers.metrics_historical_interval_ms
   end
 
+  #
+  # this is the JSON chart data response polled by the charts stimulus controller
+  #
   def data
     window = params[:window] || "day"
     # Query the most recent grid-aligned window (advancing with real time), so the newest
@@ -23,12 +26,23 @@ class MetricsController < BaseAdminController
     start_time, end_time = helpers.metrics_query_bounds(window)
     render json: {
       points: helpers.metrics_points(
-        keys: HOST_CHARTS,
+        keys: requested_chart_keys,
         window_token: window,
         start_time: start_time,
         end_time: end_time,
         step: helpers.metrics_historical_step(window)
       )
     }
+  end
+
+  private
+
+  #
+  # The chart keys the client asked for, filtered to the ones this dashboard knows.
+  #
+  def requested_chart_keys
+    requested = Array(params[:charts]).map(&:to_s).map(&:strip).reject(&:empty?)
+    allowed = HOST_CHARTS & requested
+    allowed.presence || HOST_CHARTS
   end
 end

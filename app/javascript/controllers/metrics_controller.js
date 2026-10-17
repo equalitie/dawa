@@ -21,6 +21,20 @@ import VegaChartsController from "controllers/vega_charts_controller";
 //   </div>
 //
 export default class extends VegaChartsController {
+  //
+  // Ask only for the charts this page rendered (passed to the stimulus controller as `data-chart-key`)
+  //
+  pollUrl() {
+    const keys = this.chartKeys();
+    if (!keys.length) return this.urlValue;
+
+    const url = new URL(this.urlValue, window.location.origin);
+    // Repeated `charts[]=a&charts[]=b`: Rails parses that as an array without needing JSON.
+    url.searchParams.delete("charts[]");
+    keys.forEach((key) => url.searchParams.append("charts[]", key));
+    return url.toString();
+  }
+
   handleData(data) {
     const points = data.points || {};
     Object.entries(points).forEach(([key, rows]) => {

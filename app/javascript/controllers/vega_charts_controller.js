@@ -84,7 +84,7 @@ export default class extends Controller {
     const controller = new AbortController();
     this.abortController = controller;
     try {
-      const res = await fetch(this.urlValue, {
+      const res = await fetch(this.pollUrl(), {
         headers: { Accept: "application/json" },
         signal: controller.signal,
       });
@@ -98,6 +98,24 @@ export default class extends Controller {
       this.polling = false;
       if (this.abortController === controller) this.abortController = null;
     }
+  }
+
+  //
+  // The URL to poll. Can be overridden.
+  //
+  pollUrl() {
+    return this.urlValue;
+  }
+
+  //
+  // The chart keys this instance is rendering, in DOM order.
+  //
+  // Take `data-chart-key` on each chart target to determine which charts to grab data for.
+  //
+  chartKeys() {
+    return this.chartTargets
+      .map((el) => el.dataset.chartKey)
+      .filter((key) => key);
   }
 
   //

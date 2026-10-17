@@ -40,7 +40,7 @@ class MetricsControllerTest < ActionDispatch::IntegrationTest
     get metrics_path
 
     assert_response :success
-    expected = MetricsController::DASHBOARD_CHARTS.size
+    expected = MetricsController::HOST_CHARTS.size
     assert_select ".chart", count: expected
     assert_select '[data-metrics-target="chart"]', count: expected
   end
@@ -51,7 +51,7 @@ class MetricsControllerTest < ActionDispatch::IntegrationTest
     login_as(@user)
     get metrics_path
 
-    MetricsController::DASHBOARD_CHARTS.each do |key|
+    MetricsController::HOST_CHARTS.each do |key|
       assert_select "[data-chart-key=?]", key
     end
   end
@@ -63,6 +63,72 @@ class MetricsControllerTest < ActionDispatch::IntegrationTest
     assert_redirected_to login_path
   end
 
+  test "data queries only the charts the client asked for" do
+    # The page sends the keys it rendered (`data-chart-key`), so the endpoint does not have to
+    # guess and does not query charts nobody is looking at.
+    recorded = []
+    with_stubbed_service(record: recorded) do
+      login_as(@user)
+      get data_metrics_path(charts: [ "host_memory" ]), headers: { "Accept" => "application/json" }
+
+      assert_response :success
+      assert_equal [ "host_memory" ], JSON.parse(response.body).fetch("points").keys
+    end
+
+    assert recorded.any?
+    recorded.each { |call| assert_match(/host_memory/, call[:query], "only the requested chart is queried") }
+  end
+
+  test "data accepts the array parameter the browser sends" do
+    # `charts[]=a&charts[]=b`, which Rails parses into an array.
+    with_stubbed_service do
+      login_as(@user)
+      get data_metrics_path(charts: [ "host_cpu", "host_disk" ]),
+          headers: { "Accept" => "application/json" }
+
+      assert_response :success
+      assert_equal %w[host_cpu host_disk], JSON.parse(response.body).fetch("points").keys
+    end
+  end
+
+  test "data drops chart keys this dashboard does not know" do
+    # The parameter comes from the browser, so unknown keys must not reach the query builder.
+    recorded = []
+    with_stubbed_service(record: recorded) do
+      login_as(@user)
+      get data_metrics_path(charts: [ "host_cpu", "no_such_chart", "../../etc/passwd" ]),
+          headers: { "Accept" => "application/json" }
+
+      assert_response :success
+      assert_equal [ "host_cpu" ], JSON.parse(response.body).fetch("points").keys
+    end
+
+    recorded.each { |call| assert_match(/host_cpu/, call[:query]) }
+  end
+
+  test "data falls back to every dashboard chart when no keys are given" do
+    # A direct request, or a client that predates the parameter: the previous behaviour.
+    with_stubbed_service do
+      login_as(@user)
+      get data_metrics_path, headers: { "Accept" => "application/json" }
+
+      assert_equal MetricsController::HOST_CHARTS.sort,
+                   JSON.parse(response.body).fetch("points").keys.sort
+    end
+  end
+
+  test "data falls back to the dashboard list when every requested key is unknown" do
+    # An empty allowlist is not a reason to return nothing: the caller gets the full dashboard
+    # rather than a permanently blank page.
+    with_stubbed_service do
+      login_as(@user)
+      get data_metrics_path(charts: [ "nope" ]), headers: { "Accept" => "application/json" }
+
+      assert_equal MetricsController::HOST_CHARTS.sort,
+                   JSON.parse(response.body).fetch("points").keys.sort
+    end
+  end
+
   test "data returns rows for exactly the dashboard's charts" do
     with_stubbed_service do
       login_as(@user)
@@ -72,7 +138,7 @@ class MetricsControllerTest < ActionDispatch::IntegrationTest
       body = JSON.parse(response.body)
 
       # Not every definition in the catalogue: only the charts `show` actually rendered.
-      assert_equal MetricsController::DASHBOARD_CHARTS.sort, body.fetch("points").keys.sort
+      assert_equal MetricsController::HOST_CHARTS.sort, body.fetch("points").keys.sort
     end
   end
 
@@ -106,9 +172,9 @@ class MetricsControllerTest < ActionDispatch::IntegrationTest
     end
   end
 
-  test "data queries only the charts it was asked for" do
-    # The expensive calls are the per-chart range queries, so the endpoint must not query charts
-    # nobody rendered. Four definitions exist; the dashboard asks for two.
+  test "a request without keys queries every dashboard chart" do
+    # The expensive calls are the per-chart range queries. With no `charts` parameter the endpoint
+    # cannot know what is on screen, so it queries the whole dashboard -- every chart's query runs.
     recorded = []
     with_stubbed_service(record: recorded) do
       login_as(@user)
@@ -116,12 +182,12 @@ class MetricsControllerTest < ActionDispatch::IntegrationTest
       assert_response :success
     end
 
-    # host_cpu issues one query per series; host_memory one per series. Nothing for disk/network.
     assert recorded.any?
-    recorded.each do |call|
-      assert_match(/host_(cpu|memory)/, call[:query])
-      refute_match(/host_network|host_filesystem/, call[:query])
-    end
+    # One query family per chart definition, so all four appear in the captured queries.
+    assert recorded.any? { |call| call[:query].include?("host_cpu_seconds_total") }, "cpu"
+    assert recorded.any? { |call| call[:query].include?("host_memory") }, "memory"
+    assert recorded.any? { |call| call[:query].include?("host_filesystem") }, "disk"
+    assert recorded.any? { |call| call[:query].include?("host_network") }, "network"
   end
 
   test "data defaults to the 24 hour day window at a 5 minute step" do
