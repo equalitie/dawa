@@ -6,10 +6,12 @@
 # from VictoriaMetrics via the VictoriaMetrics service.
 #
 class MetricsController < BaseAdminController
+  HOST_CHARTS = %w[host_cpu host_memory host_disk host_network].freeze
+
   def show
     params[:window] ||= "day"
     @window = params[:window]
-    @metrics_charts = helpers.metrics_charts(@window)
+    @metrics_charts = helpers.define_charts(keys: HOST_CHARTS, window: @window)
     @metrics_poll_interval_ms = helpers.metrics_historical_interval_ms
   end
 
@@ -21,6 +23,7 @@ class MetricsController < BaseAdminController
     start_time, end_time = helpers.metrics_query_bounds(window)
     render json: {
       points: helpers.metrics_points(
+        keys: HOST_CHARTS,
         window_token: window,
         start_time: start_time,
         end_time: end_time,

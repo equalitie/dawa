@@ -1,7 +1,7 @@
 #
 # Single source of truth for which log fields the UI knows about.
 #
-module LogsFieldCatalog
+module Logs::FieldCatalog
   # Default column order for the host log table. Order matters: it is the render order.
   #
   # `severity` is first because it renders as a narrow colour stripe rather than a labelled

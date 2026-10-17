@@ -2,15 +2,14 @@
 # Shared helpers for building Vega-Lite area chart specifications backed by a
 # single streaming "chartdata" dataset.
 #
-# Both container resource graphs (ContainerStatsHelper) and future
-# VictoriaMetrics host graphs reuse these builders, so chart output stays
-# consistent and data streaming (view.change("chartdata", changeset)) works the
-# same everywhere.
+# Both docker-backed and victoriametrics-backed graphs reuse these builders, so
+# chart output stays consistent and data streaming (view.change("chartdata",
+# changeset)) works the same everywhere.
 #
 # Charts are layered: an area mark for the trend, plus an invisible circle
 # layer that shows a tooltip with the data point's details on hover.
 #
-module VegaChartHelper
+module Metrics::VegaHelper
   #
   # Build a single-series area chart spec (one y value per point), e.g. CPU%.
   # Pass an optional vega.rb `transform` (calculate) to derive the y field, and

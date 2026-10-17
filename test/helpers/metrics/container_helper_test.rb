@@ -9,8 +9,8 @@ require "test_helper"
 # fields. Because the specs are built through the shared VegaChartHelper, this
 # also guards that shared refactor against drifting from the original output.
 #
-class ContainerStatsHelperTest < ActiveSupport::TestCase
-  include ContainerStatsHelper
+class Metrics::ContainerHelperTest < ActiveSupport::TestCase
+  include Metrics::ContainerHelper
 
   setup do
     @points = [

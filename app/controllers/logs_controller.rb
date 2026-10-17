@@ -10,10 +10,9 @@
 # escaping in one place, which is the whole reason Step 4 forbids LogsQL in JS.
 #
 class LogsController < BaseAdminController
-  # `LogsHelper` is the filter/page half; `LogsTableHelper` is the table half. The controller
-  # includes both because `data` builds each row through the same cell helpers the view uses.
-  include LogsHelper
-  include LogsTableHelper
+  include Logs::Helper
+  include Logs::TableHelper
+  helper Logs::Helper
 
   def index
     @filters = current_filters

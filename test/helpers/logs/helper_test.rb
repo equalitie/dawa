@@ -7,9 +7,9 @@ require "test_helper"
 # page helper (`log_row_cell` calls `log_context` / `log_source`) and the interesting cases
 # cross the boundary.
 #
-class LogsHelperTest < ActionView::TestCase
-  include LogsHelper
-  include LogsTableHelper
+class Logs::HelperTest < ActionView::TestCase
+  include Logs::Helper
+  include Logs::TableHelper
 
   def record
     {
@@ -128,8 +128,8 @@ class LogsHelperTest < ActionView::TestCase
 
     names.each do |name|
       hue = source_label_color(name)[/hsl\((\d+)/, 1].to_i
-      assert_operator hue, :>=, LogsHelper::SOURCE_HUE_MIN, "#{name} below the floor"
-      assert_operator hue, :<, LogsHelper::SOURCE_HUE_MIN + LogsHelper::SOURCE_HUE_SPAN,
+      assert_operator hue, :>=, Logs::Helper::SOURCE_HUE_MIN, "#{name} below the floor"
+      assert_operator hue, :<, Logs::Helper::SOURCE_HUE_MIN + Logs::Helper::SOURCE_HUE_SPAN,
                       "#{name} above the ceiling"
     end
   end
@@ -138,7 +138,7 @@ class LogsHelperTest < ActionView::TestCase
     # Only the hue varies. Varying brightness would read as meaning that is not there and
     # would make some labels harder to read than others.
     assert_equal "hsl(187 80% 80%)", source_label_color("sshd")
-    assert_match(/hsl\(\d+ #{LogsHelper::SOURCE_BADGE_SATURATION}% #{LogsHelper::SOURCE_BADGE_LIGHTNESS}%\)/,
+    assert_match(/hsl\(\d+ #{Logs::Helper::SOURCE_BADGE_SATURATION}% #{Logs::Helper::SOURCE_BADGE_LIGHTNESS}%\)/,
                  source_label_color("anything"))
   end
 

@@ -97,7 +97,7 @@ class LogsFiltersTest < ActiveSupport::TestCase
   end
 
   test "every filter term is accepted" do
-    LogsFieldCatalog::SEVERITY_FILTER_TERMS.each do |term|
+    Logs::FieldCatalog::SEVERITY_FILTER_TERMS.each do |term|
       assert_equal term, LogsFilters.new(severity: term).severity
     end
   end
@@ -105,7 +105,7 @@ class LogsFiltersTest < ActiveSupport::TestCase
   test "a group term expands to a union of its levels" do
     # `crit` covers crit/alert/emerg. The expansion lives in the catalog, so a change to the
     # grouping changes the query without touching this class.
-    assert_equal %w[crit alert emerg], LogsFieldCatalog.severity_levels_for("crit")
+    assert_equal %w[crit alert emerg], Logs::FieldCatalog.severity_levels_for("crit")
     assert_equal 'severity:"err"', LogsFilters.new(severity: "err").severity_filter
     assert_equal '(severity:"crit" OR severity:"alert" OR severity:"emerg")',
                  LogsFilters.new(severity: "crit").severity_filter

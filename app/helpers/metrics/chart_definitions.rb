@@ -1,12 +1,5 @@
 #
-# Graph Definitions
-#
-#   * HOST_CHARTS      -- metrics about the hypervisor host itself, exported by Vector's
-#                         host_metrics source. These are all tagged with the same single
-#                         host, so the PromQL no longer filters on an `instance` label.
-#
-#   * CONTAINER_CHARTS -- metrics about individual containers/services (from logporter /
-#                         docker metrics).
+# Chart Definitions
 #
 # Each chart definition is a Hash keyed by chart id:
 #
@@ -24,28 +17,16 @@
 #   Queries may interpolate %{range}, the per-window time-window over which each data
 #   point is aggregated (supplied from the WINDOW_RANGES mapping).
 #
-module MetricChartDefinitions
-  # window token (matches the UI tab and the controller param) => the duration over which
-  # a single graph point is averaged. Choosing the range equal to one sample-advance means
-  # consecutive points tile the window with no gaps, and roughly:
-  #
-  #   day(24h)/5m  = 288 pts
-  #   week(7d)/30m = 336 pts
-  #   month(30d)/2h = 360 pts
-  #   quarter(90d)/6h = 360 pts
-  #
-  WINDOW_RANGES = {
-    "day"     => "5m",
-    "week"    => "30m",
-    "month"   => "2h",
-    "quarter" => "6h"
-  }.freeze
+module Metrics::ChartDefinitions
+  def chart_definition(name)
+    CHARTS[name.to_s]
+  end
 
-  HOST_CHARTS = {
+  CHARTS = {
     # CPU busied per mode, stacked; every core's modes together add to ~100%. Each mode is its
     # own query, expressed as a share of total CPU time so the stack sums to ~100%. `range` is
     # applied inside each `rate(...)`.
-    "cpu" => {
+    "host_cpu" => {
       title: "CPU",
       kind: :series,
       color_field: "series",
@@ -72,7 +53,7 @@ module MetricChartDefinitions
     # Memory available + used, in GB. Stacked together they show the volume picture of
     # the machine's memory (available is roughly total minus used/caches at a given
     # instant, so the two don't sum exactly to installed RAM).
-    "memory" => {
+    "host_memory" => {
       title: "Memory",
       kind: :series,
       color_field: "series",
@@ -93,7 +74,7 @@ module MetricChartDefinitions
     },
 
     # Root filesystem: free + used, in GB. Stacked.
-    "disk" => {
+    "host_disk" => {
       title: "Disk",
       kind: :series,
       color_field: "series",
@@ -114,7 +95,7 @@ module MetricChartDefinitions
     },
 
     # Network throughput: ingress + egress stacked, in Mbit/s, skipping loopback/virtual.
-    "network" => {
+    "host_network" => {
       title: "Network",
       kind: :series,
       color_field: "series",
@@ -134,6 +115,4 @@ module MetricChartDefinitions
       ]
     }
   }.freeze
-
-  CONTAINER_CHARTS = {}.freeze
 end

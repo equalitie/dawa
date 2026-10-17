@@ -5,8 +5,8 @@ require "test_helper"
 # both container graphs and the future VictoriaMetrics host graphs are built
 # from; keeping them pinned here protects the reuse contract.
 #
-class VegaChartHelperTest < ActiveSupport::TestCase
-  include VegaChartHelper
+class Metrics::VegaHelperTest < ActiveSupport::TestCase
+  include Metrics::VegaHelper
 
   setup do
     @points = [ { time: 1_730_000_000_123, usage_mb: 12.5, up: 90.0, down: 10.0 } ]

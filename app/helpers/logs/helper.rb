@@ -1,4 +1,4 @@
-module LogsHelper
+module Logs::Helper
   #
   # Default range and the selectable windows now live in the field catalog / filters, so the
   # picker, the query builder, and the refresh endpoint cannot disagree about which windows

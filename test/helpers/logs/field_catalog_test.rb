@@ -14,9 +14,9 @@ require "test_helper"
 # would fail on every package update. What matters is that the catalog never lists a
 # field the deployment doesn't emit, and that the always-rendered fields are present.
 #
-class LogsFieldCatalogTest < ActiveSupport::TestCase
+class Logs::FieldCatalogTest < ActiveSupport::TestCase
   test "host fields are non-empty, ordered, and unique" do
-    fields = LogsFieldCatalog::HOST_FIELDS
+    fields = Logs::FieldCatalog::HOST_FIELDS
     assert fields.any?
     assert_equal fields.uniq, fields, "no duplicate fields in the catalog"
     assert_includes fields, :_time
@@ -24,23 +24,23 @@ class LogsFieldCatalogTest < ActiveSupport::TestCase
   end
 
   test "displayable? and filterable? agree with the catalog membership" do
-    assert LogsFieldCatalog.displayable?(:_time)
-    assert LogsFieldCatalog.displayable?("_msg")
-    assert LogsFieldCatalog.displayable?(:programname)
-    refute LogsFieldCatalog.displayable?(:host), "host is no longer a column (single-host)"
-    refute LogsFieldCatalog.displayable?(:dc_app), "container fields are Phase B"
+    assert Logs::FieldCatalog.displayable?(:_time)
+    assert Logs::FieldCatalog.displayable?("_msg")
+    assert Logs::FieldCatalog.displayable?(:programname)
+    refute Logs::FieldCatalog.displayable?(:host), "host is no longer a column (single-host)"
+    refute Logs::FieldCatalog.displayable?(:dc_app), "container fields are Phase B"
     # Filtering is a separate list: `host` is still filterable even though it is not displayed,
     # which is exactly why the two lists exist rather than one.
-    assert LogsFieldCatalog.filterable?(:host)
-    assert LogsFieldCatalog.filterable?(:programname)
-    assert LogsFieldCatalog.filterable?(:severity)
-    refute LogsFieldCatalog.filterable?(:_msg)
+    assert Logs::FieldCatalog.filterable?(:host)
+    assert Logs::FieldCatalog.filterable?(:programname)
+    assert Logs::FieldCatalog.filterable?(:severity)
+    refute Logs::FieldCatalog.filterable?(:_msg)
   end
 
   test "unknown tiers expose no fields" do
-    assert_equal [], LogsFieldCatalog.known(:bogus)
-    assert_equal [], LogsFieldCatalog.filterable(:bogus)
-    refute LogsFieldCatalog.displayable?(:_time, tier: :bogus)
+    assert_equal [], Logs::FieldCatalog.known(:bogus)
+    assert_equal [], Logs::FieldCatalog.filterable(:bogus)
+    refute Logs::FieldCatalog.displayable?(:_time, tier: :bogus)
   end
 
   ##
@@ -49,12 +49,12 @@ class LogsFieldCatalogTest < ActiveSupport::TestCase
 
   test "severity leads the columns" do
     # It renders as a colour stripe, so its value is the leftmost cue in the row.
-    assert_equal :severity, LogsFieldCatalog::HOST_FIELDS.first
+    assert_equal :severity, Logs::FieldCatalog::HOST_FIELDS.first
   end
 
   test "severity is the unlabelled column" do
-    assert LogsFieldCatalog.unlabelled?(:severity)
-    refute LogsFieldCatalog.unlabelled?(:_time)
+    assert Logs::FieldCatalog.unlabelled?(:severity)
+    refute Logs::FieldCatalog.unlabelled?(:_time)
   end
 
   test "every syslog level has a colour" do
@@ -62,7 +62,7 @@ class LogsFieldCatalogTest < ActiveSupport::TestCase
     # exactly these names. A missing mapping would render a neutral stripe, silently losing
     # the signal the column exists for.
     %w[emerg alert crit err warning notice info debug].each do |level|
-      assert LogsFieldCatalog.severity_color(level), "#{level} must map to a colour"
+      assert Logs::FieldCatalog.severity_color(level), "#{level} must map to a colour"
     end
   end
 
@@ -70,18 +70,18 @@ class LogsFieldCatalogTest < ActiveSupport::TestCase
     # crit/alert/emerg all render dark; err keeps danger. The distinction is what makes the
     # crit GROUP worth having -- if they shared a colour the grouping would be invisible.
     %w[emerg alert crit].each do |level|
-      assert_equal "dark", LogsFieldCatalog.severity_color(level)
+      assert_equal "dark", Logs::FieldCatalog.severity_color(level)
     end
-    assert_equal "danger", LogsFieldCatalog.severity_color("err")
+    assert_equal "danger", Logs::FieldCatalog.severity_color("err")
   end
 
   test "every filter term expands to at least one raw level" do
     # A term that covers nothing would produce a filter matching no record, which reads as
     # "no errors" rather than "you asked a bad question".
-    LogsFieldCatalog::SEVERITY_FILTERS.each do |term, levels|
+    Logs::FieldCatalog::SEVERITY_FILTERS.each do |term, levels|
       assert levels.any?, "#{term} must cover at least one level"
       levels.each do |level|
-        assert LogsFieldCatalog.severity_color(level),
+        assert Logs::FieldCatalog.severity_color(level),
                "#{term} covers #{level}, which must be a displayable level"
       end
     end
@@ -91,7 +91,7 @@ class LogsFieldCatalogTest < ActiveSupport::TestCase
     # The terms may group levels, but they may not invent them: each member has to be a name
     # `to_syslog_level` emits, or the filter would never match.
     emitted = %w[emerg alert crit err warning notice info debug]
-    LogsFieldCatalog::SEVERITY_FILTERS.each_value do |levels|
+    Logs::FieldCatalog::SEVERITY_FILTERS.each_value do |levels|
       levels.each do |level|
         assert_includes emitted, level, "#{level} is not a syslog level name"
       end
@@ -100,28 +100,28 @@ class LogsFieldCatalogTest < ActiveSupport::TestCase
 
   test "severity colours use bootstrap colour names" do
     valid = %w[primary secondary success danger warning info light dark]
-    LogsFieldCatalog::SEVERITY_COLORS.each_value do |colour|
+    Logs::FieldCatalog::SEVERITY_COLORS.each_value do |colour|
       assert_includes valid, colour
     end
   end
 
   test "the noisiest levels are the loudest colours" do
-    assert_equal "danger", LogsFieldCatalog.severity_color("err")
-    assert_equal "warning", LogsFieldCatalog.severity_color("warning")
-    assert_equal "secondary", LogsFieldCatalog.severity_color("debug")
+    assert_equal "danger", Logs::FieldCatalog.severity_color("err")
+    assert_equal "warning", Logs::FieldCatalog.severity_color("warning")
+    assert_equal "secondary", Logs::FieldCatalog.severity_color("debug")
   end
 
   test "an unknown or absent level has no colour" do
     # The view turns nil into a neutral stripe. It must not guess a severity.
-    assert_nil LogsFieldCatalog.severity_color(nil)
-    assert_nil LogsFieldCatalog.severity_color("")
-    assert_nil LogsFieldCatalog.severity_color("chatty")
+    assert_nil Logs::FieldCatalog.severity_color(nil)
+    assert_nil Logs::FieldCatalog.severity_color("")
+    assert_nil Logs::FieldCatalog.severity_color("chatty")
   end
 
   test "severity lookup is case and whitespace insensitive" do
-    assert_equal "danger", LogsFieldCatalog.severity_color("ERR")
-    assert_equal "danger", LogsFieldCatalog.severity_color("  err  ")
-    assert_equal "danger", LogsFieldCatalog.severity_color(:err)
+    assert_equal "danger", Logs::FieldCatalog.severity_color("ERR")
+    assert_equal "danger", Logs::FieldCatalog.severity_color("  err  ")
+    assert_equal "danger", Logs::FieldCatalog.severity_color(:err)
   end
 
   test "catalog fields are all emitted by live host logs" do
@@ -142,7 +142,7 @@ class LogsFieldCatalogTest < ActiveSupport::TestCase
     # and grows with whatever software is installed. Asserting it is a closed set
     # would fail on every package update. Those fields surface as "other" columns and
     # in the JSON view, which is the intended behaviour.
-    expected = LogsFieldCatalog::HOST_FIELDS.map(&:to_s) - LogsFieldCatalog::SYNTHETIC_FIELDS.map(&:to_s)
+    expected = Logs::FieldCatalog::HOST_FIELDS.map(&:to_s) - Logs::FieldCatalog::SYNTHETIC_FIELDS.map(&:to_s)
     unexpected_in_catalog = expected - fields
 
     assert_empty unexpected_in_catalog,

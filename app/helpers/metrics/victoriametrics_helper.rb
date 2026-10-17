@@ -1,39 +1,64 @@
 #
 # Builds chart specs and point rows for the VictoriaMetrics host dashboard. It turns the
-# pure graph definitions in MetricChartDefinitions into:
-#   * Vega chart specs rendered on page load (metrics_charts),
+# pure graph definitions in chart_definitions.rb into:
+#
+#   * Vega chart specs rendered on page load (define_charts),
 #   * per-chart point rows fetched on each poll (metrics_points).
 #
-# Chart/definitions live in MetricChartDefinitions (HOST_CHARTS / CONTAINER_CHARTS); this
-# module only handles turning a definition into a spec/query and a window token into query
-# granularity. Container charts are not implemented yet; this file keeps a hook for them.
 #
-module VictoriaMetricsHelper
-  include VegaChartHelper
-  include MetricChartDefinitions
+module Metrics::VictoriametricsHelper
+  include Metrics::ChartDefinitions
+  include Metrics::VegaHelper
 
   # Default window token shown when none is provided.
   DEFAULT_WINDOW = "day"
 
+  # window token => window range (aka the duration over which a single graph point is averaged)
   #
-  # Definitions to render on the metrics page: app-facing, merged host charts for now.
-  # Container charts will be added here once per-container metrics are wired in.
+  # Choosing the range equal to one sample-advance means
+  # consecutive points tile the window with no gaps, and roughly:
   #
-  def dashboard_charts
-    HOST_CHARTS
+  #   day(24h)/5m  = 288 pts
+  #   week(7d)/30m = 336 pts
+  #   month(30d)/2h = 360 pts
+  #   quarter(90d)/6h = 360 pts
+  #
+  WINDOW_RANGES = {
+    "day"     => "5m",
+    "week"    => "30m",
+    "month"   => "2h",
+    "quarter" => "6h"
+  }.freeze
+
+  def define_charts(keys:, window:)
+    keys.to_h {|key|
+      [ key, define_chart(key: key, window: window) ]
+    }.compact
   end
 
-  # Hash of chart key => Vega chart spec (empty data). The x-axis is NOT pinned: the active
-  # window's data is the whole requested range, so Vega derives the domain from whatever
-  # points we stream, which makes the axis creep forward as each poll returns a newer "now"
-  # (live dashboard). window_token selects both the time range and the per-point aggregation
-  # range for the queries this page will run.
-  def metrics_charts(window_token = DEFAULT_WINDOW)
-    token = normalize_window_token(window_token)
-    dashboard_charts.to_h { |key, defn|
-      [ key, metrics_chart_spec(key, defn, [], range: window_range(token)) ]
-    }
+  #
+  # key - chart definition key
+  # window - a window token (e.g. week)
+  #
+  def define_chart(key:, window:)
+    defn = chart_definition(key)
+    if defn
+      metrics_chart_spec(key, defn, [], range: window_range(window))
+    end
   end
+
+  #def host_charts
+  #  CHARTS.slice("host_cpu", "host_memory", "host_disk", "host_network")
+  #end
+
+  # returns hash of Chart key => Vega chart spec.
+  #
+  #def metrics_charts(window_token = DEFAULT_WINDOW)
+  #  token = normalize_window_token(window_token)
+  #  host_charts.to_h { |key, defn|
+  #    [ key, metrics_chart_spec(key, defn, [], range: window_range(token)) ]
+  #  }
+  #end
 
   # Millisecond-epoch x-domain [start, end] for the window denoted by window_token.
   # Both edges snap to the per-point sample grid (the window spans a whole number of
@@ -57,16 +82,26 @@ module VictoriaMetricsHelper
   end
 
   #
-  # Fetch point rows for every chart in the current window.
+  # Fetch point rows for every requested chart in the current window.
+  #
+  # `keys` is the same list the page passed to `define_charts`, so the endpoint queries exactly the
+  # charts that were rendered. Without it the endpoint has no way to know which charts exist: there
+  # is no "current dashboard" global, and querying every definition would spend the expensive
+  # VictoriaMetrics calls on charts nobody is looking at.
   #
   # @return [Hash<String, Array>] chart key => rows (like [{ "time" => ms, "value" => n }]).
   #
-  def metrics_points(window_token: DEFAULT_WINDOW, start_time:, end_time:, step: nil)
+  def metrics_points(keys:, window_token: DEFAULT_WINDOW, start_time:, end_time:, step: nil)
     token = normalize_window_token(window_token)
     range = window_range(token)
     step ||= "#{range_to_seconds(range)}s"
     step_seconds = range_to_seconds(range) # per-point bucket width, authoritative for tiling
-    dashboard_charts.to_h do |key, defn|
+    keys.to_h do |key|
+      defn = chart_definition(key)
+      # A key with no definition would otherwise raise deep inside the query build, after the
+      # other charts' queries had already run. Skipping it keeps the rest of the dashboard alive.
+      next [ key, [] ] if defn.nil?
+
       rows = if multi_series?(defn)
         multi_series_rows(defn, range: range, start_time: start_time, end_time: end_time, step: step)
       else
@@ -132,8 +167,8 @@ module VictoriaMetricsHelper
     metrics_window(token).to_i
   end
 
-  def normalize_window_token(token)
-    t = token.to_s
+  def normalize_window_token(window_token)
+    t = window_token.to_s
     t = DEFAULT_WINDOW if t.blank?
     WINDOW_RANGES.key?(t) ? t : DEFAULT_WINDOW
   end

@@ -50,7 +50,7 @@ class LogsControllerTest < ActionDispatch::IntegrationTest
     assert_select "details summary", text: /Accepted publickey/
     assert_select "details summary", text: /session opened/
     # the time-range selector reflects the default window
-    assert_select "button", text: /#{I18n.t("logs.index.range.#{LogsHelper::DEFAULT_RANGE}")}/
+    assert_select "button", text: /#{I18n.t("logs.index.range.#{Logs::Helper::DEFAULT_RANGE}")}/
   end
 
   test "the message body renders _msg separately, above the metadata list" do
@@ -142,7 +142,7 @@ class LogsControllerTest < ActionDispatch::IntegrationTest
 
     assert_select "a[href*='severity=']" do |links|
       terms = links.map { |l| l["href"][/severity=([a-z]+)/, 1] }.compact.uniq
-      assert_equal LogsFieldCatalog::SEVERITY_FILTER_TERMS.sort, terms.sort
+      assert_equal Logs::FieldCatalog::SEVERITY_FILTER_TERMS.sort, terms.sort
     end
   end
 
@@ -261,7 +261,7 @@ class LogsControllerTest < ActionDispatch::IntegrationTest
     headers = response.body[/<thead.*?<\/thead>/m].scan(/<th\b.*?<\/th>/m)
     labels = headers.map { |h| h.gsub(/<[^>]+>/, "").strip }
 
-    assert_equal LogsFieldCatalog::HOST_FIELDS.size, headers.size,
+    assert_equal Logs::FieldCatalog::HOST_FIELDS.size, headers.size,
                  "only catalog columns remain"
     refute_includes labels, "Details"
     refute_includes labels, "JSON"
@@ -313,7 +313,7 @@ class LogsControllerTest < ActionDispatch::IntegrationTest
 
     assert_equal header_cells, first_row.scan(/<td\b/).size,
                  "a row must have a cell for every header column"
-    assert_equal LogsFieldCatalog::HOST_FIELDS.size, header_cells
+    assert_equal Logs::FieldCatalog::HOST_FIELDS.size, header_cells
   end
 
   test "the severity column leads the table and has no heading text" do
@@ -496,7 +496,7 @@ class LogsControllerTest < ActionDispatch::IntegrationTest
 
     query, kwargs = recorded
     # Default range is the last hour, expressed as a LogsQL `_time:` filter.
-    assert_equal "_time:#{LogsHelper::DEFAULT_RANGE}", query
+    assert_equal "_time:#{Logs::Helper::DEFAULT_RANGE}", query
     assert_equal Conf.logs_default_limit, kwargs[:limit]
   end
 
@@ -517,7 +517,7 @@ class LogsControllerTest < ActionDispatch::IntegrationTest
       get logs_path(range: "99y")
     end
 
-    assert_equal "_time:#{LogsHelper::DEFAULT_RANGE}", recorded.first
+    assert_equal "_time:#{Logs::Helper::DEFAULT_RANGE}", recorded.first
   end
 
   def test_index_renders_empty_state_when_there_are_no_logs
@@ -594,7 +594,7 @@ class LogsControllerTest < ActionDispatch::IntegrationTest
     row = body["rows"].first
     assert row["key"].present?, "a row key is required for client-side dedupe"
     assert row["cells"].any?, "a row must carry its cells"
-    assert_equal LogsFieldCatalog::HOST_FIELDS.size, row["cells"].size,
+    assert_equal Logs::FieldCatalog::HOST_FIELDS.size, row["cells"].size,
                  "one cell per catalog column"
     # The message cell carries the record so the disclosure works without a second request.
     message = row["cells"].find { |c| c["kind"] == "message" }
@@ -621,7 +621,7 @@ class LogsControllerTest < ActionDispatch::IntegrationTest
     assert_includes values, "info"
     assert_equal "host", cells[2]["value"], "the context column"
     assert_equal "sshd", cells[3]["value"], "the source column"
-    assert_equal LogsFieldCatalog::HOST_FIELDS.size, cells.size
+    assert_equal Logs::FieldCatalog::HOST_FIELDS.size, cells.size
   end
 
   test "data row cells are in catalog order" do
@@ -713,7 +713,7 @@ class LogsControllerTest < ActionDispatch::IntegrationTest
     cells = JSON.parse(response.body)["rows"].first["cells"]
 
     refute_includes cells.map { |c| c["value"] }, "ssh.service"
-    refute_includes LogsFieldCatalog::HOST_FIELDS, :unit
+    refute_includes Logs::FieldCatalog::HOST_FIELDS, :unit
   end
 
   test "an empty column renders a placeholder cell rather than being omitted" do
@@ -735,7 +735,7 @@ class LogsControllerTest < ActionDispatch::IntegrationTest
 
     assert_equal :none, time_cell["kind"].to_sym
     assert_equal I18n.t("logs.index.none"), time_cell["value"]
-    assert_equal LogsFieldCatalog::HOST_FIELDS.size, cells.size,
+    assert_equal Logs::FieldCatalog::HOST_FIELDS.size, cells.size,
                  "the placeholder must not change the cell count"
   end
 

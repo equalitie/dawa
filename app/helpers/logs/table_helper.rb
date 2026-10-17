@@ -10,7 +10,7 @@
 # The JS half is `cellHtml` in `logs_explorer_controller.js`. The two are a pair: a `kind`
 # added here needs a matching case there, or live rows will show the fallback.
 #
-module LogsTableHelper
+module Logs::TableHelper
   # The <td> class that carries the severity stripe. Named rather than inlined because the
   # stylesheet, the column declaration, and the cell classes all have to agree on it.
   SEVERITY_CELL_CLASS = "log-severity-cell".freeze
@@ -23,8 +23,8 @@ module LogsTableHelper
   # The log table's columns definition
   #
   def logs_table_columns
-    LogsFieldCatalog::HOST_FIELDS.map do |field|
-      if LogsFieldCatalog.unlabelled?(field)
+    Logs::FieldCatalog::HOST_FIELDS.map do |field|
+      if Logs::FieldCatalog.unlabelled?(field)
         [ :shrink, { class: SEVERITY_CELL_CLASS } ]
       elsif field == :_msg
         [ :grow, t("logs.field.#{field}") ]
@@ -49,7 +49,7 @@ module LogsTableHelper
     row = TableRowComponent.new(hover: hover, columns: logs_table_columns)
     cells = log_row_cells(record)
     cells.each_index.map do |index|
-      extra = LogsFieldCatalog.severity_class(cells[index][:color]) if cells[index][:kind] == :severity
+      extra = Logs::FieldCatalog.severity_class(cells[index][:color]) if cells[index][:kind] == :severity
       row.cell_class_list(TableCellComponent.new(class: extra), index).join(" ")
     end
   end
@@ -69,13 +69,13 @@ module LogsTableHelper
   # @return [Array<Hash>] e.g. [{ kind: :time, value: "Sep 08 00:59:12" }, ...]
   #
   def log_row_cells(record)
-    LogsFieldCatalog::HOST_FIELDS.map { |field| log_row_cell(record, field) }
+    Logs::FieldCatalog::HOST_FIELDS.map { |field| log_row_cell(record, field) }
   end
 
   # One column's descriptor. Mirrors the `when` branches in `log_cell_markup` exactly.
   def log_row_cell(record, field)
     if field == :severity
-      return { kind: :severity, color: LogsFieldCatalog.severity_color(record["severity"]),
+      return { kind: :severity, color: Logs::FieldCatalog.severity_color(record["severity"]),
                value: record["severity"].to_s }
     end
 

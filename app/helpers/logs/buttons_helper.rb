@@ -1,4 +1,4 @@
-module LogsButtonsHelper
+module Logs::ButtonsHelper
   # Severity filter. Selecting a term is a full page navigation like every other control,
   # so the active state lives in the URL and the refresh endpoint sees it without any JS.
   # The label shows the selected term so the current filter is readable without opening the
@@ -27,7 +27,7 @@ module LogsButtonsHelper
           # class: ("active" unless @filters.severity.present?)
         )
       end
-      LogsFieldCatalog::SEVERITY_FILTER_TERMS.each do |term|
+      Logs::FieldCatalog::SEVERITY_FILTER_TERMS.each do |term|
         menu.item do
           v.link_button(
             label: t("logs.index.severity.#{term}"),
@@ -53,7 +53,7 @@ module LogsButtonsHelper
   # falls back to the unfiltered label rather than echoing attacker-controlled text.
   #
   def severity_filter_label
-    if LogsFieldCatalog::SEVERITY_FILTER_TERMS.include?(current_filters.severity)
+    if Logs::FieldCatalog::SEVERITY_FILTER_TERMS.include?(current_filters.severity)
       t("logs.index.severity.#{current_filters.severity}")
     else
       t("logs.index.severity.all")
@@ -69,10 +69,10 @@ module LogsButtonsHelper
   #
   def severity_filter_color(level = nil)
     level ||= current_filters.severity
-    levels = LogsFieldCatalog.severity_levels_for(level)
+    levels = Logs::FieldCatalog.severity_levels_for(level)
     return nil if levels.empty?
 
-    LogsFieldCatalog.severity_color(levels.first)
+    Logs::FieldCatalog.severity_color(levels.first)
   end
 
 

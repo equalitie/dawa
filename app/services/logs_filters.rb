@@ -87,7 +87,7 @@ class LogsFilters
   def severity_filter
     return nil if severity.blank?
 
-    levels = LogsFieldCatalog.severity_levels_for(severity)
+    levels = Logs::FieldCatalog.severity_levels_for(severity)
     return nil if levels.empty?
 
     parts = levels.map { |level| "severity:#{quote_value(level)}" }
@@ -166,7 +166,7 @@ class LogsFilters
     candidate = clean(value)&.downcase
     return nil if candidate.nil?
 
-    LogsFieldCatalog::SEVERITY_FILTER_TERMS.include?(candidate) ? candidate : nil
+    Logs::FieldCatalog::SEVERITY_FILTER_TERMS.include?(candidate) ? candidate : nil
   end
 
   # Normalize a scalar param to a stripped String, or nil when blank/non-scalar. Arrays

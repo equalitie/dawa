@@ -1,13 +1,15 @@
 #
 # Builds Vega-Lite area chart specifications for container resource usage.
 #
+# This uses direct from docker stats, not victoria metrics like other charts.
+#
 # Each chart uses a named data source ("chartdata") so the client can stream
 # new points into the live chart via view.change("chartdata", points).runAsync()
 # without re-generating the spec on every poll. Spec-building primitives are
 # shared with the metrics graphs via VegaChartHelper.
 #
-module ContainerStatsHelper
-  include VegaChartHelper
+module Metrics::ContainerHelper
+  include Metrics::VegaHelper
 
   def container_stats_charts(points)
     {
