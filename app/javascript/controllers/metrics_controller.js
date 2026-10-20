@@ -1,14 +1,7 @@
 import VegaChartsController from "controllers/vega_charts_controller";
 
 //
-// Streams VictoriaMetrics host metrics into Vega charts.
-//
-// The server renders each chart's Vega-Lite spec with empty data; the charts
-// then poll the metrics JSON endpoint and stream points in. Unlike the
-// container charts (which share one "chartdata" dataset), each metric chart is
-// backed by its own dataset named after its chart key, so the endpoint returns
-// { points: { <chartKey>: [rows...], ... } } and we stream each into its own
-// mounted view.
+// Streams VictoriaMetrics metrics into Vega charts.
 //
 // usage:
 //   <div data-controller="metrics"
@@ -35,17 +28,14 @@ export default class extends VegaChartsController {
     return url.toString();
   }
 
-  handleData(data) {
-    const points = data.points || {};
-    Object.entries(points).forEach(([key, rows]) => {
-      const view = this.views[key];
-      if (!view) return;
-      try {
-        const changeset = this.buildChangeset(rows || []);
-        view.change(key, changeset).runAsync();
-      } catch (_e) {
-        // view may not be fully initialized yet; will retry on next poll
-      }
-    });
+  // Each chart streams into a dataset named after its key.
+  datasetName(key) {
+    return key;
+  }
+
+  // The payload is keyed by chart key (handleData stores data.points), so each chart reads
+  // its own rows.
+  rowsFor(key) {
+    return (this.points && this.points[key]) || [];
   }
 }

@@ -509,6 +509,14 @@ en:
     title: "Metrics"
     providers: "Metrics Providers"
 
+  charts:
+    cpu: "CPU"
+    disk: "Disk"
+    iowait: "IO Wait"
+    memory: "Memory"
+    network: "Network"
+    network_error: "Network Errors"
+
   troubleshoot:
     title: "Troubleshoot"
     intro: "Reachability checks for the services Dawa depends on."

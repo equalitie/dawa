@@ -1,4 +1,6 @@
 require "test_helper"
+require "stringio"
+require "logger"
 
 #
 # Unit tests for the VictoriaMetrics service. The gem client is stubbed so these
@@ -65,13 +67,18 @@ class VictoriaMetricsTest < ActiveSupport::TestCase
     end
   end
 
-  test "returns empty array when VictoriaMetrics is unreachable" do
+  test "returns empty array when VictoriaMetrics is unreachable, and logs the failure" do
     raising = Object.new
     raising.define_singleton_method(:query_range) do |**_kwargs|
       raise Prometheus::ApiClient::Client::RequestError, "connection refused"
     end
     with_client(raising) do
-      assert_equal [], @service.range("up", start_time: 0, end_time: 1, step: "60s")
+      with_log_io do |io|
+        assert_equal [], @service.range("up", start_time: 0, end_time: 1, step: "60s")
+
+        assert_match(/ERROR -- : VictoriaMetrics query_range failed url=\S+ up connection refused/, io.string)
+        assert_equal 1, io.string.scan("connection refused").size
+      end
     end
   end
 
@@ -91,13 +98,18 @@ class VictoriaMetricsTest < ActiveSupport::TestCase
     end
   end
 
-  test "current returns nil when VictoriaMetrics is unreachable" do
+  test "current returns nil when VictoriaMetrics is unreachable, and logs the failure" do
     raising = Object.new
     raising.define_singleton_method(:query) do |**_kwargs|
       raise Prometheus::ApiClient::Client::RequestError, "connection refused"
     end
     with_client(raising) do
-      assert_nil @service.current("up")
+      with_log_io do |io|
+        assert_nil @service.current("up")
+
+        assert_match(/ERROR -- : VictoriaMetrics query failed url=\S+ up connection refused/, io.string)
+        assert_equal 1, io.string.scan("connection refused").size
+      end
     end
   end
 
@@ -147,6 +159,16 @@ class VictoriaMetricsTest < ActiveSupport::TestCase
   end
 
   private
+
+  # Captures Rails.logger output for the duration of the block, then restores it.
+  def with_log_io
+    io = StringIO.new
+    prior = Rails.logger
+    Rails.logger = Logger.new(io)
+    yield io
+  ensure
+    Rails.logger = prior
+  end
 
   # Injects a fake gem client (the real one is memoized under @client).
   def with_client(fake, service = @service)

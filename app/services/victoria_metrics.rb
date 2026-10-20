@@ -29,6 +29,9 @@ class VictoriaMetrics
     @timeout = timeout
   end
 
+  # The backend this instance queries. Exposed so a failure can name the host it tried.
+  attr_reader :url
+
   # The instance label that identifies the hypervisor host in VictoriaMetrics.
   def host_instance
     Conf.metrics_host_instance
@@ -45,7 +48,8 @@ class VictoriaMetrics
   def range(query, start_time:, end_time:, step:)
     data = client.query_range(query: query, start: ts(start_time), end: ts(end_time), step: step)
     normalize(data)
-  rescue Prometheus::ApiClient::Client::RequestError
+  rescue Prometheus::ApiClient::Client::RequestError => e
+    Log.write(:error, "VictoriaMetrics query_range failed", "url=#{url}", query, e.message)
     []
   end
 
@@ -62,7 +66,8 @@ class VictoriaMetrics
     # For host-scoped queries there is one series; take its value.
     value = vector.first.dig("value", 1)
     value && Float(value)
-  rescue Prometheus::ApiClient::Client::RequestError
+  rescue Prometheus::ApiClient::Client::RequestError => e
+    Log.write(:error, "VictoriaMetrics query failed", "url=#{url}", query, e.message)
     nil
   end
 

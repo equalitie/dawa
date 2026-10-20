@@ -100,12 +100,19 @@ module Metrics::VictoriametricsHelper
       defn = chart_definition(key)
       # A key with no definition would otherwise raise deep inside the query build, after the
       # other charts' queries had already run. Skipping it keeps the rest of the dashboard alive.
-      next [ key, [] ] if defn.nil?
+      if defn.nil?
+        Log.write(:warn, "metrics chart has no definition", key)
+        next [ key, [] ]
+      end
 
       rows = if multi_series?(defn)
         multi_series_rows(defn, range: range, start_time: start_time, end_time: end_time, step: step)
       else
         service.range(render_query(defn[:query], range), start_time: start_time, end_time: end_time, step: step)
+      end
+      if rows.empty?
+        Log.write(:warn, "metrics query returned no samples", key,
+          "window", token, "queries", defn[:queries] || defn[:query])
       end
       [ key, pad_missing_points(rows, start_time: start_time, end_time: end_time, step_seconds: step_seconds) ]
     end

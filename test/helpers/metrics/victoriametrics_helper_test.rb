@@ -6,7 +6,7 @@ require "test_helper"
 #
 # The VictoriaMetrics service is stubbed at its client so these run without a live instance.
 #
-class VictoriaMetricsHelperTest < ActiveSupport::TestCase
+class VictoriametricsHelperTest < ActiveSupport::TestCase
   # `define_charts`/`metrics_points` call `t(...)` for column labels and `chart_definition` for the
   # definitions, so the helper is exercised through a view context rather than a bare object.
   def helper = @helper ||= ApplicationController.new.view_context
@@ -82,10 +82,19 @@ class VictoriaMetricsHelperTest < ActiveSupport::TestCase
     assert_equal [ "host_disk" ], specs.keys
   end
 
+  test "each spec's dataset name matches its chart key" do
+    # metrics_controller.js streams into a dataset named after the key (datasetName(key)), and
+    # streams by key into a separate dataset per chart. If the spec names its data anything
+    # else, view.change targets a dataset that does not exist and the chart silently freezes.
+    helper.define_charts(keys: MetricsController::HOST_CHARTS, window: "day").each do |key, spec|
+      assert_equal key, spec.dig(:data, :name), "#{key} must stream into a dataset named for its key"
+    end
+  end
+
   test "a stacked chart's spec is built from its series" do
     spec = helper.define_charts(keys: [ "host_cpu" ], window: "day").fetch("host_cpu")
 
-    assert_equal "CPU", spec.dig(:title)
+    assert_equal "charts.cpu", spec.dig(:title)
     assert spec[:layer].is_a?(Array), "a series chart is layered"
   end
 
@@ -171,6 +180,24 @@ class VictoriaMetricsHelperTest < ActiveSupport::TestCase
     assert_equal "1800s", recorded.first[:step]
   end
 
+  test "metrics_points logs a query that returns no samples" do
+    # An empty result pads into an all-null grid and the chart draws a flat zero axis, which
+    # looks the same as a working chart with no activity. The log line is the only pointer to
+    # which query came back empty.
+    empty = Object.new
+    empty.define_singleton_method(:query_range) { |**_kw| { "resultType" => "matrix", "result" => [] } }
+
+    with_client(empty) do
+      with_log_io do |io|
+        helper.metrics_points(keys: [ "host_memory" ], window_token: "day",
+                              start_time: 1.hour.ago, end_time: Time.current)
+
+        assert_match(/WARN -- : metrics query returned no samples host_memory/, io.string)
+        assert_match(/avg_over_time\(host_memory/, io.string)
+      end
+    end
+  end
+
   test "pad_missing_points fills absent slots with nulls on the step grid" do
     step_s = 300
     base = Time.at(1_700_000_000).to_i
@@ -210,5 +237,26 @@ class VictoriaMetricsHelperTest < ActiveSupport::TestCase
     b = padded.select { |row| row["series"] == "b" }
     assert_equal [ 2.0, 5.0 ], a.map { |row| row["value"] }
     assert_equal [ 9.0, nil ], b.map { |row| row["value"] }, "series b's gap stays null"
+  end
+
+  private
+
+  # Replace the service's client for the block, restoring it afterwards. Prefer this over
+  # with_stubbed_service when the stub has to return something other than a data payload.
+  def with_client(fake)
+    original = VictoriaMetrics.instance_method(:client)
+    VictoriaMetrics.send(:define_method, :client) { fake }
+    yield
+  ensure
+    VictoriaMetrics.send(:define_method, :client, original) if original
+  end
+
+  def with_log_io
+    io = StringIO.new
+    prior = Rails.logger
+    Rails.logger = Logger.new(io)
+    yield io
+  ensure
+    Rails.logger = prior
   end
 end

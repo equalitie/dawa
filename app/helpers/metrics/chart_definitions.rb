@@ -27,7 +27,7 @@ module Metrics::ChartDefinitions
     # own query, expressed as a share of total CPU time so the stack sums to ~100%. `range` is
     # applied inside each `rate(...)`.
     "host_cpu" => {
-      title: "CPU",
+      title: "charts.cpu",
       kind: :series,
       color_field: "series",
       y_title: "%",
@@ -54,7 +54,7 @@ module Metrics::ChartDefinitions
     # the machine's memory (available is roughly total minus used/caches at a given
     # instant, so the two don't sum exactly to installed RAM).
     "host_memory" => {
-      title: "Memory",
+      title: "charts.memory",
       kind: :series,
       color_field: "series",
       y_title: "GB",
@@ -75,7 +75,7 @@ module Metrics::ChartDefinitions
 
     # Root filesystem: free + used, in GB. Stacked.
     "host_disk" => {
-      title: "Disk",
+      title: "charts.disk",
       kind: :series,
       color_field: "series",
       y_title: "GB",
@@ -96,7 +96,7 @@ module Metrics::ChartDefinitions
 
     # Network throughput: ingress + egress stacked, in Mbit/s, skipping loopback/virtual.
     "host_network" => {
-      title: "Network",
+      title: "charts.network",
       kind: :series,
       color_field: "series",
       y_title: "Mbit/s",
