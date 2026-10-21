@@ -1,11 +1,6 @@
 = breadcrumbs
 
-= v.tab_bar do |tabs|
-  - tabs.with_tab(label: "Day", url: metrics_path(window: "day"), active: params[:window] == "day") do
-    = render "chart", window: "day"
-  - tabs.with_tab(label: "Week", url: metrics_path(window: "week"), active: params[:window] == "week") do
-    = render "chart", window: "week"
-  - tabs.with_tab(label: "Month", url: metrics_path(window: "month"), active: params[:window] == "month") do
-    = render "chart", window: "month"
-  - tabs.with_tab(label: "Quarter", url: metrics_path(window: "quarter"), active: params[:window] == "quarter") do
-    = render "chart", window: "quarter"
+= turbo_frame_tag("metrics-charts") do
+  .mb-3
+    = time_window_buttons(url_opts: {controller: "metrics", action: "show"})
+  = render "chart", window: params[:window]

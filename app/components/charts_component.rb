@@ -18,7 +18,7 @@ class ChartsComponent < ApplicationComponent
   renders_many :charts, ->(key, spec) do
     spec = spec.dup()
     spec[:title] = t(spec[:title])
-    tag.div(class: "chart mb-3", data: chart_data(key, spec)) do
+    tag.div(class: "chart mb-5", data: chart_data(key, spec)) do
       tag.div(class: "chart-body w-100", data: { chart_body: true }, style: body_style) do
         placeholder(spec[:title])
       end

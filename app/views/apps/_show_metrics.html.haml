@@ -1,4 +1,6 @@
-= time_window_buttons(url_opts: {controller: "apps", action: "show", id: @app.id, tab: "metrics"})
+.mb-3
+  = time_window_buttons(url_opts: {controller: "apps", action: "show", id: @app.id, tab: "metrics"})
+
 - url = data_metrics_path(format: :json, window: params[:window], dc_inst: @app.id)
 = v.charts(url: url) do |c|
   - @metrics_charts.each do |key, spec|
