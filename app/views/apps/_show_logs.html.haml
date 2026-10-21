@@ -1,1 +1,9 @@
-logs
+= v.controller("logs-explorer",
+    url: logs_refresh_path(@filters),
+    interval: Conf.logs_poll_interval_ms,
+    cursor: @cursor) do
+
+  = v.table(t("logs.title"), columns: logs_table_columns,
+    body_data: {"logs-explorer-target": "rows"}) do |t|
+    - @logs.each do |record|
+      = render "logs/row", record: record

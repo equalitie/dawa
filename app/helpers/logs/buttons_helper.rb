@@ -49,12 +49,12 @@ module Logs::ButtonsHelper
   # without opening the menu -- a filtered log view that looks identical to an unfiltered one
   # is how someone concludes "there are no errors" when they simply filtered them out.
   #
-  # The value is validated against the filter terms by `LogsFilters`, so an unrecognized param
+  # The value is validated against the filter terms by `Logs::Filters`, so an unrecognized param
   # falls back to the unfiltered label rather than echoing attacker-controlled text.
   #
   def severity_filter_label
-    if Logs::FieldCatalog::SEVERITY_FILTER_TERMS.include?(current_filters.severity)
-      t("logs.index.severity.#{current_filters.severity}")
+    if Logs::FieldCatalog::SEVERITY_FILTER_TERMS.include?(current_log_filters.severity)
+      t("logs.index.severity.#{current_log_filters.severity}")
     else
       t("logs.index.severity.all")
     end
@@ -68,7 +68,7 @@ module Logs::ButtonsHelper
   # to signal, so it keeps the default.
   #
   def severity_filter_color(level = nil)
-    level ||= current_filters.severity
+    level ||= current_log_filters.severity
     levels = Logs::FieldCatalog.severity_levels_for(level)
     return nil if levels.empty?
 

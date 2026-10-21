@@ -3,7 +3,7 @@
 #
 class AppsController < BaseAdminController
   include DcommsClientConcern
-
+  include LogsQueryConcern
 
   def index
     @apps = apps
@@ -109,6 +109,13 @@ class AppsController < BaseAdminController
   end
 
   def show_logs
+    @filters = Logs::Filters.new(dc_inst: @app.id)
+    @logs = fetch_logs(filters: @filters, cursor: nil)
+    @cursor = newest_time(@logs)
+  rescue VictoriaLogs::RequestError, Faraday::Error => e
+    @logs = []
+    @cursor = nil
+    @error = e.message
   end
 
   def confirmation_matches?

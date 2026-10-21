@@ -90,7 +90,7 @@ class VictoriaLogs
   #   # => 'programname:sshd "failed login"'
   #
   def self.build_query(field_filters: [], text: nil, time_range: nil, cursor: nil)
-    Query.build(field_filters: field_filters, text: text, time_range: time_range, cursor: cursor)
+    Logs::Query.build(field_filters: field_filters, text: text, time_range: time_range, cursor: cursor)
   end
 
   private

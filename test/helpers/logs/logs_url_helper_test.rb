@@ -46,13 +46,13 @@ class Logs::UrlHelperTest < ActionView::TestCase
   ##
 
   test "logs_path_with preserves a host filter" do
-    filters = LogsFilters.new(host: "tern")
+    filters = Logs::Filters.new(host: "tern")
 
-    assert_equal "/logs?host=tern&range=#{LogsFilters::DEFAULT_RANGE}", logs_path_with({}, filters: filters)
+    assert_equal "/logs?host=tern&range=#{Logs::Filters::DEFAULT_RANGE}", logs_path_with({}, filters: filters)
   end
 
   test "logs_path_with preserves every filter at once" do
-    filters = LogsFilters.new(
+    filters = Logs::Filters.new(
       range: "6h", host: "tern", programname: "sshd", severity: "err", text: "failed login"
     )
 
@@ -67,7 +67,7 @@ class Logs::UrlHelperTest < ActionView::TestCase
   end
 
   test "logs_path_with applies an override" do
-    filters = LogsFilters.new(host: "tern", range: "1h")
+    filters = Logs::Filters.new(host: "tern", range: "1h")
 
     query = URI.decode_www_form(URI.parse(logs_path_with({ range: "7d" }, filters: filters)).query).to_h
 
@@ -78,13 +78,13 @@ class Logs::UrlHelperTest < ActionView::TestCase
   test "logs_path_with emits a bare path when there are no filters" do
     # `range` is always present, so drive this through a filters object with no overrides
     # and no state: the default range still appears, and nothing is duplicated.
-    path = logs_path_with({}, filters: LogsFilters.new)
+    path = logs_path_with({}, filters: Logs::Filters.new)
 
-    assert_equal "/logs?range=#{LogsFilters::DEFAULT_RANGE}", path
+    assert_equal "/logs?range=#{Logs::Filters::DEFAULT_RANGE}", path
   end
 
   test "logs_path_with escapes values that need it" do
-    filters = LogsFilters.new(text: "a&b=c", host: "ter n")
+    filters = Logs::Filters.new(text: "a&b=c", host: "ter n")
 
     query = URI.decode_www_form(URI.parse(logs_path_with({}, filters: filters)).query).to_h
 
@@ -97,7 +97,7 @@ class Logs::UrlHelperTest < ActionView::TestCase
   ##
 
   test "logs_refresh_path points at the json endpoint and carries the filters" do
-    filters = LogsFilters.new(host: "tern", range: "24h")
+    filters = Logs::Filters.new(host: "tern", range: "24h")
 
     query = URI.decode_www_form(URI.parse(logs_refresh_path(filters)).query).to_h
 
@@ -109,6 +109,6 @@ class Logs::UrlHelperTest < ActionView::TestCase
   test "logs_refresh_path preserves the host filter despite the route-helper collision" do
     # The endpoint URL is the one the Stimulus controller polls, so a dropped `host` would
     # silently refresh unfiltered logs.
-    assert_includes logs_refresh_path(LogsFilters.new(host: "tern")), "host=tern"
+    assert_includes logs_refresh_path(Logs::Filters.new(host: "tern")), "host=tern"
   end
 end

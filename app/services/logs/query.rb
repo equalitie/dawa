@@ -8,7 +8,7 @@
 # Parts are emitted in a fixed order — field filters, then the free-text term, then the
 # time range — so the resulting string is deterministic and assertable.
 #
-class VictoriaLogs
+module Logs
   module Query
     #
     # @param field_filters [Array<String>] raw LogsQL field filters, e.g. ["level:error"].

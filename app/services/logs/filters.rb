@@ -1,20 +1,18 @@
 #
 # The user's current log-explorer filter state, parsed from request params.
 #
-# Step 4's rule is that the browser owns filter *state* but never builds LogsQL. This
-# object is the server half of that split: it takes the raw params hash (from a page load
-# or from the JSON refresh endpoint), validates everything against allowlists, and hands
-# the controller structured pieces it can pass to `VictoriaLogs.build_query`.
+# this object takes the raw params hash (from a page load or from the JSON
+# refresh endpoint), validates everything against allowlists, and hands the
+# controller structured pieces it can pass to `VictoriaLogs.build_query`.
 #
 # Validation lives here rather than in the controller so the HTML page and the JSON
 # endpoint cannot drift: both construct a Filters from params and therefore accept exactly
-# the same inputs. Anything unrecognized is dropped rather than passed through, because
-# this state is attacker-controllable via the query string.
+# the same inputs.
 #
-# Deliberately does NOT build the query string. `VictoriaLogs::Query` owns quoting and
+# Deliberately does NOT build the query string. `Logs::Query` owns quoting and
 # ordering; this only decides *what* the user asked for.
 #
-class LogsFilters
+class Logs::Filters
   # `_time:` durations the picker offers, shortest first.
   RANGE_OPTIONS = %w[15m 1h 6h 24h 7d].freeze
   DEFAULT_RANGE = "1h"
@@ -27,19 +25,13 @@ class LogsFilters
   # second precision; see the cursor discussion in `cursor_boundary`.
   ISO8601_PATTERN = /\A\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d+)?(Z|[+-]\d{2}:\d{2})\z/
 
-  attr_reader :range, :host, :programname, :severity, :text
+  attr_reader :dc_inst, :range, :host, :programname, :severity, :text
 
-  #
-  # @param params [Hash] request params (`params.to_unsafe_h` or a plain hash from a
-  #   parsed JSON body). Accepts symbol or string keys.
-  #
-  # A LogsFilters may be built from a controller's params (ActionController::Parameters, which
-  # is not a Hash and refuses `to_h` unless permitted) or from a plain parsed-JSON Hash.
-  # Only the known keys are read, so unknown/unpermitted params are irrelevant by
-  # construction.
-  KEYS = %w[range host programname severity text].freeze
+  # allow these filter keys
+  KEYS = %w[dc_inst range host programname severity text].freeze
 
   def initialize(params = {})
+    @dc_inst = clean(params[:dc_inst])
     @range = clean_range(params[:range])
     @host = clean(fetch(params, :host))
     @programname = clean(fetch(params, :programname))
@@ -51,7 +43,7 @@ class LogsFilters
   # tell "no logs at all" apart from "nothing matched your filters", which are very
   # different things to show a sysadmin.
   def filtered?
-    [ host, programname, severity, text ].any?(&:present?)
+    [ dc_inst, host, programname, severity, text ].any?(&:present?)
   end
 
   # The "clear all filters" state, for the reset affordance.
@@ -67,6 +59,7 @@ class LogsFilters
   #
   def field_filters
     [
+      ("dc_inst:#{quote_value(dc_inst)}" if dc_inst.present?),
       ("host:#{quote_value(host)}" if host.present?),
       ("programname:#{quote_value(programname)}" if programname.present?),
       severity_filter
@@ -111,7 +104,10 @@ class LogsFilters
   # @param overrides [Hash] merged on top (e.g. `{ range: "24h" }`), blank values dropped.
   #
   def to_params(overrides = {})
-    base = { range: range, host: host, programname: programname, severity: severity, text: text }
+    # build param base e.g. { range: range, host: host, programname: programname, ...}
+    base = KEYS.to_h {|key|
+      [key.to_sym, self.send(key)]
+    }
     merged = base.merge(overrides.transform_keys(&:to_sym))
     merged.reject { |_k, v| v.nil? || v.to_s.empty? }.stringify_keys
   end
@@ -184,6 +180,6 @@ class LogsFilters
   # Escape a value used in a `field:value` LogsQL filter. Values with spaces or special
   # characters must be quoted or the expression parses as something else entirely.
   def quote_value(value)
-    VictoriaLogs::Query.quote(value)
+    Logs::Query.quote(value)
   end
 end

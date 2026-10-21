@@ -1,29 +1,21 @@
-module Logs::Helper
+module Logs::DisplayHelper
   #
   # Default range and the selectable windows now live in the field catalog / filters, so the
   # picker, the query builder, and the refresh endpoint cannot disagree about which windows
   # are legal.
   #
-  RANGE_OPTIONS = LogsFilters::RANGE_OPTIONS
-  DEFAULT_RANGE = LogsFilters::DEFAULT_RANGE
+  RANGE_OPTIONS = Logs::Filters::RANGE_OPTIONS
+  DEFAULT_RANGE = Logs::Filters::DEFAULT_RANGE
 
   # The selected time window (a `_time:` duration), constrained to RANGE_OPTIONS.
-  def logs_range
-    current_filters.range
-  end
+  #def logs_range
+  #  current_filters.range
+  #end
 
   # The selectable range options (exposed for the view without referencing the module
   # constant directly).
   def logs_range_options
     RANGE_OPTIONS
-  end
-
-  #
-  # The current filter state for this request. Memoized per request so the page and any
-  # partial share one parse, and so an invalid param is dropped exactly once.
-  #
-  def current_filters
-    @current_filters ||= LogsFilters.new(params)
   end
 
   #
@@ -41,16 +33,18 @@ module Logs::Helper
   # `overrides` is a plain Hash (positional, not keywords) because callers pass `range`,
   # which would otherwise be captured as a keyword.
   #
-  def logs_path_with(overrides = {}, filters: current_filters)
+  def logs_path_with(overrides = {}, filters: current_log_filters)
     query = filters.to_params(overrides).to_query
     query.present? ? "#{logs_path}?#{query}" : logs_path
   end
 
   #
-  # The URL for the JSON refresh endpoint carrying the current filter state, so the
+  # The URL for the JSON refrThat is what keeps a live-appended row identical to a server-rendered one --
+    # an earlier version hardcoded a few columns in JS and silently dropped the rest.
+    #esh endpoint carrying the current filter state, so the
   # Stimulus controller starts from exactly what the server rendered.
   #
-  def logs_refresh_path(filters = current_filters)
+  def logs_refresh_path(filters = current_log_filters)
     query = filters.to_params.to_query
     query.present? ? "#{data_logs_path}?#{query}" : data_logs_path
   end
@@ -62,7 +56,6 @@ module Logs::Helper
   def log_time(record)
     value = record["_time"]
     return "—" if value.blank?
-
     Time.zone.parse(value).strftime("%b %d %H:%M:%S")
   rescue ArgumentError, TypeError
     value.to_s
@@ -231,28 +224,6 @@ module Logs::Helper
   # string all render the same way.
   def stringify(value)
     value.is_a?(String) ? value : value.to_s
-  end
-
-  ##
-  ## JSON refresh (Step 4)
-  ##
-
-  #
-  # One record as the JSON row the refresh endpoint returns.
-  #
-  # The row carries `cells`: one entry per visible column, in `LogsFieldCatalog` order,
-  # already formatted. The client renders whatever it is given rather than knowing the
-  # column list, so there is exactly one place that decides which columns exist and how
-  # they look. That is what keeps a live-appended row identical to a server-rendered one --
-  # an earlier version hardcoded a few columns in JS and silently dropped the rest.
-  #
-  def log_row(record)
-    {
-      key: log_row_key(record),
-      time: record["_time"],
-      classes: log_row_cell_classes(record),
-      cells: log_row_cells(record)
-    }
   end
 
   #
