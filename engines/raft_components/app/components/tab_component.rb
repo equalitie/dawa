@@ -48,16 +48,14 @@ class TabComponent < ApplicationComponent
   end
 
   def render_tab
+    link_attrs = {
+      class: ["nav-link", (@active ? "active" : nil)].compact.join(" "),
+      href: @url,
+      data: { turbo_action: "advance" },
+      "aria-current": "page"
+    }
     content_tag(:li, class: "nav-item") {
-      if @active
-        content_tag(:a, class: "nav-link active", "aria-current": "page", href: @url) {
-          @label
-        }
-      else
-        content_tag(:a, class: "nav-link", href: @url) {
-          @label
-        }
-      end
+      content_tag(:a, **link_attrs) { @label }
     }
   end
 

@@ -1,9 +1,11 @@
-# - if @disabled
-#  %div{class: @btn_classes}
-#    = icon(icon: @icon, label: @label)
-# - else
-#  = link_to(icon(icon: @icon, label: @label), @url, disabled: @disabled, class: @btn_classes)
-
+#
+# for when you want a link that looks like a button.
+#
+# by default, turbo behaviors are disabled. pass `turbo: true`
+# to enable. i might change the default in the future.
+#
+# if you want a button with a form that uses GET action, see get_button_component.rb
+#
 class LinkButtonComponent < ButtonComponent
   def initialize(target: nil, turbo: false, **kwargs)
     super
@@ -17,6 +19,7 @@ class LinkButtonComponent < ButtonComponent
   def call
     if @turbo === true || (@turbo == :auto && request.format.turbo_stream?)
       @data["turbo-stream"] = true
+      @data["turbo-action"] = "advance"
     end
     link_tag
   end
