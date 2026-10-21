@@ -8,6 +8,8 @@
 # without re-generating the spec on every poll. Spec-building primitives are
 # shared with the metrics graphs via VegaChartHelper.
 #
+# TODO: localize tooltips
+#
 module Metrics::ContainerHelper
   include Metrics::VegaHelper
 
@@ -22,7 +24,7 @@ module Metrics::ContainerHelper
 
   def cpu_area_spec(points)
     vega_area_spec(points,
-      title: "CPU",
+      title: "charts.cpu",
       y_field: "cpu_pct",
       y_title: "%",
       color: "#0d6efd",
@@ -34,7 +36,7 @@ module Metrics::ContainerHelper
 
   def memory_area_spec(points)
     vega_area_spec(points,
-      title: "Memory",
+      title: "charts.memory",
       y_field: "mem_mb",
       y_title: "MB",
       color: "#198754",
@@ -50,7 +52,7 @@ module Metrics::ContainerHelper
   #
   def network_area_spec(points)
     vega_folded_area_spec(points,
-      title: "Network",
+      title: "charts.network",
       fold: [ "net_rx", "net_tx" ],
       label_calc: "datum.direction == 'net_rx' ? 'RX' : 'TX'",
       y_title: "MB/s",
@@ -68,7 +70,7 @@ module Metrics::ContainerHelper
   #
   def block_io_area_spec(points)
     vega_folded_area_spec(points,
-      title: "Block I/O",
+      title: "charts.io",
       fold: [ "blk_read", "blk_write" ],
       label_calc: "datum.direction == 'blk_read' ? 'Read' : 'Write'",
       y_title: "MB/s",

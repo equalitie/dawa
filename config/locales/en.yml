@@ -416,18 +416,6 @@ en:
         log_path: "Log Path"
         back: "Back to Containers"
         loading: "Loading..."
-        cpu: "CPU"
-        memory: "Memory"
-      stats:
-        stats: "Resource Usage"
-        cpu: "CPU"
-        memory: "Memory"
-        network: "Network"
-        rx: "RX"
-        tx: "TX"
-        block_io: "Block I/O"
-        read: "Read"
-        write: "Write"
       config:
         title: "Configuration"
         config: "Configuration"
@@ -517,9 +505,12 @@ en:
     cpu: "CPU"
     disk: "Disk"
     iowait: "IO Wait"
+    io: "Block I/O"
     memory: "Memory"
     network: "Network"
     network_error: "Network Errors"
+    rx: "RX"
+    tx: "TX"
 
   troubleshoot:
     title: "Troubleshoot"
