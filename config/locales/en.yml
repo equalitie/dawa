@@ -86,6 +86,10 @@ en:
     yes: "Yes"
     none: "None"
     view_all: "View All"
+    day: "Day"
+    week: "Week"
+    month: "Month"
+    quarter: "Quarter"
   notice:
     saved: "Changes Saved"
     created: "Record Created"
