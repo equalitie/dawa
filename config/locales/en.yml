@@ -463,8 +463,8 @@ en:
       restarting: "Container is restarting"
 
   logs:
+    title: "Logs"
     index:
-      title: "Logs"
       none: "—"
       unreachable: "Could not reach VictoriaLogs"
       pause: "Pause"

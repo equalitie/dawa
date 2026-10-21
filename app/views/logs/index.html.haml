@@ -92,7 +92,7 @@
       Column order comes from `logs_table_columns`, passed to the constructor. An unlabelled
       column (severity) still needs its header cell, so the stripe keeps its place; it just
       carries no text.
-    = v.table(t(".title"), columns: logs_table_columns,
+    = v.table(t("logs.title"), columns: logs_table_columns,
       body_data: {"logs-explorer-target": "rows"}) do |t|
       - @logs.each do |record|
         = render "logs/row", record: record
