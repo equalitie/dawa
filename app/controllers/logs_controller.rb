@@ -11,8 +11,12 @@
 #
 class LogsController < BaseAdminController
   include LogsQueryConcern
+  # `Logs::DisplayHelper` is the filter/page half; `Logs::TableHelper` is the table half. The
+  # controller includes both because `data` builds each row through the same cell helpers the
+  # view uses, and registers the display half as a view helper because the templates call it.
+  include Logs::DisplayHelper
   include Logs::TableHelper
-  #helper "logs/helper" #Logs::Helper
+  helper Logs::DisplayHelper
 
   def index
     @filters = current_log_filters

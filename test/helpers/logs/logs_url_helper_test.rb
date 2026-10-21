@@ -7,11 +7,11 @@ require "test_helper"
 # helpers. These tests exist so that collision is recorded as behaviour rather than
 # rediscovered (and mis-explained) later.
 #
-# Named distinctly from Logs::HelperTest (test/helpers/logs/helper_test.rb): two test classes
+# Named distinctly from Logs::DisplayHelperTest (test/helpers/logs/helper_test.rb): two test classes
 # sharing a name would silently reopen each other.
 #
 class Logs::UrlHelperTest < ActionView::TestCase
-  include Logs::Helper
+  include Logs::DisplayHelper
 
   ##
   ## the route-helper collision this helper works around

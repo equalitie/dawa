@@ -19,10 +19,10 @@ class LogsControllerTest < ActionDispatch::IntegrationTest
       records
     end
 
-    LogsController.define_method(:service) { fake }
+    LogsController.define_method(:log_service) { fake }
     yield
   ensure
-    LogsController.send(:remove_method, :service)
+    LogsController.send(:remove_method, :log_service)
   end
 
   def sample_records
@@ -50,7 +50,7 @@ class LogsControllerTest < ActionDispatch::IntegrationTest
     assert_select "details summary", text: /Accepted publickey/
     assert_select "details summary", text: /session opened/
     # the time-range selector reflects the default window
-    assert_select "button", text: /#{I18n.t("logs.index.range.#{Logs::Helper::DEFAULT_RANGE}")}/
+    assert_select "button", text: /#{I18n.t("logs.index.range.#{Logs::DisplayHelper::DEFAULT_RANGE}")}/
   end
 
   test "the message body renders _msg separately, above the metadata list" do
@@ -496,7 +496,7 @@ class LogsControllerTest < ActionDispatch::IntegrationTest
 
     query, kwargs = recorded
     # Default range is the last hour, expressed as a LogsQL `_time:` filter.
-    assert_equal "_time:#{Logs::Helper::DEFAULT_RANGE}", query
+    assert_equal "_time:#{Logs::DisplayHelper::DEFAULT_RANGE}", query
     assert_equal Conf.logs_default_limit, kwargs[:limit]
   end
 
@@ -517,7 +517,7 @@ class LogsControllerTest < ActionDispatch::IntegrationTest
       get logs_path(range: "99y")
     end
 
-    assert_equal "_time:#{Logs::Helper::DEFAULT_RANGE}", recorded.first
+    assert_equal "_time:#{Logs::DisplayHelper::DEFAULT_RANGE}", recorded.first
   end
 
   def test_index_renders_empty_state_when_there_are_no_logs

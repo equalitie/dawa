@@ -59,7 +59,7 @@ module LogsQueryConcern
   # build the log query
   #
   def log_query(filters:, cursor: nil)
-    VictoriaLogs.build_query(
+    Logs::Query.build(
       field_filters: filters.field_filters,
       text: filters.text_term,
       time_range: cursor ? nil : filters.range,

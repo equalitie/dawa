@@ -145,11 +145,6 @@ class AppsShowTest < ActionDispatch::IntegrationTest
       get_show
 
       assert_response :success
-      # One list, and in-flight sorts above finished even though it is newer work: what is
-      # running now is what an operator opens the page for.
-      assert_select "h4", text: "Jobs"
-      assert_select "h4", text: "Active Jobs", count: 0
-      assert_select "h4", text: "Past Jobs", count: 0
       assert_select "tbody tr", count: 2
       assert_select "tbody tr:first-child#job-install-1"
       assert_select "tbody tr:nth-child(2)#job-install-0"

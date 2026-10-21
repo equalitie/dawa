@@ -44,12 +44,15 @@ services:
     labels:
       - "dc_internal=true"
       - "dc_app=metrics"
+      - "dc_name=logporter"
     restart: always
     expose:
       - 9333
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
     environment:
       LOG_LEVEL: info
-      DOCKER_HOST: tcp://docker-proxy:2375
+      #DOCKER_HOST: tcp://docker-proxy:2375
       DOCKER_METRICS_PORT: 9333
       DOCKER_METRICS_CUSTOM_LABELS: "dc_app,dc_version,dc_inst,dc_internal"
     depends_on:
@@ -61,6 +64,7 @@ services:
     labels:
       - "dc_internal=true"
       - "dc_app=metrics"
+      - "dc_name=victoriametrics"
     restart: unless-stopped
     #extra_hosts:
     #  host.docker.internal: host-gateway # allow access to host's ip
@@ -98,6 +102,7 @@ services:
     labels:
       - "dc_internal=true"
       - "dc_app=metrics"
+      - "dc_name=vector"
     volumes:
       - ./vector.yml:/etc/vector/vector.yaml:ro
       # To access Docker logs
@@ -135,6 +140,7 @@ services:
     labels:
       - "dc_internal=true"
       - "dc_app=metrics"
+      - "dc_name=victorialogs"
     expose:
       - 9428
     ports:
