@@ -1,4 +1,6 @@
-- url = data_metrics_path(format: :json, window: local_assigns[:window] || params[:window] || "day")
+- chart_params = { window: local_assigns[:window] || params[:window] || "day" }
+- chart_params[:app] = params[:app] if params[:app].present?
+- url = data_metrics_path(format: :json, **chart_params)
 = v.charts(url: url, interval: @metrics_poll_interval_ms) do |c|
   - @metrics_charts.each do |key, spec|
     - c.with_chart(key, spec)

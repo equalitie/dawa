@@ -35,11 +35,41 @@ class VictoriaMetricsTest < ActiveSupport::TestCase
       rows = @service.range("up", start_time: 1_787_517_900, end_time: 1_787_518_100, step: "60s")
       assert_equal(
         [
-          { "time" => 1_787_518_020_000, "value" => 7960.28 },
-          { "time" => 1_787_518_080_000, "value" => 7800.0 }
+          { "time" => 1_787_518_020_000, "value" => 7960.28, "series" => "host.docker.internal:9100" },
+          { "time" => 1_787_518_080_000, "value" => 7800.0, "series" => "host.docker.internal:9100" }
         ],
         rows
       )
+    end
+  end
+
+  test "tags a single series too, so one result still carries its label" do
+    # Tagging only when several series came back left a lone result unlabelled, so a chart
+    # colouring or padding by this field drew one anonymous band instead of one per series.
+    payload = {
+      "resultType" => "matrix",
+      "result" => [ { "metric" => { "instance" => "only-one" }, "values" => [ [ 100.0, "1.0" ] ] } ]
+    }
+    with_client(fake_client(query_range: payload)) do
+      rows = @service.range("up", start_time: 0, end_time: 300, step: "60s")
+      assert_equal "only-one", rows.first["series"]
+    end
+  end
+
+  test "series_label picks which metric label tags the rows" do
+    # A per-container chart splits one query into series by dc_name, not by instance.
+    payload = {
+      "resultType" => "matrix",
+      "result" => [
+        { "metric" => { "instance" => "host:9100", "dc_name" => "caddy" },
+          "values" => [ [ 100.0, "2.0" ] ] },
+        { "metric" => { "instance" => "host:9100", "dc_name" => "dawa" },
+          "values" => [ [ 100.0, "3.0" ] ] }
+      ]
+    }
+    with_client(fake_client(query_range: payload)) do
+      rows = @service.range("mem", start_time: 0, end_time: 300, step: "60s", series_label: "dc_name")
+      assert_equal %w[caddy dawa], rows.map { |row| row["series"] }
     end
   end
 

@@ -34,15 +34,27 @@ class VictoriametricsHelperTest < ActiveSupport::TestCase
   ## chart definitions
   ##
 
-  test "the catalogue defines the four host charts" do
-    assert_equal %w[host_cpu host_memory host_disk host_network],
+  test "the catalogue defines the host charts and the per-instance charts" do
+    assert_equal %w[host_cpu host_memory host_disk host_network app_memory app_cpu app_network app_disk],
                  Metrics::ChartDefinitions::CHARTS.keys
+  end
+
+  test "every definition names a context, and the accessors split the catalogue by it" do
+    # An untagged definition would be invisible to both accessors and so never rendered.
+    Metrics::ChartDefinitions::CHARTS.each do |key, defn|
+      assert_includes %i[host app], defn[:context], "#{key} has no usable context"
+    end
+
+    assert_equal %w[host_cpu host_memory host_disk host_network], helper.host_chart_names
+    assert_equal %w[app_memory app_cpu app_network app_disk], helper.app_chart_names
+    assert_equal helper.chart_definition_names.sort,
+                 (helper.host_chart_names + helper.app_chart_names).sort
   end
 
   test "every chart definition has the keys the spec builder reads" do
     Metrics::ChartDefinitions::CHARTS.each do |key, defn|
       assert defn[:title].present?, "#{key} has no title"
-      assert_includes %i[single series], defn[:kind], "#{key} has an unknown kind"
+      assert_includes %i[single series dynamic], defn[:kind], "#{key} has an unknown kind"
 
       if defn[:kind] == :series
         assert defn[:series].any?, "#{key} has no series"
@@ -51,6 +63,20 @@ class VictoriametricsHelperTest < ActiveSupport::TestCase
       else
         assert defn[:query].present?, "#{key} has no query"
       end
+    end
+  end
+
+  test "every dynamic chart splits by a label the query keeps, and names no fixed series" do
+    # The whole point of :dynamic is that the series set is unknown until the data arrives, so
+    # a `series` list here would silently reintroduce fixed colours for a changing set.
+    dynamic = Metrics::ChartDefinitions::CHARTS.select { |_key, defn| defn[:kind] == :dynamic }
+    refute_empty dynamic
+
+    dynamic.each do |key, defn|
+      assert_nil defn[:series], "#{key} must not list fixed series"
+      assert defn[:color_field].present?, "#{key} needs a row field to stack by"
+      assert defn[:series_label].present?, "#{key} needs a metric label to tag rows with"
+      assert_includes defn[:query], "%{filter}", "#{key}: the instance selector has nowhere to go"
     end
   end
 
@@ -86,7 +112,7 @@ class VictoriametricsHelperTest < ActiveSupport::TestCase
     # metrics_controller.js streams into a dataset named after the key (datasetName(key)), and
     # streams by key into a separate dataset per chart. If the spec names its data anything
     # else, view.change targets a dataset that does not exist and the chart silently freezes.
-    helper.define_charts(keys: MetricsController::HOST_CHARTS, window: "day").each do |key, spec|
+    helper.define_charts(keys: helper.host_chart_names, window: "day").each do |key, spec|
       assert_equal key, spec.dig(:data, :name), "#{key} must stream into a dataset named for its key"
     end
   end
@@ -178,6 +204,71 @@ class VictoriametricsHelperTest < ActiveSupport::TestCase
     end
 
     assert_equal "1800s", recorded.first[:step]
+  end
+
+  test "a filter becomes a quoted PromQL label selector in the query" do
+    # The selector goes straight into the query text, so an unquoted value is a PromQL parse
+    # error. This pins the exact text rather than just that the filter was applied.
+    recorded = []
+    with_stubbed_service(record: recorded) do
+      helper.metrics_points(keys: [ "app_memory" ], window_token: "day",
+                            start_time: 1.hour.ago, end_time: Time.current,
+                            filter: { dc_app: "metrics" })
+    end
+
+    query = recorded.first[:query]
+    assert_includes query, %(docker_memory_usage{dc_app="metrics"}[5m])
+    refute_includes query, "%{filter}"
+  end
+
+  test "without a filter the selector is empty, so the template still parses" do
+    recorded = []
+    with_stubbed_service(record: recorded) do
+      helper.metrics_points(keys: [ "app_memory" ], window_token: "day",
+                            start_time: 1.hour.ago, end_time: Time.current)
+    end
+
+    assert_includes recorded.first[:query], "docker_memory_usage[5m]"
+  end
+
+  test "a dynamic chart is stacked and colours by its label, with no fixed domain" do
+    spec = helper.define_charts(keys: [ "app_memory" ], window: "day",
+                                filter: { dc_app: "metrics" }).fetch("app_memory")
+
+    # Rows are tagged into "series" by series_label, so colouring by the metric label name
+    # itself (containerName) finds nothing and every band collapses into one.
+    assert_equal "series", spec.dig(:encoding, :color, :field)
+    # A nil legend title renders as the literal word "undefined".
+    assert_equal "Container", spec.dig(:encoding, :color, :title)
+    # Naming a domain would drop any container the domain does not list; the set is dynamic.
+    assert_nil spec.dig(:encoding, :color, :scale, :domain)
+    assert spec.dig(:encoding, :color, :scale, :range).any?
+    assert_equal "zero", spec.dig(:encoding, :y, :stack)
+    assert_equal "area", spec.dig(:layer, 0, :mark, :type)
+  end
+
+  test "a dynamic chart's rows are tagged by container name" do
+    # One query, several containers: each result becomes its own band, so the rows have to
+    # carry the value of the definition's series_label rather than being tagged by instance.
+    payload = {
+      "resultType" => "matrix",
+      "result" => [
+        { "metric" => { "instance" => "host:9100", "containerName" => "caddy" },
+          "values" => [ [ 100.0, "2048" ] ] },
+        { "metric" => { "instance" => "host:9100", "containerName" => "dawa" },
+          "values" => [ [ 100.0, "4096" ] ] }
+      ]
+    }
+    fake = Object.new
+    fake.define_singleton_method(:query_range) { |**_kw| payload }
+
+    with_client(fake) do
+      rows = helper.metrics_points(keys: [ "app_memory" ], window_token: "day",
+                                   start_time: Time.at(60 * 300), end_time: Time.at(60 * 300),
+                                   step: "5m")["app_memory"]
+
+      assert_equal %w[caddy dawa], rows.map { |row| row["series"] }.uniq.sort
+    end
   end
 
   test "metrics_points logs a query that returns no samples" do

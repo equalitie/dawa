@@ -1,0 +1,11 @@
+-#= v.flex_bar do |bar|
+  - bar.shrink do
+    %h4.m-0= t("jobs.title")
+  - if @show_more_jobs
+    - bar.grow do
+      = link_to t("nav.view_all"), app_jobs_path(@app.id)
+
+- if @show_more_jobs
+  %div= link_to t("nav.view_all"), app_jobs_path(@app.id)
+
+= render "app_jobs/jobs_list", jobs: @jobs

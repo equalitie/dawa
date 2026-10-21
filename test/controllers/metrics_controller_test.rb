@@ -9,6 +9,10 @@ require_relative "../test_helper"
 # specs expect.
 #
 class MetricsControllerTest < ActionDispatch::IntegrationTest
+  # The charts the host dashboard renders, taken from the definitions themselves rather than a
+  # second hardcoded list that could drift away from them.
+  HOST_CHARTS = Metrics::ChartDefinitions::CHARTS.select { |_k, defn| defn[:context] == :host }.keys.freeze
+
   def setup
     @user = User.create!(username: "metrics-test-#{SecureRandom.hex(4)}", is_admin: true, is_active: true)
   end
@@ -40,7 +44,7 @@ class MetricsControllerTest < ActionDispatch::IntegrationTest
     get metrics_path
 
     assert_response :success
-    expected = MetricsController::HOST_CHARTS.size
+    expected = HOST_CHARTS.size
     assert_select ".chart", count: expected
     assert_select '[data-metrics-target="chart"]', count: expected
   end
@@ -51,7 +55,7 @@ class MetricsControllerTest < ActionDispatch::IntegrationTest
     login_as(@user)
     get metrics_path
 
-    MetricsController::HOST_CHARTS.each do |key|
+    HOST_CHARTS.each do |key|
       assert_select "[data-chart-key=?]", key
     end
   end
@@ -106,46 +110,75 @@ class MetricsControllerTest < ActionDispatch::IntegrationTest
     recorded.each { |call| assert_match(/host_cpu/, call[:query]) }
   end
 
-  test "data falls back to every dashboard chart when no keys are given" do
-    # A direct request, or a client that predates the parameter: the previous behaviour.
+  test "data returns no rows when no keys are given" do
+    # `charts[]` is the client saying which charts it rendered. Without it there is nothing to
+    # answer for, and inventing a set would query charts the page never drew (and, for the
+    # per-instance charts, without the filter they need).
     with_stubbed_service do
       login_as(@user)
       get data_metrics_path, headers: { "Accept" => "application/json" }
 
-      assert_equal MetricsController::HOST_CHARTS.sort,
-                   JSON.parse(response.body).fetch("points").keys.sort
+      assert_equal [], JSON.parse(response.body).fetch("points").keys
     end
   end
 
-  test "data falls back to the dashboard list when every requested key is unknown" do
-    # An empty allowlist is not a reason to return nothing: the caller gets the full dashboard
-    # rather than a permanently blank page.
+  test "data returns no rows when every requested key is unknown" do
     with_stubbed_service do
       login_as(@user)
       get data_metrics_path(charts: [ "nope" ]), headers: { "Accept" => "application/json" }
 
-      assert_equal MetricsController::HOST_CHARTS.sort,
-                   JSON.parse(response.body).fetch("points").keys.sort
+      assert_equal [], JSON.parse(response.body).fetch("points").keys
     end
   end
 
-  test "data returns rows for exactly the dashboard's charts" do
+  test "data returns rows for exactly the requested dashboard charts" do
     with_stubbed_service do
       login_as(@user)
-      get data_metrics_path, headers: { "Accept" => "application/json" }
+      get data_metrics_path(charts: HOST_CHARTS),
+          headers: { "Accept" => "application/json" }
 
       assert_response :success
       body = JSON.parse(response.body)
 
-      # Not every definition in the catalogue: only the charts `show` actually rendered.
-      assert_equal MetricsController::HOST_CHARTS.sort, body.fetch("points").keys.sort
+      assert_equal HOST_CHARTS.sort, body.fetch("points").keys.sort
+    end
+  end
+
+  test "a filtered request serves only the per-instance charts, filtered by dc_inst" do
+    # The app metrics page renders outside /metrics and polls this endpoint with dc_inst.
+    # Getting the allowed set or the label wrong here blanks the chart silently: the poll
+    # succeeds and returns an empty row set.
+    recorded = []
+    with_stubbed_service(record: recorded) do
+      login_as(@user)
+      get data_metrics_path(dc_inst: "ersatz-indri", charts: %w[app_cpu app_memory]),
+          headers: { "Accept" => "application/json" }
+    end
+
+    assert_equal %w[app_cpu app_memory], JSON.parse(response.body).fetch("points").keys.sort
+    recorded.each do |call|
+      assert_includes call[:query], %(dc_inst="ersatz-indri"), "the selector must use the instance id"
+      refute_includes call[:query], "dc_app", "dc_app is the app definition, not the instance"
+    end
+  end
+
+  test "a filtered request only serves the charts it asked for" do
+    # requested_chart_keys intersects with the catalogue rather than the filtered subset, so the
+    # filter is not what restricts the keys: the client's charts[] is. A page that asked for a
+    # host chart still gets it, which is why the app page must ask only for its own charts.
+    with_stubbed_service do
+      login_as(@user)
+      get data_metrics_path(dc_inst: "ersatz-indri", charts: [ "host_cpu" ]),
+          headers: { "Accept" => "application/json" }
+
+      assert_equal [ "host_cpu" ], JSON.parse(response.body).fetch("points").keys
     end
   end
 
   test "data pads every chart to a full grid of rows" do
     with_stubbed_service do
       login_as(@user)
-      get data_metrics_path, headers: { "Accept" => "application/json" }
+      get data_metrics_path(charts: HOST_CHARTS), headers: { "Accept" => "application/json" }
 
       body = JSON.parse(response.body)
       body.fetch("points").each do |key, rows|
@@ -165,7 +198,7 @@ class MetricsControllerTest < ActionDispatch::IntegrationTest
 
     with_stubbed_service do
       login_as(@user)
-      get data_metrics_path, headers: { "Accept" => "application/json" }
+      get data_metrics_path(charts: HOST_CHARTS), headers: { "Accept" => "application/json" }
 
       rows = JSON.parse(response.body).dig("points", "host_cpu")
       assert_equal cpu[:series].size, rows.group_by { |row| row["series"] }.size
@@ -178,7 +211,7 @@ class MetricsControllerTest < ActionDispatch::IntegrationTest
     recorded = []
     with_stubbed_service(record: recorded) do
       login_as(@user)
-      get data_metrics_path, headers: { "Accept" => "application/json" }
+      get data_metrics_path(charts: HOST_CHARTS), headers: { "Accept" => "application/json" }
       assert_response :success
     end
 
@@ -194,7 +227,7 @@ class MetricsControllerTest < ActionDispatch::IntegrationTest
     recorded = []
     with_stubbed_service(record: recorded) do
       login_as(@user)
-      get data_metrics_path, headers: { "Accept" => "application/json" }
+      get data_metrics_path(charts: HOST_CHARTS), headers: { "Accept" => "application/json" }
       assert_response :success
     end
 
@@ -208,7 +241,7 @@ class MetricsControllerTest < ActionDispatch::IntegrationTest
     recorded = []
     with_stubbed_service(record: recorded) do
       login_as(@user)
-      get data_metrics_path(window: "week"), headers: { "Accept" => "application/json" }
+      get data_metrics_path(window: "week", charts: HOST_CHARTS), headers: { "Accept" => "application/json" }
       assert_response :success
     end
 
@@ -222,7 +255,7 @@ class MetricsControllerTest < ActionDispatch::IntegrationTest
     recorded = []
     with_stubbed_service(record: recorded) do
       login_as(@user)
-      get data_metrics_path(window: "quarter"), headers: { "Accept" => "application/json" }
+      get data_metrics_path(window: "quarter", charts: HOST_CHARTS), headers: { "Accept" => "application/json" }
       assert_response :success
     end
 
@@ -239,7 +272,7 @@ class MetricsControllerTest < ActionDispatch::IntegrationTest
     recorded = []
     with_stubbed_service(record: recorded) do
       login_as(@user)
-      get data_metrics_path(window: "day"), headers: { "Accept" => "application/json" }
+      get data_metrics_path(window: "day", charts: HOST_CHARTS), headers: { "Accept" => "application/json" }
       assert_response :success
     end
 

@@ -6,12 +6,13 @@
 # from VictoriaMetrics via the VictoriaMetrics service.
 #
 class MetricsController < BaseAdminController
-  HOST_CHARTS = %w[host_cpu host_memory host_disk host_network].freeze
-
   def show
     params[:window] ||= "day"
     @window = params[:window]
-    @metrics_charts = helpers.define_charts(keys: HOST_CHARTS, window: @window)
+    # Which charts a page offers comes from the definitions' target, so this action and
+    # AppsController#show_metrics cannot drift apart from the catalogue.
+    keys = query_filter ? helpers.app_chart_names : helpers.host_chart_names
+    @metrics_charts = helpers.define_charts(keys: keys, window: @window, filter: query_filter)
     @metrics_poll_interval_ms = helpers.metrics_historical_interval_ms
   end
 
@@ -30,7 +31,8 @@ class MetricsController < BaseAdminController
         window_token: window,
         start_time: start_time,
         end_time: end_time,
-        step: helpers.metrics_historical_step(window)
+        step: helpers.metrics_historical_step(window),
+        filter: query_filter
       )
     }
   end
@@ -38,11 +40,18 @@ class MetricsController < BaseAdminController
   private
 
   #
-  # The chart keys the client asked for, filtered to the ones this dashboard knows.
+  # some params are passed through to the victoriametrics query.
+  #
+  def query_filter
+    params[:dc_inst].present? ? { dc_inst: params[:dc_inst] } : nil
+  end
+
+  #
+  # The chart keys the client asked for, filtered to the ones this request can serve.
   #
   def requested_chart_keys
     requested = Array(params[:charts]).map(&:to_s).map(&:strip).reject(&:empty?)
-    allowed = HOST_CHARTS & requested
-    allowed.presence || HOST_CHARTS
+    allowed = helpers.chart_definition_names & requested
+    allowed
   end
 end

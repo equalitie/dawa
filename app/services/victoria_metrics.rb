@@ -42,12 +42,12 @@ class VictoriaMetrics
   #
   # @return [Array<Hash>] point rows, possibly empty on error/no data. Each row
   #   is { "time" => ms_epoch, value_key => Numeric } joined across series and
-  #   ordered by timestamp. A "series" label key is added when more than one
-  #   series is returned so callers can tell them apart.
+  #   ordered by timestamp. A "series" label key carries the value of `series_label`
+  #   for every row, so a chart can colour or stack by it.
   #
-  def range(query, start_time:, end_time:, step:)
+  def range(query, start_time:, end_time:, step:, series_label: "instance")
     data = client.query_range(query: query, start: ts(start_time), end: ts(end_time), step: step)
-    normalize(data)
+    normalize(data, series_label: series_label)
   rescue Prometheus::ApiClient::Client::RequestError => e
     Log.write(:error, "VictoriaMetrics query_range failed", "url=#{url}", query, e.message)
     []
@@ -100,21 +100,23 @@ class VictoriaMetrics
   # contributes { "time" => ms, value_key => value } rows; values are strings in
   # the API response, so they are converted to Float.
   #
-  def normalize(data)
+  def normalize(data, series_label: "instance")
     return [] unless data&.is_a?(Hash)
 
     result = data.fetch("result", [])
-    multiple = result.size > 1
     points = []
 
     result.each do |series|
-      series_label = series.dig("metric", "instance")
+      label_value = series.dig("metric", series_label)
       Array(series["values"]).each do |(epoch, raw)|
         next if raw.nil?
 
         row = { "time" => Integer(epoch.to_f * 1000) }
         row[value_key] = Float(raw)
-        row["series"] = series_label if multiple
+        # Always tag the row. Tagging only when several series came back left a single
+        # result unlabelled, so a chart colouring or padding by this field saw one anonymous
+        # band instead of one per series.
+        row["series"] = label_value unless label_value.nil?
         points << row
       end
     end

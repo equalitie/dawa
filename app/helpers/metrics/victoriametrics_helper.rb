@@ -30,20 +30,35 @@ module Metrics::VictoriametricsHelper
     "quarter" => "6h"
   }.freeze
 
-  def define_charts(keys:, window:)
+  #
+  # Colors for charts whose series set is unknown until the data arrives.
+  #
+  # A fixed list means Vega assigns colors in domain order. That is stable per container only
+  # while the set of containers is stable; if one appears or disappears the rest can shift.
+  #
+  # The colors are the same palette the fixed-series charts use, extended, so a stacked app
+  # chart reads as the same family as the host charts.
+  #
+  DYNAMIC_COLORS = %w[
+    #0d6efd #198754 #fd7e14 #dc3545 #6f42c1
+    #20c997 #ffc107 #0dcaf0 #d63384 #6c757d
+  ].freeze
+
+  def define_charts(keys:, window:, filter: nil)
     keys.to_h {|key|
-      [ key, define_chart(key: key, window: window) ]
+      [ key, define_chart(key: key, window: window, filter: filter) ]
     }.compact
   end
 
   #
   # key - chart definition key
   # window - a window token (e.g. week)
+  # filter - label selector for charts whose query template is filtered
   #
-  def define_chart(key:, window:)
+  def define_chart(key:, window:, filter: nil)
     defn = chart_definition(key)
     if defn
-      metrics_chart_spec(key, defn, [], range: window_range(window))
+      metrics_chart_spec(key, defn, [], range: window_range(window), filter: filter)
     end
   end
 
@@ -91,7 +106,7 @@ module Metrics::VictoriametricsHelper
   #
   # @return [Hash<String, Array>] chart key => rows (like [{ "time" => ms, "value" => n }]).
   #
-  def metrics_points(keys:, window_token: DEFAULT_WINDOW, start_time:, end_time:, step: nil)
+  def metrics_points(keys:, window_token: DEFAULT_WINDOW, start_time:, end_time:, step: nil, filter: nil)
     token = normalize_window_token(window_token)
     range = window_range(token)
     step ||= "#{range_to_seconds(range)}s"
@@ -106,9 +121,11 @@ module Metrics::VictoriametricsHelper
       end
 
       rows = if multi_series?(defn)
-        multi_series_rows(defn, range: range, start_time: start_time, end_time: end_time, step: step)
+        multi_series_rows(defn, range: range, start_time: start_time, end_time: end_time, step: step, filter: filter)
       else
-        service.range(render_query(defn[:query], range), start_time: start_time, end_time: end_time, step: step)
+        service.range(render_query(defn[:query], range: range, filter: filter),
+                      start_time: start_time, end_time: end_time, step: step,
+                      series_label: defn.fetch(:series_label, "instance"))
       end
       if rows.empty?
         Log.write(:warn, "metrics query returned no samples", key,
@@ -193,12 +210,33 @@ module Metrics::VictoriametricsHelper
     end
   end
 
+  # A chart built from a fixed list of [label, colour] series, one query each.
+  # :dynamic is handled separately: it is stacked and multi-series in the vega sense, but it
+  # issues a single query and gets its series from the result labels.
   def multi_series?(defn)
     defn[:kind] == :series
   end
 
-  def metrics_chart_spec(key, defn, points, range:, time_domain: nil)
-    if multi_series?(defn)
+  def metrics_chart_spec(key, defn, points, range:, time_domain: nil, filter: nil)
+    if defn[:kind] == :dynamic
+      # The series set is only known from the data, so no domain/range pair can be declared.
+      # A fixed palette lets Vega assign colours by domain order instead.
+      vega_series_area_spec(points,
+        title: defn[:title],
+        y_field: "value",
+        y_title: defn[:y_title],
+        y_axis_format: defn[:y_axis_format],
+        color_field: defn.fetch(:color_field, "series"),
+        # A dynamic chart's legend heading is the label the rows are split by, not a fixed
+        # series list, so the definition names it (e.g. "Container").
+        color_title: defn[:legend_title],
+        domain: nil,
+        range: DYNAMIC_COLORS,
+        stack: defn.fetch(:stack, true),
+        tooltip: chart_tooltip(defn, defn[:legend_title]),
+        data_name: defn.fetch(:data_name, key),
+        time_domain: time_domain)
+    elsif multi_series?(defn)
       vega_series_area_spec(points,
         title: defn[:title],
         y_field: "value",
@@ -242,15 +280,28 @@ module Metrics::VictoriametricsHelper
     defn[:y_axis_format].to_s == "d" ? ".0f" : ".2f"
   end
 
-  def render_query(template, range)
-    format(template, range: range)
+  # evaluates the query templates of the chart definitions
+  #
+  # `filter` is a Hash of label => value, rendered as a PromQL selector: "" when absent,
+  # `{dc_app="metrics"}` otherwise. Values are quoted, since a label matcher value is a
+  # string in PromQL; an unquoted value is a parse error, not a shorthand.
+  def render_query(template, range:, filter: nil)
+    format(template, range: range, filter: promql_selector(filter))
+  end
+
+  def promql_selector(filter)
+    return "" if filter.blank?
+
+    labels = filter.map { |label, value| %(#{label}=#{value.to_s.inspect}) }.join(",")
+    "{#{labels}}"
   end
 
   # Run every series' query, tagging the returned rows with its series label so the chart
   # can stack/color by field.
-  def multi_series_rows(defn, range:, start_time:, end_time:, step:)
+  def multi_series_rows(defn, range:, start_time:, end_time:, step:, filter: nil)
     defn[:series].each_with_index.flat_map do |(label, _color), i|
-      service.range(render_query(defn[:queries][i], range), start_time: start_time, end_time: end_time, step: step)
+      service.range(render_query(defn[:queries][i], range: range, filter: filter),
+                    start_time: start_time, end_time: end_time, step: step)
               .map { |row| row.merge("series" => label) }
     end
   end

@@ -13,12 +13,14 @@
 - else
   = v.controller("stream-ready") do
     = render "apps/box", app: @app
-
-  = v.flex_bar do |bar|
-    - bar.shrink do
-      %h4.m-0= t("jobs.title")
-    - if @show_more_jobs
-      - bar.grow do
-        = link_to t("nav.view_all"), app_jobs_path(@app.id)
-
-  = render "app_jobs/jobs_list", jobs: @jobs
+  = turbo_frame_tag("app-tabs") do
+    = v.tab_bar do |tabs|
+      - tabs.with_tab(label: t("jobs.title"), url: app_path(@app.id), active: params[:tab].nil?)
+      - tabs.with_tab(label: t("metrics.title"), url: app_path(@app.id, tab: "metrics"), active: params[:tab] == "metrics")
+      - tabs.with_tab(label: t("logs.title"), url: app_path(@app.id, tab: "logs"), active: params[:tab] == "logs")
+    - if params[:tab].nil?
+      = render "show_jobs"
+    - elsif params[:tab] == "metrics"
+      = render "show_metrics"
+    - elsif params[:tab] == "logs"
+      = render "show_logs"

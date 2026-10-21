@@ -72,12 +72,21 @@ module Metrics::VegaHelper
   # "series") where each row is already tagged, rather than folded from two
   # fields. Used for charts that combine the results of multiple queries.
   #
-  def vega_series_area_spec(points, title:, y_field:, y_title:, color_field:, domain:, range:, tooltip:, data_name: "chartdata", opacity: 0.5, stack: true, time_domain: nil, mark: :area, y_axis_format: nil)
+  def vega_series_area_spec(points, title:, y_field:, y_title:, color_field:, range:, tooltip:, domain: nil, data_name: "chartdata", opacity: 0.5, stack: true, time_domain: nil, mark: :area, y_axis_format: nil, color_title: nil)
     y_encoding = y_encoding(y_field, y_title, y_axis_format)
     # Make stacking explicit so the stacked y scale is shared by the series mark AND
     # the separate hover-circle layer. Relying on inference (no stack key) left the
     # hover circle at the unstacked position on the stacked charts.
     y_encoding[:stack] = stack ? "zero" : false
+    # Without a domain, the scale takes its values from the data and only the colour range is
+    # declared. That is the only option for a chart whose series set is unknown until the data
+    # arrives: naming a domain would drop any series the domain does not list.
+    color_scale = { range: range }
+    color_scale[:domain] = domain if domain
+    # A nil legend title renders as the literal text "undefined" in Vega, so a chart that
+    # omits it must say what the colours mean instead.
+    color = { field: color_field, type: "nominal", scale: color_scale, legend: { orient: "top" } }
+    color[:title] = color_title if color_title.present?
     Vega.lite
       .data(name: data_name, values: points)
       .width("container")
@@ -87,9 +96,7 @@ module Metrics::VegaHelper
       .encoding(
         x: x_encoding(time_domain),
         y: y_encoding,
-        color: { field: color_field, type: "nominal", title: nil,
-                 scale: { domain: domain, range: range },
-                 legend: { orient: "top" } }
+        color: color
       )
       .layer([ series_mark(mark, opacity), hover_tooltip_layer(tooltip, y: y_encoding) ])
       .spec

@@ -14,10 +14,15 @@ class AppsController < BaseAdminController
 
   def show
     @app = app_get(params[:id])
-    return head :not_found if @app.nil?
-    all_jobs = jobs(@app)
-    @jobs = jobs_short_list(@app)
-    @show_more_jobs = all_jobs.size > @jobs.size
+    if @app.nil?
+      head :not_found
+    elsif params[:tab].nil?
+      show_jobs
+    elsif params[:tab] == "metrics"
+      show_metrics
+    elsif params[:tab] == "logs"
+      show_logs
+    end
   rescue DcommsClient::Error => e
     @error = e.message
     @jobs = []
@@ -85,6 +90,26 @@ class AppsController < BaseAdminController
   end
 
   private
+
+  def show_jobs
+    all_jobs = jobs(@app)
+    @jobs = jobs_short_list(@app)
+    @show_more_jobs = all_jobs.size > @jobs.size
+  end
+
+  def show_metrics
+    params[:window] ||= "day"
+    @window = params[:window]
+    filter = { dc_inst: @app.id }
+    @metrics_charts = helpers.define_charts(
+      keys: helpers.app_chart_names,
+      window: @window,
+      filter: filter
+    )
+  end
+
+  def show_logs
+  end
 
   def confirmation_matches?
     params[:confirm_id].to_s.strip == @app.id
