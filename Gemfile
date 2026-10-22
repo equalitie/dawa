@@ -53,7 +53,7 @@ gem "bootstrap", "~> 5.3.8"            # css framework
 gem "commonmarker"                     # markdown support
 
 gem "bootstrap_form", "~> 5.6.1"       # form builder with bootstrap styles
-gem "pagy", "~> 43.5.5"                # pagination
+gem "pagy", "~> 43.8.1"                # pagination
 gem "vega"                             # vega-lite charts
 
 gem "config_magic",    path: "gems/config_magic"
